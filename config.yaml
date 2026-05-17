@@ -1,0 +1,13 @@
+collectors:
+  - name: openai_status
+    module: collectors.openai_status
+    interval_s: 30
+
+websocket:
+  port: 8765
+  fps: 4
+
+sqlite:
+  path: streams/state.db
+  snapshot_retention_days: 30
+  history_retention_days: 90
