@@ -1,0 +1,17 @@
+.env
+.env.*
+!.env.example
+accounts/*/tokens/
+accounts/*/credentials.json
+streams/*.json
+streams/state.db
+streams/decisions.log
+logs/
+__pycache__/
+*.pyc
+*.pickle
+token*.json
+client_secret*.json
+.pytest_cache/
+.venv/
+venv/
