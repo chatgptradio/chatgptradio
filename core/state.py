@@ -82,6 +82,7 @@ class GlobalState(BaseModel):
 
     songs_played_today: int = 0
     current_song_progress: float = 0.0
+    current_track_name: str = ""
     queue_length: int = 0
     last_prompt_hash: str = ""
     generation_lag_s: float = 0.0

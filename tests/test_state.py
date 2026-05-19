@@ -107,3 +107,23 @@ def test_no_business_logic_in_state():
         and m not in pydantic_builtins
     ]
     assert user_methods == [], f"Custom domain methods found — keep state.py pure: {user_methods}"
+
+
+def test_current_track_name_default():
+    state = GlobalState()
+    assert state.current_track_name == ""
+
+
+def test_current_track_name_in_serialization():
+    """Field must appear in WebSocket broadcast (orjson serialization)."""
+    import orjson
+    state = GlobalState()
+    data = orjson.loads(orjson.dumps(state.model_dump()))
+    assert "current_track_name" in data
+    assert data["current_track_name"] == ""
+
+
+def test_current_track_name_settable():
+    state = GlobalState()
+    state.current_track_name = "Void Cartographer - Cold Signal"
+    assert state.current_track_name == "Void Cartographer - Cold Signal"
