@@ -28,6 +28,19 @@ CREATE TABLE IF NOT EXISTS viewers (
     last_seen REAL NOT NULL,
     session_count INTEGER DEFAULT 1
 );
+
+CREATE TABLE IF NOT EXISTS audio_clips (
+    id INTEGER PRIMARY KEY AUTOINCREMENT,
+    path TEXT NOT NULL UNIQUE,
+    prompt TEXT NOT NULL DEFAULT '',
+    source TEXT NOT NULL DEFAULT 'generated',
+    display_name TEXT NOT NULL DEFAULT '',
+    created_at REAL NOT NULL DEFAULT 0,
+    last_played_at REAL NOT NULL DEFAULT 0,
+    play_count INTEGER NOT NULL DEFAULT 0,
+    duration_s REAL NOT NULL DEFAULT 0,
+    mood_snapshot TEXT NOT NULL DEFAULT ''
+);
 """
 
 
@@ -40,6 +53,16 @@ async def init_db(path: str) -> aiosqlite.Connection:
         if stmt:
             await conn.execute(stmt)
     await conn.commit()
+
+    # Idempotent migration: add display_name if missing
+    async with conn.execute("PRAGMA table_info(audio_clips)") as cur:
+        cols = {row[1] async for row in cur}
+    if "display_name" not in cols:
+        await conn.execute(
+            "ALTER TABLE audio_clips ADD COLUMN display_name TEXT NOT NULL DEFAULT ''"
+        )
+        await conn.commit()
+
     return conn
 
 
