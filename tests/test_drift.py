@@ -76,7 +76,6 @@ def test_territory_is_valid():
 
 
 def test_no_random_import():
-    import importlib
     import inspect
     import core.drift as drift_module
     src = inspect.getsource(drift_module)

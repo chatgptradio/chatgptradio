@@ -90,7 +90,6 @@ async def test_derived_fields_recalculated(state, db):
 
 
 async def test_updated_at_is_refreshed(state, db):
-    from datetime import datetime, timezone
     original_ts = state.updated_at
 
     updater = StateUpdater(state, db)

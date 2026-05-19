@@ -1,5 +1,3 @@
-import asyncio
-import time
 import xml.etree.ElementTree as ET
 from datetime import datetime, timezone
 from typing import Any

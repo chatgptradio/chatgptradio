@@ -1,10 +1,9 @@
 import asyncio
 import json
 import pytest
-import websockets
 
 from core.state import GlobalState
-from core.websocket_server import broadcast_loop, start_websocket_server
+from core.websocket_server import broadcast_loop
 
 
 TEST_PORT = 18765

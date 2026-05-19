@@ -1,7 +1,5 @@
 import asyncio
 import signal
-import os
-import pytest
 
 from core.state import GlobalState
 from core.config import load_config
@@ -79,4 +77,4 @@ def test_structlog_json_output(capsys):
     import structlog
     log = structlog.get_logger()
     log.info("chatgpt_radio_started", port=8765, fps=4)
-    captured = capsys.readouterr()
+    capsys.readouterr()

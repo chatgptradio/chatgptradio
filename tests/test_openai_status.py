@@ -1,4 +1,3 @@
-import pytest
 from unittest.mock import AsyncMock, patch, MagicMock
 
 from collectors.openai_status import _parse_status, COLLECTOR_META

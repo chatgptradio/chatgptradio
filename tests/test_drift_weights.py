@@ -1,4 +1,3 @@
-import pytest
 
 from core.state import GlobalState
 from core.self_model import update_drift_weights

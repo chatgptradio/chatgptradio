@@ -1,6 +1,4 @@
 import pytest
-import importlib
-import sys
 
 import core.node as node_module
 

@@ -2,7 +2,6 @@
 name = "chatgpt-radio"
 version = "0.1.0"
 description = "ChatGPT Radio — 24/7 AI-driven music stream reacting to real-world signals"
-readme = "README.md"
 requires-python = ">=3.12"
 dependencies = [
     "pydantic>=2.0",
@@ -12,6 +11,7 @@ dependencies = [
     "websockets",
     "structlog",
     "pyyaml",
+    "openai>=1.0.0",
 ]
 
 [build-system]
@@ -29,4 +29,6 @@ testpaths = ["tests"]
 dev = [
     "pytest",
     "pytest-asyncio",
+    "pyright>=1.1.409",
+    "ruff>=0.15.13",
 ]

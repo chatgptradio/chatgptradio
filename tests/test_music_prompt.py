@@ -2,7 +2,6 @@ import pytest
 import core.node as node_module
 
 from core.state import GlobalState
-from builders.music_prompt import build_music_prompt
 
 
 @pytest.fixture(autouse=True)

@@ -1,7 +1,4 @@
 import asyncio
-import sys
-import types
-import pytest
 
 from core.collector_runner import run_collector
 from core.state import GlobalState
