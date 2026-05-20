@@ -33,13 +33,23 @@ fal_client.run_async(
 ### Paramètres canoniques (audio-to-audio)
 
 ```python
+# strength et guidance_scale sont state-driven (NO HARDCODE)
+strength = max(0.3, min(0.9,
+    0.3 + state.drift_velocity * 0.4 + state.crisis_level * 0.3
+))
+guidance_scale = max(1.0, min(1.2,
+    1.0 + state.source_divergence * 0.2
+))
+
 fal_client.run_async(
     "fal-ai/stable-audio-25/audio-to-audio",
     arguments={
         "prompt": prompt,
-        "audio_url": data_uri,     # data:audio/mpeg;base64,...
-        "strength": 0.65,          # 0=source intact, 1=régénération totale
+        "audio_url": data_uri,       # data:audio/mpeg;base64,...
+        "strength": strength,        # [0.3, 0.9] — piloté par drift_velocity + crisis_level
+        "guidance_scale": guidance_scale,  # [1.0, 1.2] — piloté par source_divergence
         "num_inference_steps": 8,
+        "total_seconds": 47,         # identique à TTA — cohérence clips
     }
 )
 ```

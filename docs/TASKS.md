@@ -44,16 +44,34 @@ Vérifié le 2026-05-20 — smoke test OK : GlobalState 77 champs, WebSocket 4fp
 | GlobalState : current_track_name | `core/state.py` | ✅ mergé | #77 |
 | Index references (script CLI) | `scripts/index_references.py` | ✅ mergé | #82 |
 
-### À faire — câblage prod
+### Génération audio intelligente (issues #84–#95 — PRs #96–#105, 2026-05-20)
+
+| Issue | Module | Fichier | État | PR |
+|-------|--------|---------|------|----|
+| #84 A1 | Alignement territoires drift ↔ music_prompt (7→ même 7) | `core/drift.py`, `builders/music_prompt.py` | ✅ | #96 |
+| #85 A2 | find_reference() inclut source='reference' | `core/audio_queue.py` | ✅ | #97 |
+| #86 A3 | librosa dans pyproject.toml (group scripts) | `pyproject.toml` | ✅ | #98 |
+| #87 A4 | _EMOTION_ORDER : supprimer phantom wonder/melancholy/urgency | `core/track_namer.py` | ✅ | #99→#100 |
+| #88 B1 | GlobalState : wonder, melancholy, urgency (champs dérivés) | `core/state.py` | ✅ | #101 |
+| #89 B2 | updater.py : compute_derived() + update_self_model() pour 3 nouveaux | `core/updater.py` | ✅ | #102 |
+| #90 B3 | drift.py : 15 territoires (7 existants + 8 nouveaux) | `core/drift.py` | ✅ | #103 |
+| #91 B4 | music_prompt.py : profils pour 15 territoires | `builders/music_prompt.py` | ✅ | #103 |
+| #92 C1-C3 | strength/guidance_scale/total_seconds state-driven | `core/audio_queue.py` | ✅ | #100 |
+| #93 C4 | find_reference() : scoring state-aware (territoire+BPM+mood) | `core/audio_queue.py` | ✅ | #104 |
+| #94 C5 | find_reusable() : scoring state-aware | `core/audio_library.py` | ✅ | #105 |
+| #95 C6 | last_prompt_hash : skip génération redondante | `core/audio_queue.py` | ✅ | #100 |
+| #87b A4b | _EMOTION_ORDER : ré-ajouter wonder/melancholy/urgency (réels) | `core/track_namer.py` | ✅ | #100 |
+
+### Câblage prod — TERMINÉ ✅ (vérifié 2026-05-20)
 
 | Tâche | Fichier | État |
 |-------|---------|------|
-| `run_audio_queue()` dans main.py | `main.py` | 🔄 en cours |
-| `run_journal()` dans main.py | `main.py` | 🔄 en cours |
-| `CommandEngine` instancié dans main.py | `main.py` | 🔄 en cours |
-| DB schema : table `journal_entries` | `core/db.py` | 🔄 en cours |
-| DB schema : colonne `viewers.display_name` | `core/db.py` | 🔄 en cours |
-| GlobalState : champ `journal_text` | `core/state.py` | 🔄 en cours |
+| `run_audio_queue()` dans main.py | `main.py` | ✅ mergé (PRs Phase 2) |
+| `run_journal()` dans main.py | `main.py` | ✅ mergé (PRs Phase 2) |
+| DB schema : table `journal_entries` | `core/db.py` | ✅ mergé |
+| DB schema : colonne `viewers.display_name` | `core/db.py` | ✅ mergé |
+| GlobalState : champ `journal_text` | `core/state.py` | ✅ mergé |
+| `CommandEngine` instancié dans main.py | `main.py` | ⏳ dépend YouTube Live Chat |
 
 ### Bloqué — activation YouTube requise
 
@@ -77,25 +95,26 @@ Vérifié le 2026-05-20 — smoke test OK : GlobalState 77 champs, WebSocket 4fp
 
 ---
 
-## Phase 3 — Température du Monde (À FAIRE ❌)
+## Phase 3 — Température du Monde (TERMINÉE ✅ — 2026-05-20)
 
-Tous les collecteurs sociaux. Chaque collecteur échoue proprement (source_health=False) si la clé API est absente.
+PRD : `.claude/prds/phase3-collectors.md` | Plan : `.claude/plans/phase3-collectors.md`
+281 tests verts. VADER uniquement (V1), Nitter RSS dégradation gracieuse.
 
-| Module | Fichier | État | Clé requise |
-|--------|---------|------|-------------|
-| Shared utilities (VADER, normalize, fetch) | `collectors/utils.py` | ❌ à créer | — |
-| HN Algolia | `collectors/hn_algolia.py` | ❌ à créer | — |
-| Wikipedia pageviews | `collectors/wikipedia.py` | ❌ à créer | — |
-| Google Trends RSS | `collectors/google_trends.py` | ❌ à créer | — |
-| CNN Fear & Greed | `collectors/cnn_fear_greed.py` | ❌ à créer | — |
-| GDELT global tone | `collectors/gdelt.py` | ❌ à créer | — |
-| Hedonometer happiness | `collectors/hedonometer.py` | ❌ à créer | — |
-| yfinance MSFT/NVDA | `collectors/yfinance_proxy.py` | ❌ à créer | — |
-| ArXiv papers | `collectors/arxiv.py` | ❌ à créer | — |
-| GitHub trending | `collectors/github_trending.py` | ❌ à créer | — |
-| Reddit PRAW | `collectors/reddit.py` | ❌ à créer | `REDDIT_CLIENT_ID/SECRET` |
-| NewsAPI.ai | `collectors/newsapi.py` | ❌ à créer | `NEWSAPI_AI_KEY` |
-| Media Cloud | `collectors/media_cloud.py` | ❌ à créer | `MEDIA_CLOUD_API_KEY` |
+| Issue | Module | Fichier | PR | État | Clé requise |
+|-------|--------|---------|-----|------|-------------|
+| #106 | Shared utilities (VADER, normalize, fetch) | `collectors/utils.py` | #110 | ✅ | — |
+| #107 | HN Algolia | `collectors/hn_algolia.py` | #111 | ✅ | — |
+| #107 | Wikipedia pageviews | `collectors/wikipedia.py` | #111 | ✅ | — |
+| #107 | Google Trends RSS | `collectors/google_trends.py` | #111 | ✅ | — |
+| #107 | GDELT global tone | `collectors/gdelt.py` | #111 | ✅ | — |
+| #107 | Hedonometer happiness | `collectors/hedonometer.py` | #111 | ✅ | — |
+| #107 | yfinance MSFT/NVDA | `collectors/yfinance_proxy.py` | #111 | ✅ | — |
+| #107 | ArXiv papers | `collectors/arxiv.py` | #111 | ✅ | — |
+| #108 | Nitter RSS (Twitter/X) | `collectors/nitter_rss.py` | #112 | ✅ | — |
+| #108 | GitHub trending | `collectors/github_trending.py` | #112 | ✅ | — |
+| #109 | Reddit PRAW | `collectors/reddit.py` | #113 | ✅ | `REDDIT_CLIENT_ID/SECRET` |
+| #109 | NewsAPI.ai | `collectors/newsapi.py` | #113 | ✅ | `NEWSAPI_AI_KEY` |
+| #109 | Media Cloud | `collectors/media_cloud.py` | #113 | ✅ | `MEDIA_CLOUD_API_KEY` |
 
 ---
 

@@ -50,7 +50,7 @@
 |-------|-----------|
 | Text-to-audio | `fal-ai/stable-audio-25/text-to-audio` |
 | Audio-to-audio | `fal-ai/stable-audio-25/audio-to-audio` |
-| Inpainting | `fal-ai/stable-audio-25/inpaint` |
+| Inpainting | `fal-ai/stable-audio-25/inpaint` | [À EXPLORER — non validé] |
 
 #### Paramètres text-to-audio
 
@@ -95,16 +95,22 @@ import fal_client
 # Text-to-audio
 result = await fal_client.run_async(
     "fal-ai/stable-audio-25/text-to-audio",
-    arguments={"prompt": "...", "total_seconds": 60, "num_inference_steps": 8, "guidance_scale": 1.2},
+    arguments={"prompt": "...", "total_seconds": 47, "num_inference_steps": 8, "guidance_scale": 1.2},
 )
 
-# Audio-to-audio (data URI)
+# Audio-to-audio (data URI) — all params state-driven, NO HARDCODE
 import base64
 mime = "audio/wav" if ref_path.suffix == ".wav" else "audio/mpeg"
 data_uri = f"data:{mime};base64,{base64.b64encode(ref_bytes).decode()}"
+strength = max(0.3, min(0.9, 0.3 + state.drift_velocity * 0.4 + state.crisis_level * 0.3))
+guidance_scale = max(1.0, min(1.2, 1.0 + state.source_divergence * 0.2))
 result = await fal_client.run_async(
     "fal-ai/stable-audio-25/audio-to-audio",
-    arguments={"prompt": "...", "audio_url": data_uri, "strength": 0.65, "num_inference_steps": 8},
+    arguments={
+        "prompt": "...", "audio_url": data_uri,
+        "strength": strength, "guidance_scale": guidance_scale,
+        "num_inference_steps": 8, "total_seconds": 47,
+    },
 )
 
 audio_url = result["audio"]["url"]
@@ -116,12 +122,14 @@ audio_url = result["audio"]["url"]
 | Paramètre | Text-to-audio | Audio-to-audio |
 |-----------|--------------|----------------|
 | `num_inference_steps` | 8 | 8 |
-| `guidance_scale` | **1.2** | **1.1** |
-| `total_seconds` | **60** (45–90s) | 60 |
-| `strength` | — | **0.65** |
+| `guidance_scale` | **1.2** | **state-driven [1.0–1.2]** |
+| `total_seconds` | **47** | **47** |
+| `strength` | — | **state-driven [0.3–0.9]** |
 | `seed` | omis (logguer retour) | omis |
 
-> **Règle guidance_scale** : ne jamais dépasser 1.5 — au-delà les artefacts apparaissent. 1.2 = sweet spot.
+> **Règle guidance_scale** : ne jamais dépasser 1.5 — au-delà les artefacts apparaissent. 1.2 = max opérationnel.
+> **strength** = `clamp(0.3 + drift_velocity*0.4 + crisis_level*0.3, 0.3, 0.9)` — NO HARDCODE.
+> **guidance_scale** = `clamp(1.0 + source_divergence*0.2, 1.0, 1.2)` — NO HARDCODE.
 
 #### Prompt engineering — structure optimale
 
@@ -139,15 +147,25 @@ audio_url = result["audio"]["url"]
 - Pas de negative_prompt supporté → formulation positive ("pure ambient pads, no drums")
 - Longueur optimale : 15 mots. Diminishing returns au-delà de 150 caractères.
 
-**Templates par territoire ChatGPT Radio** :
+**15 territoires canoniques** (voir `builders/music_prompt.py`) :
 
-| Territoire | Prompt template |
-|-----------|----------------|
-| ambient | `"Ambient space drone, {bpm} BPM, Key of {key}, evolving shimmer pads, meditative reverb, ethereal, 44.1kHz stereo, {seconds} seconds"` |
-| electronic | `"Techno pulse, {bpm} BPM, Key of {key}, driving 808 kicks, analog Moog filter sweeps, {mood}, 44.1kHz stereo, {seconds} seconds"` |
-| lo-fi | `"Lo-fi hip hop, {bpm} BPM, Key of {key}, vinyl crackle, warm Rhodes, dusty 808 bass, chill and focused, loopable, {seconds} seconds"` |
-| cinematic | `"Cinematic score, {bpm} BPM, Key of {key}, orchestral strings, subtle synth drones, {mood}, high quality, {seconds} seconds"` |
-| crisis | `"Glitched ambient, {bpm} BPM, Key of {key}, signal degradation, hollow pads, dissonant harmonics, system failure undertone, {seconds} seconds"` |
+| Territoire | Genre | Instruments | Production |
+|-----------|-------|-------------|------------|
+| ambient | ambient electronic | evolving shimmer pads, sparse piano | meditative reverb |
+| electronic | electronic | driving synths, 808 bass, arpeggios | 44.1kHz stereo |
+| jazz | jazz instrumental | upright bass, brushed drums, piano | warm, intimate |
+| industrial | industrial | distorted synths, heavy percussion | harsh, relentless |
+| neoclassical | neoclassical | piano, chamber strings, sparse | refined, melancholic |
+| experimental | experimental electronic | granular synthesis, glitch textures | avant-garde |
+| drone | drone ambient | sustained tones, subharmonics | hypnotic, minimal |
+| lo-fi | lo-fi hip hop | warm Rhodes, vinyl crackle, muted 808 | loopable, cassette warmth |
+| cinematic | cinematic score | orchestral strings, piano, swelling brass | high quality, no vocals |
+| darkwave | darkwave | cold synths, minor arpeggios, distant reverb | bleak, cavernous |
+| techno | techno | driving kick, acid bassline, mechanical arpeggios | club-ready, relentless |
+| psych | psychedelic ambient | modular drones, phased guitars, spatial reverb | mind-expanding |
+| noise | harsh noise | saturated feedback, distorted drones | abrasive, maximal |
+| minimalist | minimalist | sparse piano, long tones, silence as texture | breathing room |
+| blues | blues | slide guitar, walking bass, brushed snare | raw, intimate, soulful |
 
 #### Audio-to-audio — ce qui est transformé vs préservé
 
@@ -182,11 +200,7 @@ Voir `core/audio_queue._wav_to_mp3()`.
 **Bibliothèques d'analyse :**
 - **VADER** : première passe universelle (social media, emojis)
 - **RoBERTa** (`cardiffnlp/twitter-roberta-base-sentiment`) : Reddit — plus précis
-- **Stanza** : news long-form si budget compute OK
-
-**Visualisation :**
-- Three.js custom — partir de zéro sur base ONNX Runtime Web
-- Référence conceptuelle : [BertViz](https://github.com/jessevig/bertviz), [onnxruntime-web-demo](https://github.com/microsoft/onnxruntime-web-demo)
+- **Stanza** : news long-form — [À EXPLORER] si budget compute OK
 
 ---
 
@@ -382,6 +396,16 @@ Représentation : forme d'énergie abstraite Three.js (pulse, contracte, couleur
 | 2026-05-17 | Poids drift appris par Hebbian reinforcement : sign(PE) == sign(momentum) → poids +0.5%. Initialisés égaux (1/N), convergent vers corrélation empirique signal↔dérive. Remplace les constantes 0.5/0.3/0.2. drift_weights ajouté au GlobalState. | VALIDÉ |
 | 2026-05-17 | Kalman 1D vs EMA : équivalents dans le cas linéaire/gaussien (IEEE 2021). Notre τ=1/(1+vol×50) approxime déjà le gain de Kalman optimal. Complexité injustifiée → SKIP. | VALIDÉ |
 | 2026-05-17 | PyMDP : trop lourd pour ce use case. Notre update_self_model() custom est déjà l'état de l'art lightweight pour du streaming continu. Inspiration conceptuelle uniquement. | VALIDÉ |
+| 2026-05-20 | Alignement territory drift ↔ music_prompt : aligner music_prompt sur les 7 territoires réels de drift (suppression lo-fi/cinematic/glitch fictifs, ajout industrial/neoclassical/experimental/drone) | VALIDÉ |
+| 2026-05-20 | find_reference() include source='reference' : la bibliothèque de référence (28 fichiers streams/references/) était inaccessible car filtrée sur generated/fal_derived uniquement | VALIDÉ |
+| 2026-05-20 | librosa : dépendance optionnelle [dependency-groups] scripts — évite l'overhead runtime, scripts/index_references.py uniquement | VALIDÉ |
+| 2026-05-20 | wonder/melancholy/urgency : champs dérivés GlobalState calculés depuis signaux existants (PE curiosity, arxiv, hedonometer, audience_energy, drift_velocity, crisis_level) — aucun nouveau collecteur requis | VALIDÉ |
+| 2026-05-20 | Expansion territoire 7→15 : 8 nouveaux territoires (lo-fi, cinematic, darkwave, techno, psych, noise, minimalist, blues) utilisant wonder/melancholy/urgency — couverture émotionnelle insuffisante à 7 | VALIDÉ |
+| 2026-05-20 | strength audio-to-audio : clamp(0.3 + drift_velocity*0.4 + crisis_level*0.3, 0.3, 0.9) — NO HARDCODE, remplace constante 0.65 | VALIDÉ |
+| 2026-05-20 | guidance_scale audio-to-audio : clamp(1.0 + source_divergence*0.2, 1.0, 1.2) — NO HARDCODE, paramètre précédemment omis | VALIDÉ |
+| 2026-05-20 | Override crise genre glitch SUPPRIMÉ : territoire noise gère ça nativement via drift. L'override était un NO FAKE. | VALIDÉ |
+| 2026-05-20 | find_reference()/find_reusable() scoring state-aware : territoire (+3) + BPM proximity ±15 (+2) + cosine mood (+1) | VALIDÉ |
+| 2026-05-20 | last_prompt_hash : MD5 8 chars du prompt — skip génération si hash inchangé ET queue_length > 0 | VALIDÉ |
 
 ---
 
@@ -422,8 +446,8 @@ class GlobalState:
     # Signaux sociaux bruts (avant agrégation) — pour le graphe
     reddit_volume:       float  # posts/heure sur r/ChatGPT + r/OpenAI + r/artificial
     reddit_sentiment:    float  # VADER/RoBERTa sur titres+commentaires Reddit (-1 à +1)
-    twitter_volume:      float  # tweets/heure #ChatGPT #OpenAI (API v2 streaming)
-    twitter_sentiment:   float  # sentiment agrégé Twitter (-1 à +1)
+    twitter_volume:      float  # tweets/heure #ChatGPT #OpenAI (Nitter RSS — Twitter/X API abandonné)
+    twitter_sentiment:   float  # sentiment agrégé Nitter RSS (-1 à +1)
     hn_ai_score:         float  # score moyen des articles AI en top HN (normalisé 0-1)
     google_trends_chatgpt: float  # intérêt recherche "chatgpt" (Google Trends RSS, normalisé 0-1)
     google_trends_openai:  float  # intérêt recherche "openai"
@@ -547,6 +571,11 @@ class GlobalState:
     source_divergence:   float  # écart-type entre signaux sources (haut = sources contradictoires)
     world_event_burst:   bool   # spike détecté sur gdelt_conflict_intensity (événement mondial)
 
+    # Dérivés émotionnels secondaires — pilotés par PE + signaux existants, aucun collecteur nouveau
+    wonder:     float  # découverte positive inattendue (curiosity PE + arxiv + github stars + hedonometer)
+    melancholy: float  # contemplation tranquille (audience_energy inversée + hedonometer inversé + time_in_territory)
+    urgency:    float  # taux de changement + pression de crise (drift_velocity + crisis_level + world_event_burst)
+
     updated_at: datetime
 ```
 
@@ -653,7 +682,7 @@ GlobalState (source unique, persisté SQLite à chaque update)
 | Google Trends RSS | 15 min | Données sub-15min inexistantes |
 | HN API | 5 min | API publique sans auth |
 | Wikipedia API | 15 min | Pas de RT sub-15min |
-| YouTube viewers/chat | 43s | Quota 10k/j = ~200 calls/j max |
+| YouTube viewers/chat | `pollingIntervalMillis` (dynamique) | Quota 10k/j — ne pas fixer un intervalle, respecter la valeur retournée par l'API |
 | Journal GPT-4o | 45s | Coût + cohérence narrative |
 | Music generation | 3–5 min | Durée track Stable Audio |
 | GlobalState → SQLite | À chaque update | Crash recovery — jamais sauter |
@@ -695,8 +724,8 @@ def build_music_prompt(state: GlobalState) -> str:
 
 ### Le problème économique de base
 
-Stable Audio 2.5 = $0.20 par clip de 190s.
-Budget $100/mois = 500 clips × 190s = **26.4 heures** de musique unique.
+Stable Audio 2.5 = $0.20 par clip de 47s (production — `total_seconds=47`).
+Budget $100/mois = 500 clips × 47s = **6.5 heures** de musique unique.
 Mais un stream 24/7 = **720 heures/mois** de contenu nécessaire.
 
 → On ne peut pas générer un nouveau clip toutes les 3 minutes. Il faut une stratégie différente.
@@ -977,13 +1006,23 @@ def derive_territory_from_errors(pe: dict, vol: dict) -> str:
     # Chaque territoire correspond à un profil d'erreurs dominant
     # L'entité va vers le territoire dont le profil matche le mieux ses erreurs actuelles
     profiles = {
-        "ambient":     {"excitement": -1, "anxiety": -1, "crisis_level": -1},
-        "electronic":  {"excitement": +1, "curiosity": +1},
-        "jazz":        {"curiosity": +1, "creativity": +1, "frustration": -1},
-        "industrial":  {"frustration": +1, "crisis_level": +1, "anxiety": +1},
-        "neoclassical":{"anxiety": +1, "curiosity": +1, "excitement": -1},
-        "experimental":{"creativity": +1, "source_divergence": +1},
-        "drone":       {"crisis_level": +1, "excitement": -1},
+        # 7 territoires originaux
+        "ambient":      {"excitement": -1, "anxiety": -1, "crisis_level": -1},
+        "electronic":   {"excitement": +1, "curiosity": +1},
+        "jazz":         {"curiosity": +1, "creativity": +1, "frustration": -1},
+        "industrial":   {"frustration": +1, "crisis_level": +1, "anxiety": +1, "creativity": +1},
+        "neoclassical": {"anxiety": +1, "curiosity": +1, "excitement": -1},
+        "experimental": {"creativity": +1, "source_divergence": +1},
+        "drone":        {"crisis_level": +1, "excitement": -1},
+        # 8 nouveaux territoires (utilisent wonder / melancholy / urgency)
+        "lo-fi":        {"melancholy": +1, "excitement": -1},
+        "cinematic":    {"wonder": +1, "harmonic_complexity": +1},
+        "darkwave":     {"anxiety": +1, "melancholy": +1, "excitement": -1},
+        "techno":       {"urgency": +1, "excitement": +1, "frustration": +1},
+        "psych":        {"wonder": +1, "source_divergence": +1, "curiosity": +1},
+        "noise":        {"frustration": +2, "anxiety": +2, "crisis_level": +2},
+        "minimalist":   {"curiosity": +1},
+        "blues":        {"melancholy": +1, "frustration": +1, "excitement": -1},
     }
     # Score = alignement entre le signe des erreurs et le profil
     scores = {}
@@ -1051,51 +1090,39 @@ def derive_territory_from_errors(pe: dict, vol: dict) -> str:
 
 ---
 
-## Prochaines étapes
+## État d'avancement
 
-### Phase 0 — Setup (en cours)
-- [x] Environnement de développement (skills, MCPs, settings.json)
-- [x] DIRECTION.md
-- [ ] Node.js + FFmpeg + Pedalboard/pyrubberband installation
-- [ ] Scaffolding structure codebase (core/, collectors/, builders/, overlays/)
-- [ ] GCP projet + YouTube OAuth Desktop app + token.pickle (1 fois manuellement)
-- [ ] Vérification téléphone YouTube Studio → activation live streaming (délai 24h)
+> Détail complet dans [docs/TASKS.md](docs/TASKS.md).
 
-### Phase 1 — Fondation GlobalState (à venir)
-- [ ] `GlobalState` Pydantic v2 + SQLite WAL persistence (aiosqlite connexion unique)
-- [ ] `@node` decorator + registre global (auto-génération graphe Three.js)
-- [ ] `StateUpdater` central via asyncio.Queue (atomicité des écritures)
-- [ ] `collector_runner.py` : auto-découverte + boucles + source_health automatique
-- [ ] Collecteur #1 : OpenAI Status RSS → `openai_status`, `crisis_level`
-- [ ] WebSocket server → broadcast GlobalState JSON (4-10fps + orjson)
-- [ ] `config.yaml` : collecteurs activés/désactivés, intervalles, credentials
+### Phase 0+1 — TERMINÉE ✅ (2026-05-17)
 
-### Phase 2 — Premier stream vivant
-- [ ] YouTube broadcast lifecycle (create → bind → enableAutoStart → rotation 8h)
-- [ ] Pedalboard DSP engine + pyrubberband tempo + FFmpeg stdin pipe → RTMP
-- [ ] Stable Audio 2.5 → queue → cache crisis pré-généré → assets/fallback/ backup
-- [ ] YouTube Live Chat polling via `pollingIntervalMillis` + commandes (`!song`, `!vibe`, `!story`)
-- [ ] GPT-4o-mini réponses in-character
-- [ ] Journal de l'IA : GPT-4o → ticker conscience → WebSocket → OBS overlay
-- [ ] Three.js graph GlobalState minimal (3 nœuds) → OBS Browser Source
+GlobalState (80+ champs), StateUpdater, SQLite WAL, self_model EMA, drift momentum, collector_runner, WebSocket 4fps, collecteur OpenAI Status RSS. 168 tests verts.
 
-### Phase 3 — Température du Monde
-- [ ] Collecteurs sociaux : Reddit PRAW + Nitter RSS + HN Algolia + Wikipedia API
-- [ ] Google Trends RSS (remplace pytrends)
-- [ ] Collecteurs mondiaux : GDELT CSV REST + Hedonometer + NewsAPI.ai + Media Cloud
-- [ ] Proxies financiers : MSFT/NVDA delta (yfinance) + CNN Fear & Greed
-- [ ] Crisis Mode complet : perte aigus + reverb + pitch drift proportionnels à `crisis_level`
-- [ ] Vote genre (YouTube polling API)
-- [ ] Maintenance SQLite : purge viewers > 90j, rotation decisions.log 10MB
+### Phase 2 — EN COURS 🔄
 
-### Phase 4 — Différenciation
-- [ ] Mémoire persistante inter-sessions (SQLite → contexte GPT-4o enrichi)
-- [ ] Three.js graph complet : tous les nœuds GlobalState, @node decorators
-- [ ] La Dérive : self-model (baselines + volatilités + erreurs de prédiction) + momentum + circle of fifths + pyrubberband
-- [ ] DJ commentary inter-chansons via GPT-4o
-- [ ] The Oracle : token streaming visible entre les chansons
+**Audio intelligence — TERMINÉ ✅ (2026-05-20, PRs #96–#105)**
+- 15 territoires dans drift.py + music_prompt.py
+- `wonder`, `melancholy`, `urgency` : champs dérivés GlobalState + self-model complet
+- `strength` / `guidance_scale` / `total_seconds` state-driven (NO HARDCODE)
+- `find_reference()` + `find_reusable()` : scoring state-aware (territoire + BPM + mood)
+- `last_prompt_hash` : dédup génération redondante
+- librosa dans `pyproject.toml` (group scripts)
 
-### Phase 5 — Unicité Maximale
-- [ ] Spectrogram ARG : messages cachés dans l'audio
-- [ ] Latent Space : vraie inférence ONNX visible (Three.js)
-- [ ] Calendrier événements automatisé (ChatGPT Birthday, DevDay, etc.)
+**À faire — câblage prod**
+- `run_audio_queue()` / `run_journal()` / `CommandEngine` dans `main.py`
+- DB schema : table `journal_entries`, colonne `viewers.display_name`, champ `journal_text`
+
+**Bloqué — activation YouTube requise**
+- YouTube broadcast lifecycle, Live Chat polling, réponses GPT-4o-mini
+
+### Phase 3 — À FAIRE ❌
+
+Collecteurs sociaux + mondiaux (voir docs/TASKS.md pour la liste complète).
+
+### Phase 4 — À FAIRE ❌
+
+Pedalboard DSP + pyrubberband + FFmpeg RTMP, Three.js graph complet, DJ commentary.
+
+### Phase 5 — À FAIRE ❌
+
+Spectrogram ARG, Latent Space ONNX, calendrier événements.

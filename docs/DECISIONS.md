@@ -18,6 +18,21 @@
 
 ---
 
+## Décisions 2026-05-20 — Génération audio intelligente
+
+| Décision | Choix retenu | Alternative rejetée | Raison |
+|----------|-------------|---------------------|--------|
+| Alignement territoire drift ↔ music_prompt | Aligner music_prompt sur les 7 territoires réels de drift | Laisser les mismatch, ajouter un mapping | NO FAKE — music_prompt doit refléter l'état réel |
+| Sélection référence audio | Scoring state-aware hybride (territoire+BPM+mood cosine) | Aléatoire ou FIFO | Chaque dérivation doit être acoustiquement cohérente avec l'état |
+| librosa | Dépendance optionnelle `[dependency-groups] scripts` | Runtime obligatoire | Évite l'overhead pour le stream ; utilisé seulement par `index_references.py` |
+| wonder / melancholy / urgency | Champs dérivés GlobalState calculés depuis signaux existants | Nouveaux collecteurs dédiés | Aucune nouvelle source de données requise ; NO FAKE respecté |
+| Expansion territoire 7→15 | 8 nouveaux territoires utilisant wonder/melancholy/urgency | Rester à 7 | Couverture émotionnelle insuffisante — 7 ne couvrait pas l'état sombre/contemplatif/urgent |
+| `strength` audio-to-audio | `clamp(0.3 + drift_velocity*0.4 + crisis_level*0.3, 0.3, 0.9)` | Constante 0.65 | NO HARDCODE — variance forcée non justifiée par l'état |
+| `guidance_scale` audio-to-audio | `clamp(1.0 + source_divergence*0.2, 1.0, 1.2)` | Absent (omis) | Paramètre requis ; piloté par divergence de source |
+| Override crise genre → glitch | Supprimé | Conserver le override `crisis_level > 0.5 → glitch ambient` | Territoire `noise` gère ça nativement via drift ; override était un NO FAKE |
+
+---
+
 ## Décisions rejetées
 
 | Décision | Raison |
