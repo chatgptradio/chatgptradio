@@ -11,7 +11,7 @@ import orjson
 
 from core.state import GlobalState
 
-AudioSource = Literal["generated", "uploaded", "external", "reference"]
+AudioSource = Literal["generated", "uploaded", "external", "reference", "fal_derived"]
 
 
 async def index_clip(
