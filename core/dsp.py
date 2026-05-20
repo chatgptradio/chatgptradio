@@ -22,6 +22,7 @@ _CROSSFADE_SAMPLES = _CROSSFADE_S * _SR
 _FFMPEG_RESTART_MAX_S = 60
 _TARGET_LUFS = -14.0
 _MAX_GAIN_DB = 18.0
+_CHUNK_SAMPLES = 4096  # ~93 ms at 44100 Hz — throttles pipe writes to real-time
 
 
 def _clamp(v: float, lo: float, hi: float) -> float:
@@ -171,7 +172,11 @@ async def run_dsp(
 
             try:
                 if proc.stdin is not None:
-                    await loop.run_in_executor(None, proc.stdin.write, pcm_s16)
+                    chunk_bytes = _CHUNK_SAMPLES * 4  # stereo int16 = 4 bytes/sample
+                    for i in range(0, len(pcm_s16), chunk_bytes):
+                        chunk = pcm_s16[i : i + chunk_bytes]
+                        await loop.run_in_executor(None, proc.stdin.write, chunk)
+                        await asyncio.sleep(len(chunk) / 4 / _SR)
             except BrokenPipeError:
                 log.warning("dsp_ffmpeg_pipe_broken")
                 proc = await loop.run_in_executor(None, _start_ffmpeg)
