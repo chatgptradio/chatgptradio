@@ -126,3 +126,23 @@ def test_current_track_name_settable():
     state = GlobalState()
     state.current_track_name = "Void Cartographer - Cold Signal"
     assert state.current_track_name == "Void Cartographer - Cold Signal"
+
+
+def test_wonder_melancholy_urgency_default_zero():
+    state = GlobalState()
+    assert state.wonder == 0.0
+    assert state.melancholy == 0.0
+    assert state.urgency == 0.0
+
+
+def test_wonder_melancholy_urgency_settable():
+    state = GlobalState()
+    state.wonder = 0.7
+    assert state.wonder == 0.7
+
+
+def test_wonder_melancholy_urgency_in_model_dump():
+    d = GlobalState().model_dump()
+    assert "wonder" in d
+    assert "melancholy" in d
+    assert "urgency" in d

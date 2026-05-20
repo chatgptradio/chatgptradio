@@ -122,4 +122,8 @@ class GlobalState(BaseModel):
     source_divergence: float = 0.0
     world_event_burst: bool = False
 
+    wonder: float = 0.0      # unexpected positive discovery signal
+    melancholy: float = 0.0  # quiet contemplation, low engagement
+    urgency: float = 0.0     # rate-of-change + crisis pressure
+
     updated_at: datetime = Field(default_factory=lambda: datetime.now(timezone.utc))
