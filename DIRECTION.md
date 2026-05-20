@@ -238,7 +238,6 @@ Voir `core/audio_queue._wav_to_mp3()`.
 
 - **[VALIDÉ]** Commandes : `!song`, `!request <genre>`, `!vibe`, `!story`
 - **[VALIDÉ]** Votes genre musical (YouTube poll API)
-- **[VALIDÉ]** DJ commentary GPT-4o in-character (basé sur GlobalState réel)
 - **[REJETÉ]** TTS voix, sentiment analysis chat — V1 : votes explicites uniquement
 
 ---
@@ -357,7 +356,7 @@ Représentation : forme d'énergie abstraite Three.js (pulse, contracte, couleur
 | 2026-05-17 | Architecture GlobalState : source unique → musique + Three.js + Journal en parallèle | VALIDÉ |
 | 2026-05-17 | GlobalState : 8 catégories, ~55 champs réels, @node decorators → graphe Three.js auto-généré | VALIDÉ |
 | 2026-05-17 | Fréquences update : RSS 30s, Reddit/Twitter 5min, YouTube 43s, Journal 45s, Viz 60fps | VALIDÉ |
-| 2026-05-17 | Stack LLM : GPT-4o (Journal + commentary) + GPT-4o-mini (chat + classifications) | VALIDÉ |
+| 2026-05-17 | Stack LLM : GPT-4o (Journal) + GPT-4o-mini (chat + classifications) | VALIDÉ |
 | 2026-05-17 | Stack visuels : Three.js + WebGL (graphe GlobalState réel, pas décoratif) | VALIDÉ |
 | 2026-05-17 | TTS ElevenLabs : REJETÉ — entité sans voix, expression via musique + texte uniquement | REJETÉ |
 | 2026-05-17 | Génération musicale : événementielle (Δ>0.15) + couche DSP temps réel | VALIDÉ |
@@ -1121,7 +1120,7 @@ Collecteurs sociaux + mondiaux (voir docs/TASKS.md pour la liste complète).
 
 ### Phase 4 — À FAIRE ❌
 
-Pedalboard DSP + pyrubberband + FFmpeg RTMP, Three.js graph complet, DJ commentary.
+Pedalboard DSP + pyrubberband + FFmpeg RTMP, Three.js graph complet.
 
 ### Phase 5 — À FAIRE ❌
 

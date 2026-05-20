@@ -130,7 +130,6 @@ Vérifié 2026-05-20 — 298 tests verts. NO FAKE validé sur tous les overlays.
 | Three.js graph @node | `overlays/graph.html` | ✅ mergé | 2f763f1 |
 | Three.js 4 modes (neural/particles/globe/nebula) | `overlays/visualizer.html` | ✅ mergé | 2f763f1 |
 | CNN Fear & Greed collecteur | `collectors/cnn_fear_greed.py` | ✅ mergé | 2f763f1 |
-| DJ commentary | `core/commentary.py` | ❌ à créer | — |
 
 ---
 
