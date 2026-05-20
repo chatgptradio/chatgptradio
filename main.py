@@ -1,13 +1,16 @@
 import asyncio
 import signal
 import sys
+from pathlib import Path as _PathType
 
 import structlog
 
 from core.audio_queue import run_audio_queue
+from core.calendar_engine import build_event_list, run_calendar
 from core.collector_runner import start_all_collectors
 from core.config import load_config
 from core.db import init_db
+from core.dsp import run_dsp
 from core.journal import run_journal
 from core.memory import restore_self_model
 from core.state import GlobalState
@@ -34,13 +37,12 @@ async def run() -> None:
     )
     updater_task = asyncio.create_task(updater.run())
 
-    playback_queue: asyncio.Queue = asyncio.Queue()
-    audio_task = asyncio.create_task(
-        run_audio_queue(state, updater.queue, db_conn, playback_queue)
-    )
-    journal_task = asyncio.create_task(
-        run_journal(state, updater.queue, db_conn)
-    )
+    playback_queue: asyncio.Queue[_PathType] = asyncio.Queue(maxsize=4)
+    audio_task = asyncio.create_task(run_audio_queue(state, updater.queue, db_conn, playback_queue))
+    dsp_task = asyncio.create_task(run_dsp(state, playback_queue, updater.queue))
+    journal_task = asyncio.create_task(run_journal(state, updater.queue, db_conn))
+    events = build_event_list(config.calendar)
+    calendar_task = asyncio.create_task(run_calendar(state, updater.queue, events))
 
     shutdown_event = asyncio.Event()
 
@@ -59,13 +61,7 @@ async def run() -> None:
 
     log.info("chatgpt_radio_shutdown_started")
 
-    all_tasks = collector_tasks + [
-        ws_server_task,
-        ws_broadcast_task,
-        updater_task,
-        audio_task,
-        journal_task,
-    ]
+    all_tasks = collector_tasks + [ws_server_task, ws_broadcast_task, updater_task, audio_task, dsp_task, journal_task, calendar_task]
     for task in all_tasks:
         task.cancel()
     await asyncio.gather(*all_tasks, return_exceptions=True)

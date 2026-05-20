@@ -44,3 +44,19 @@ async def fetch_text(url: str, timeout_s: float = 10.0) -> str:
         async with session.get(url, timeout=timeout) as resp:
             resp.raise_for_status()
             return await resp.text()
+
+
+async def fetch_json(
+    url: str,
+    timeout_s: float = 10.0,
+    headers: dict[str, str] | None = None,
+) -> dict:
+    """Async GET *url* and return parsed JSON response.
+
+    Raises aiohttp.ClientError on HTTP errors or network failures.
+    """
+    timeout = aiohttp.ClientTimeout(total=timeout_s)
+    async with aiohttp.ClientSession() as session:
+        async with session.get(url, timeout=timeout, headers=headers or {}) as resp:
+            resp.raise_for_status()
+            return await resp.json()

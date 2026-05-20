@@ -1,0 +1,527 @@
+<!DOCTYPE html>
+<html>
+<head>
+  <meta charset="utf-8">
+  <title>ChatGPT Radio — Visualizer</title>
+  <style>
+    * { margin:0; padding:0; box-sizing:border-box; }
+    body { background:#000510; overflow:hidden; font-family:'Courier New',monospace; }
+    canvas { display:block; }
+    #hud { position:fixed; top:0; left:0; width:100%; height:100%; pointer-events:none; }
+    #drift { position:absolute; bottom:24px; left:24px; color:#00D4FF; font-size:13px; line-height:1.8; text-shadow:0 0 12px #00D4FF88; }
+    #drift .territory { font-size:16px; letter-spacing:2px; text-transform:uppercase; }
+    #drift .crisis { color:#FF4444; animation:blink 1s step-end infinite; }
+    #sources { position:absolute; top:24px; right:24px; color:#556677; font-size:11px; line-height:1.7; text-align:right; }
+    #journal { position:absolute; bottom:24px; right:24px; color:#8899BB; font-size:11px; max-width:380px; line-height:1.6; opacity:0.85; border-left:1px solid #334; padding-left:12px; }
+    #mode-indicator { position:absolute; top:24px; left:24px; font-size:10px; color:#334; }
+    #ws-status { position:absolute; top:38px; left:24px; font-size:10px; color:#334; }
+    #event-banner {
+      position: absolute;
+      top: 60px; left: 50%; transform: translateX(-50%);
+      color: #FFD700;
+      font-size: 18px; letter-spacing: 3px; text-transform: uppercase;
+      text-shadow: 0 0 20px #FFD70088;
+      opacity: 0;
+      transition: opacity 2s;
+      pointer-events: none;
+    }
+    #ws-status.connected { color:#225522; }
+    #fade { position:fixed; top:0; left:0; width:100%; height:100%; background:#000; pointer-events:none; opacity:0; transition:opacity 0.3s; z-index:10; }
+    @keyframes blink { 50% { opacity:0; } }
+  </style>
+</head>
+<body>
+<div id="fade"></div>
+<div id="hud">
+  <div id="mode-indicator">◆ NEURAL</div>
+  <div id="ws-status">◌ connecting…</div>
+  <div id="event-banner"></div>
+  <div id="drift"></div>
+  <div id="sources"></div>
+  <div id="journal"></div>
+</div>
+
+<script type="importmap">
+  {"imports":{
+    "three":"https://cdn.jsdelivr.net/npm/three@0.162.0/build/three.module.js",
+    "three/addons/":"https://cdn.jsdelivr.net/npm/three@0.162.0/examples/jsm/"
+  }}
+</script>
+<script type="module">
+import * as THREE from 'three';
+import { OrbitControls } from 'three/addons/controls/OrbitControls.js';
+import { EffectComposer } from 'three/addons/postprocessing/EffectComposer.js';
+import { RenderPass } from 'three/addons/postprocessing/RenderPass.js';
+import { UnrealBloomPass } from 'three/addons/postprocessing/UnrealBloomPass.js';
+import { FilmPass } from 'three/addons/postprocessing/FilmPass.js';
+import { OutputPass } from 'three/addons/postprocessing/OutputPass.js';
+
+// ── Setup Three.js ────────────────────────────────────────────────────────────
+
+const scene = new THREE.Scene();
+scene.background = new THREE.Color(0x000510);
+const camera = new THREE.PerspectiveCamera(55, innerWidth/innerHeight, 0.1, 500);
+camera.position.set(0, 0, 22);
+const renderer = new THREE.WebGLRenderer({antialias:true});
+renderer.setSize(innerWidth, innerHeight);
+renderer.setPixelRatio(Math.min(devicePixelRatio, 2));
+document.body.prepend(renderer.domElement);
+scene.add(new THREE.AmbientLight(0x112233, 2));
+const fill = new THREE.PointLight(0x00D4FF, 3, 60);
+fill.position.set(0,0,15);
+scene.add(fill);
+const clock = new THREE.Clock();
+
+// ── Mode NEURAL — graphe de computation réel (@node registry) ───────────────────
+// Topologie = le vrai pipeline Python. Correspondance 1-to-1 avec le code.
+// Source: WebSocket msg.nodes (get_registry()), aucune simulation.
+
+const _NN_NODE_VS = `
+attribute float nodeSize;
+attribute vec3  nodeColor;
+attribute float significance;
+uniform   float uTime;
+uniform   float uBaseSize;
+varying   vec3  vColor;
+varying   float vSig;
+varying   vec3  vWorldPos;
+void main(){
+  vColor=nodeColor; vSig=significance;
+  vWorldPos=(modelMatrix*vec4(position,1.0)).xyz;
+  float scale=nodeSize*(1.0+significance*0.15*sin(uTime*0.9+position.x))*max(0.5,1.0+significance*0.8);
+  vec4 mv=modelViewMatrix*vec4(position,1.0);
+  gl_PointSize=scale*uBaseSize*(700.0/-mv.z);
+  gl_Position=projectionMatrix*mv;
+}`;
+const _NN_NODE_FS = `
+uniform float uTime;
+varying vec3 vColor; varying float vSig; varying vec3 vWorldPos;
+void main(){
+  vec2 c=2.0*gl_PointCoord-1.0; float d=length(c); if(d>1.0)discard;
+  float g=pow(1.0-smoothstep(0.0,1.0,d),1.6);
+  float ring=smoothstep(0.55,0.65,d)*smoothstep(0.9,0.65,d)*vSig;
+  vec3 col=vColor*(0.7+0.3*sin(uTime*0.6+d*3.0));
+  col=mix(col,vec3(1.0),vSig*0.35*g)+vec3(1.0)*ring*0.6;
+  float alpha=g*(0.92-0.45*d)*smoothstep(90.0,8.0,length(vWorldPos-cameraPosition));
+  gl_FragColor=vec4(col,alpha);
+}`;
+const _NN_CONN_VS = `
+attribute vec3 startPt; attribute vec3 endPt; attribute float connStr;
+attribute float pathIdx; attribute vec3 connColor;
+uniform float uTime;
+varying vec3 vColor; varying float vStr; varying float vT;
+void main(){
+  float t=position.x; vT=t; vColor=connColor; vStr=connStr;
+  vec3 mid=mix(startPt,endPt,0.5);
+  vec3 perp=normalize(cross(normalize(endPt-startPt),vec3(0,1,0)));
+  if(length(perp)<0.1)perp=vec3(1,0,0);
+  mid+=perp*sin(t*3.14159)*0.15;
+  vec3 pos=mix(mix(startPt,mid,t),mix(mid,endPt,t),t);
+  gl_Position=projectionMatrix*modelViewMatrix*vec4(pos,1.0);
+}`;
+const _NN_CONN_FS = `
+uniform float uTime;
+varying vec3 vColor; varying float vStr; varying float vT;
+void main(){
+  float flow=sin(vT*18.0-uTime*4.5)*0.5+0.5;
+  vec3 col=vColor*(0.6+0.3*flow*vStr)*(1.0+smoothstep(0.3,0.7,flow)*vStr*0.5);
+  float alpha=(0.55*vStr+0.2*flow)*smoothstep(0.0,0.06,vT)*smoothstep(1.0,0.94,vT);
+  gl_FragColor=vec4(col,alpha);
+}`;
+
+class NeuralMode {
+  constructor(){
+    this._nMesh=null; this._cMesh=null; this._starField=null;
+    this._composer=null; this._bloomPass=null; this._controls=null;
+    this._nodeData=[]; this._built=false; this._clock=new THREE.Clock(); this._clock.start();
+    this._lastSig=0; this._lastPulse=0; this._sprites=[];
+  }
+
+  init(sc, cam){
+    this._cam=new THREE.PerspectiveCamera(55,innerWidth/innerHeight,0.1,600);
+    this._cam.position.set(0,4,28);
+    this._controls=new OrbitControls(this._cam, renderer.domElement);
+    Object.assign(this._controls,{enableDamping:true,dampingFactor:0.05,autoRotate:false,autoRotateSpeed:0,enablePan:false,enableZoom:false,enableRotate:false});
+    // Stars
+    const N=4000,pos=[];for(let i=0;i<N;i++){const r=THREE.MathUtils.randFloat(50,150),phi=Math.acos(THREE.MathUtils.randFloatSpread(2)),theta=THREE.MathUtils.randFloat(0,Math.PI*2);pos.push(r*Math.sin(phi)*Math.cos(theta),r*Math.sin(phi)*Math.sin(theta),r*Math.cos(phi));}
+    const sg=new THREE.BufferGeometry();sg.setAttribute('position',new THREE.Float32BufferAttribute(pos,3));
+    this._starField=new THREE.Points(sg,new THREE.PointsMaterial({color:0xffffff,size:0.12,depthWrite:false,opacity:0.7,transparent:true}));sc.add(this._starField);
+    // Composer with bloom
+    this._composer=new EffectComposer(renderer);
+    this._composer.addPass(new RenderPass(sc,this._cam));
+    this._bloomPass=new UnrealBloomPass(new THREE.Vector2(innerWidth,innerHeight),1.4,0.4,0.65);
+    this._composer.addPass(this._bloomPass);
+    this._composer.addPass(new FilmPass(0.12,0.25,2048,false));
+    this._composer.addPass(new OutputPass());
+    // Build immediately if nodes already received from WebSocket
+    if(liveNodes.length > 0) this._build(sc, liveNodes);
+  }
+
+  _build(sc, nodes){
+    if(this._nMesh){sc.remove(this._nMesh);this._nMesh.geometry.dispose();this._nMesh.material.dispose();this._nMesh=null;}
+    if(this._cMesh){sc.remove(this._cMesh);this._cMesh.geometry.dispose();this._cMesh.material.dispose();this._cMesh=null;}
+    this._sprites.forEach(s=>sc.remove(s)); this._sprites=[];
+    this._nodeData=[];
+
+    const collectors=nodes.filter(n=>n.name!=='music_prompt');
+    const builder=nodes.find(n=>n.name==='music_prompt');
+    const R=12;
+    collectors.forEach((nd,i)=>{
+      const golden=(1+Math.sqrt(5))/2,theta=2*Math.PI*i/golden,phi=Math.acos(1-2*(i+0.5)/collectors.length);
+      this._nodeData.push({nd,pos:new THREE.Vector3(R*Math.sin(phi)*Math.cos(theta),R*Math.sin(phi)*Math.sin(theta),R*Math.cos(phi)),produces:nd.produces,color:new THREE.Color(nd.color||'#00D4FF'),label:nd.label||nd.name,reads:nd.reads||[],size:0.9,sig:0.0});
+    });
+    if(builder) this._nodeData.push({nd:builder,pos:new THREE.Vector3(0,0,0),produces:builder.produces,color:new THREE.Color(builder.color||'#00D4FF'),label:builder.label||builder.name,reads:builder.reads||[],size:1.6,sig:0.0});
+
+    const produceMap={};
+    this._nodeData.forEach(n=>{produceMap[n.produces]=n;});
+    const edges=[];
+    this._nodeData.forEach(n=>{
+      if(n.produces!=='music_prompt'&&builder){const mp=this._nodeData.find(d=>d.produces==='music_prompt');if(mp)edges.push({from:n,to:mp,str:0.7});}
+      (n.reads||[]).forEach(f=>{const p=produceMap[f];if(p&&p!==n)edges.push({from:p,to:n,str:1.0});});
+    });
+
+    // Node geometry
+    const nPos=[],nSz=[],nCol=[],nSig=[];
+    this._nodeData.forEach(n=>{nPos.push(n.pos.x,n.pos.y,n.pos.z);nSz.push(n.size);nCol.push(n.color.r,n.color.g,n.color.b);nSig.push(0);});
+    const ng=new THREE.BufferGeometry();
+    ng.setAttribute('position',new THREE.Float32BufferAttribute(nPos,3));
+    ng.setAttribute('nodeSize',new THREE.Float32BufferAttribute(nSz,1));
+    ng.setAttribute('nodeColor',new THREE.Float32BufferAttribute(nCol,3));
+    ng.setAttribute('significance',new THREE.Float32BufferAttribute(nSig,1));
+    const nm=new THREE.ShaderMaterial({uniforms:{uTime:{value:0},uBaseSize:{value:0.55}},vertexShader:_NN_NODE_VS,fragmentShader:_NN_NODE_FS,transparent:true,depthWrite:false,blending:THREE.AdditiveBlending});
+    this._nMesh=new THREE.Points(ng,nm);sc.add(this._nMesh);
+
+    // Connection geometry
+    if(edges.length){
+      const cPos=[],sp=[],ep=[],cs=[],ci=[],cc=[];const SEG=16;
+      edges.forEach((e,pi)=>{for(let i=0;i<SEG;i++){const t=i/(SEG-1);cPos.push(t,0,0);sp.push(e.from.pos.x,e.from.pos.y,e.from.pos.z);ep.push(e.to.pos.x,e.to.pos.y,e.to.pos.z);cs.push(e.str);ci.push(pi);const c=e.from.color.clone().lerp(e.to.color,0.5);cc.push(c.r,c.g,c.b);}});
+      const cg=new THREE.BufferGeometry();
+      cg.setAttribute('position',new THREE.Float32BufferAttribute(cPos,3));
+      cg.setAttribute('startPt',new THREE.Float32BufferAttribute(sp,3));
+      cg.setAttribute('endPt',new THREE.Float32BufferAttribute(ep,3));
+      cg.setAttribute('connStr',new THREE.Float32BufferAttribute(cs,1));
+      cg.setAttribute('pathIdx',new THREE.Float32BufferAttribute(ci,1));
+      cg.setAttribute('connColor',new THREE.Float32BufferAttribute(cc,3));
+      const cm=new THREE.ShaderMaterial({uniforms:{uTime:{value:0}},vertexShader:_NN_CONN_VS,fragmentShader:_NN_CONN_FS,transparent:true,depthWrite:false,blending:THREE.AdditiveBlending});
+      this._cMesh=new THREE.LineSegments(cg,cm);sc.add(this._cMesh);
+    }
+
+    // Labels
+    this._nodeData.forEach(n=>{
+      const cv=document.createElement('canvas');cv.width=300;cv.height=44;
+      const ctx=cv.getContext('2d');ctx.fillStyle=`#${n.color.getHexString()}`;
+      ctx.font='600 17px Inter,Courier New';ctx.fillText(n.label,4,32);
+      const sp=new THREE.Sprite(new THREE.SpriteMaterial({map:new THREE.CanvasTexture(cv),transparent:true,opacity:0.7,depthWrite:false}));
+      sp.scale.set(3.0,0.44,1);sp.position.copy(n.pos).addScaledVector(n.pos.length()>0?n.pos.clone().normalize():new THREE.Vector3(0,1,0),1.3);
+      sc.add(sp);this._sprites.push(sp);n.sprite=sp;
+    });
+    this._built=true;
+  }
+
+  _updateSig(state){
+    if(!this._nMesh||!this._nodeData.length)return;
+    const pe=state.prediction_errors||{},vol=state.signal_volatilities||{},sh=state.source_health||{};
+    const attr=this._nMesh.geometry.attributes.significance;
+    this._nodeData.forEach((n,i)=>{
+      const err=Math.abs(pe[n.produces]||0),v=Math.max(vol[n.produces]||0.1,0.001);
+      let sig=Math.min(err/v,3.0)/3.0;
+      if(sh[n.nd.name]===false)sig*=0.15;
+      n.sig=sig;attr.setX(i,sig);
+    });
+    attr.needsUpdate=true;
+  }
+
+  update(state, dt){
+    const t=this._clock.getElapsedTime();
+    // Build on first call with real nodes
+    if(!this._built&&liveNodes.length>0) this._build(scene,liveNodes);
+    if(this._nMesh) this._nMesh.material.uniforms.uTime.value=t;
+    if(this._cMesh) this._cMesh.material.uniforms.uTime.value=t;
+    if(this._controls) this._controls.update();
+
+    const crisis=state.crisis_level||0,excit=state.excitation||0,wt=state.world_temperature||0.5;
+    const now=performance.now();
+    if(now-this._lastSig>400){this._updateSig(state);this._lastSig=now;}
+    if(this._bloomPass) this._bloomPass.strength=1.2+crisis*1.5+wt*0.4;
+    if(this._controls){this._controls.autoRotate=excit>0.05;this._controls.autoRotateSpeed=excit*0.3;}
+    const r=crisis*0.04,b=0.02+(1-crisis)*0.03;
+    scene.background=new THREE.Color(r,0,b);
+    if(this._composer) this._composer.render();
+    return true;
+  }
+
+  dispose(sc){
+    if(this._nMesh){sc.remove(this._nMesh);this._nMesh.geometry.dispose();this._nMesh.material.dispose();this._nMesh=null;}
+    if(this._cMesh){sc.remove(this._cMesh);this._cMesh.geometry.dispose();this._cMesh.material.dispose();this._cMesh=null;}
+    if(this._starField){sc.remove(this._starField);this._starField.geometry.dispose();this._starField=null;}
+    this._sprites.forEach(s=>sc.remove(s));this._sprites=[];
+    if(this._controls){this._controls.dispose();this._controls=null;}
+    this._composer=null;this._built=false;
+    scene.background=new THREE.Color(0x000510);
+  }
+}
+
+// ── Mode PARTICLES ────────────────────────────────────────────────────────────
+
+class ParticlesMode {
+  constructor() { this.points = null; this.velocities = null; }
+  init(scene, camera) {
+    const N = 3000;
+    const positions = new Float32Array(N * 3);
+    const colors = new Float32Array(N * 3);
+    this.velocities = new Float32Array(N * 3);
+    for (let i = 0; i < N; i++) {
+      positions[i*3]   = (Math.random()-0.5)*20;
+      positions[i*3+1] = (Math.random()-0.5)*20;
+      positions[i*3+2] = (Math.random()-0.5)*10;
+      this.velocities[i*3]   = (Math.random()-0.5)*0.02;
+      this.velocities[i*3+1] = (Math.random()-0.5)*0.02;
+      this.velocities[i*3+2] = (Math.random()-0.5)*0.01;
+    }
+    const geo = new THREE.BufferGeometry();
+    geo.setAttribute('position', new THREE.BufferAttribute(positions, 3));
+    geo.setAttribute('color', new THREE.BufferAttribute(colors, 3));
+    const mat = new THREE.PointsMaterial({ size:0.08, vertexColors:true, transparent:true, opacity:0.85 });
+    this.points = new THREE.Points(geo, mat);
+    scene.add(this.points);
+  }
+  update(state, dt) {
+    if (!this.points) return;
+    const crisis = state.crisis_level || 0;
+    const wt = state.world_temperature || 0.5;
+    const anomaly = state.anomaly_score || 0;
+    const excitation = state.excitation || 0;
+    const tension = state.musical_tension || 0;
+    const bpm_norm = Math.max(0, Math.min(1, ((state.drift_bpm||90) - 60) / 80));
+    const pos = this.points.geometry.attributes.position.array;
+    const col = this.points.geometry.attributes.color.array;
+    const N = pos.length / 3;
+    const hue = (200 + bpm_norm * 80) / 360;
+    const sat = 0.4 + tension * 0.6;
+    const lit = 0.3 + excitation * 0.5;
+    const c = new THREE.Color().setHSL(hue, sat, lit);
+    for (let i = 0; i < N; i++) {
+      const ix = i*3, iy=ix+1, iz=ix+2;
+      const noise = Math.sin(pos[ix]*0.3 + Date.now()*0.0005) * anomaly * 0.05;
+      this.velocities[ix] += (0 - pos[ix]) * crisis * 0.001 + noise;
+      this.velocities[iy] += (0 - pos[iy]) * crisis * 0.001 + noise;
+      this.velocities[ix] *= (0.98 + wt * 0.015);
+      this.velocities[iy] *= (0.98 + wt * 0.015);
+      pos[ix] += this.velocities[ix];
+      pos[iy] += this.velocities[iy];
+      pos[iz] += this.velocities[iz];
+      if (Math.abs(pos[ix]) > 12) this.velocities[ix] *= -1;
+      if (Math.abs(pos[iy]) > 12) this.velocities[iy] *= -1;
+      if (Math.abs(pos[iz]) > 6)  this.velocities[iz] *= -1;
+      col[ix]=c.r; col[iy]=c.g; col[iz]=c.b;
+    }
+    this.points.geometry.attributes.position.needsUpdate = true;
+    this.points.geometry.attributes.color.needsUpdate = true;
+  }
+  dispose(scene) { if (this.points) scene.remove(this.points); this.points = null; }
+}
+
+// ── Mode GLOBE ────────────────────────────────────────────────────────────────
+
+class GlobeMode {
+  constructor() { this.globe = null; this.arcs = []; this.arcLines = []; }
+  init(scene, camera) {
+    const geo = new THREE.IcosahedronGeometry(8, 3);
+    const mat = new THREE.MeshBasicMaterial({ color:0x113355, wireframe:true, transparent:true, opacity:0.3 });
+    this.globe = new THREE.Mesh(geo, mat);
+    scene.add(this.globe);
+    camera.position.set(0, 0, 22);
+    const toXYZ = (lat, lon) => {
+      const phi = (90-lat)*Math.PI/180, theta = (lon+180)*Math.PI/180;
+      return new THREE.Vector3(
+        -8*Math.sin(phi)*Math.cos(theta),
+         8*Math.cos(phi),
+         8*Math.sin(phi)*Math.sin(theta)
+      );
+    };
+    this.arcs = [
+      { signal:'reddit_volume',         color:'#FF4500', from:toXYZ(37,-122) },
+      { signal:'hn_ai_score',           color:'#FF6600', from:toXYZ(37,-77)  },
+      { signal:'gdelt_global_tone',     color:'#AAAAFF', from:toXYZ(48,2)    },
+      { signal:'hedonometer_happiness', color:'#FFDD00', from:toXYZ(0,0)     },
+      { signal:'arxiv_papers_today',    color:'#FFFFFF', from:toXYZ(42,2)    },
+      { signal:'wikipedia_views_ai',    color:'#88AAFF', from:toXYZ(51,-0.1) },
+      { signal:'msft_delta',            color:'#44FF44', from:toXYZ(40,-74)  },
+    ];
+    this.arcs.forEach(arc => {
+      const mid = arc.from.clone().multiplyScalar(1.4).add(new THREE.Vector3(0,2,0));
+      const curve = new THREE.QuadraticBezierCurve3(arc.from, mid, new THREE.Vector3(0,0,0));
+      const pts = curve.getPoints(30);
+      const lineGeo = new THREE.BufferGeometry().setFromPoints(pts);
+      const lineMat = new THREE.LineBasicMaterial({ color:arc.color, transparent:true, opacity:0.6 });
+      const line = new THREE.Line(lineGeo, lineMat);
+      scene.add(line);
+      arc.line = line;
+      this.arcLines.push(line);
+    });
+  }
+  update(state, dt) {
+    if (this.globe) this.globe.rotation.y += (state.hn_ai_score||0) * 0.003 + (state.world_temperature||0) * 0.001;
+    this.arcs.forEach(arc => {
+      if (!arc.line) return;
+      const val = state[arc.signal];
+      arc.line.material.opacity = 0.1 + (typeof val === 'number' ? Math.min(Math.max(val,0),1) : 0) * 0.7;
+    });
+    const tone = state.gdelt_global_tone || 0.5;
+    const bg = new THREE.Color().setHSL(0.6 - tone*0.2, 0.3, 0.02 + tone*0.03);
+    scene.background = bg;
+  }
+  dispose(scene) {
+    if (this.globe) scene.remove(this.globe);
+    this.arcLines.forEach(l => scene.remove(l));
+    this.globe = null; this.arcLines = [];
+  }
+}
+
+// ── Mode NEBULA ───────────────────────────────────────────────────────────────
+
+class NebulaMode {
+  constructor() { this.sphere = null; this.trailMesh = null; this.trail = []; }
+  init(scene, camera) {
+    const geo = new THREE.SphereGeometry(0.5, 16, 16);
+    const mat = new THREE.MeshStandardMaterial({ color:0x00D4FF, emissive:0x00D4FF, emissiveIntensity:1.5 });
+    this.sphere = new THREE.Mesh(geo, mat);
+    scene.add(this.sphere);
+    camera.position.set(0, 0, 22);
+  }
+  update(state, dt) {
+    const x = ((state.excitation||0) - (state.anxiete||0)) * 8;
+    const y = ((state.curiosite||0) - (state.melancolie||0)) * 8;
+    const z = ((state.creativite||0) - (state.urgence||0)) * 8;
+    if (this.sphere) this.sphere.position.set(x, y, z);
+    this.trail.push(new THREE.Vector3(x, y, z));
+    if (this.trail.length > 500) this.trail.shift();
+    if (this.trailMesh) scene.remove(this.trailMesh);
+    if (this.trail.length > 2) {
+      const curve = new THREE.CatmullRomCurve3(this.trail.slice(-Math.min(this.trail.length,100)));
+      try {
+        const tubeGeo = new THREE.TubeGeometry(curve, 50, 0.05, 4, false);
+        const tubeMat = new THREE.MeshBasicMaterial({ color:0x4488FF, transparent:true, opacity:0.4 });
+        this.trailMesh = new THREE.Mesh(tubeGeo, tubeMat);
+        scene.add(this.trailMesh);
+      } catch(e) {}
+    }
+    const territory = state.drift_territory || 'ambient';
+    const bgColors = { ambient:'#000820', electronic:'#001820', industrial:'#200000', experimental:'#100020', drone:'#080808', jazz:'#001008', neoclassical:'#080818' };
+    const bgHex = bgColors[territory] || '#000510';
+    scene.background = new THREE.Color(bgHex);
+  }
+  dispose(scene) {
+    if (this.sphere) scene.remove(this.sphere);
+    if (this.trailMesh) scene.remove(this.trailMesh);
+    this.sphere = null; this.trailMesh = null; this.trail = [];
+  }
+}
+
+// ── Système de modes ──────────────────────────────────────────────────────────
+
+let activeModeName = 'neural';
+let activeMode = null;
+const MODES = { neural: NeuralMode, particles: ParticlesMode, globe: GlobeMode, nebula: NebulaMode };
+
+async function switchMode(name) {
+  if (!MODES[name]) { console.error('Unknown mode:', name); return; }
+  const fade = document.getElementById('fade');
+  fade.style.opacity = '1';
+  await new Promise(r => setTimeout(r, 300));
+  if (activeMode) activeMode.dispose(scene);
+  activeModeName = name;
+  activeMode = new MODES[name]();
+  activeMode.init(scene, camera);
+  document.getElementById('mode-indicator').textContent = '◆ ' + name.toUpperCase();
+  fade.style.opacity = '0';
+  console.log('Switched to mode:', name);
+}
+
+// Expose to console and keyboard
+window.switchMode = switchMode;
+
+// ── HUD ───────────────────────────────────────────────────────────────────────
+
+function updateHUD(st) {
+  const crisis = st.crisis_level || 0;
+  document.getElementById('drift').innerHTML =
+    `<div class="territory">◆ ${st.drift_territory||'ambient'}</div>` +
+    `<div>♪ ${Math.round(st.drift_bpm||90)} BPM · ${st.drift_key||'C minor'}</div>` +
+    `<div>${st.drift_timbre||'warm'}</div>` +
+    (crisis > 0.2 ? `<div class="crisis">⚠ CRISIS ${Math.round(crisis*100)}%</div>` : '');
+  const sh = st.source_health || {};
+  document.getElementById('sources').innerHTML =
+    Object.entries(sh).map(([k,v]) =>
+      `<span style="color:${v?'#446644':'#663333'}">${v?'●':'○'} ${k}</span>`
+    ).join('<br>');
+  if (st.journal_text) document.getElementById('journal').textContent = st.journal_text;
+  const evtEl = document.getElementById('event-banner');
+  if (st.active_event && st.event_intensity > 0) {
+    evtEl.textContent = st.event_label;
+    evtEl.style.opacity = String(0.4 + st.event_intensity * 0.6);
+  } else {
+    evtEl.style.opacity = '0';
+  }
+}
+
+// ── WebSocket ─────────────────────────────────────────────────────────────────
+
+function connect() {
+  const ws = new WebSocket('ws://localhost:8765');
+  ws.onopen = () => {
+    document.getElementById('ws-status').className = 'connected';
+    document.getElementById('ws-status').textContent = '● connected';
+    switchMode('neural');
+  };
+  ws.onmessage = e => {
+    const msg = JSON.parse(e.data);
+    const newMode = msg.state.visual_mode || 'neural';
+    if (newMode !== activeModeName) switchMode(newMode);
+    liveState = msg.state || {};
+    if (msg.nodes && msg.nodes.length) liveNodes = msg.nodes;
+    updateHUD(msg.state);
+  };
+  ws.onclose = () => {
+    document.getElementById('ws-status').className = '';
+    document.getElementById('ws-status').textContent = '◌ reconnecting…';
+    setTimeout(connect, 2000);
+  };
+  document.getElementById('ws-status').textContent = '◌ connecting…';
+}
+
+let liveState = {};
+let liveNodes  = [];   // real @node registry from WebSocket
+connect();
+
+// ── Render loop ───────────────────────────────────────────────────────────────
+
+function animate() {
+  requestAnimationFrame(animate);
+  const dt = clock.getDelta();
+  const t = clock.getElapsedTime();
+  let handled = false;
+  if (activeMode) handled = activeMode.update(liveState, dt) === true;
+  if (!handled) {
+    camera.position.x += (0 - camera.position.x) * 0.02;
+    camera.position.y += (0 - camera.position.y) * 0.02;
+    camera.lookAt(0,0,0);
+    renderer.render(scene, camera);
+  }
+}
+animate();
+
+// Keyboard shortcuts: 1=neural 2=particles 3=globe 4=nebula
+window.addEventListener('keydown', (e) => {
+  const map = { '1':'neural', '2':'particles', '3':'globe', '4':'nebula' };
+  if (map[e.key]) switchMode(map[e.key]);
+});
+
+window.addEventListener('resize', () => {
+  camera.aspect = innerWidth/innerHeight;
+  camera.updateProjectionMatrix();
+  renderer.setSize(innerWidth, innerHeight);
+});
+</script>
+</body>
+</html>

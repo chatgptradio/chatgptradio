@@ -17,6 +17,8 @@ dependencies = [
     "yfinance>=0.2",
     "asyncpraw>=7.7",
     "mediacloud>=4.0",
+    "pedalboard>=0.9.23",
+    "pyrubberband>=0.4.0",
 ]
 
 [build-system]

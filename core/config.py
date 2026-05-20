@@ -8,8 +8,8 @@ import yaml
 @dataclass
 class CollectorConfig:
     name: str
-    module: str
     interval_s: int
+    module: str = ""  # auto-derived as collectors.{name} if empty
 
 
 @dataclass
@@ -26,10 +26,23 @@ class SQLiteConfig:
 
 
 @dataclass
+class VariableEvent:
+    name: str
+    label: str
+    date: str  # "YYYY-MM-DD"
+
+
+@dataclass
+class CalendarConfig:
+    variable_events: list[VariableEvent] = field(default_factory=list)
+
+
+@dataclass
 class AppConfig:
     collectors: list[CollectorConfig] = field(default_factory=list)
     websocket: WebSocketConfig = field(default_factory=WebSocketConfig)
     sqlite: SQLiteConfig = field(default_factory=SQLiteConfig)
+    calendar: CalendarConfig = field(default_factory=CalendarConfig)
 
 
 def load_config(path: str | Path = "config.yaml") -> AppConfig:
@@ -38,8 +51,8 @@ def load_config(path: str | Path = "config.yaml") -> AppConfig:
     collectors = [
         CollectorConfig(
             name=c["name"],
-            module=c["module"],
             interval_s=c["interval_s"],
+            module=c.get("module", f"collectors.{c['name']}"),
         )
         for c in raw.get("collectors", [])
     ]
@@ -57,4 +70,16 @@ def load_config(path: str | Path = "config.yaml") -> AppConfig:
         history_retention_days=db_raw.get("history_retention_days", 90),
     )
 
-    return AppConfig(collectors=collectors, websocket=websocket, sqlite=sqlite)
+    cal_raw = raw.get("calendar", {})
+    calendar = CalendarConfig(
+        variable_events=[
+            VariableEvent(
+                name=ve["name"],
+                label=ve["label"],
+                date=ve["date"],
+            )
+            for ve in cal_raw.get("variable_events", [])
+        ]
+    )
+
+    return AppConfig(collectors=collectors, websocket=websocket, sqlite=sqlite, calendar=calendar)

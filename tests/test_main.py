@@ -1,5 +1,6 @@
 import asyncio
 import signal
+import socket
 
 from core.state import GlobalState
 from core.config import load_config
@@ -9,13 +10,20 @@ from core.websocket_server import start_websocket_server
 from core.collector_runner import start_all_collectors
 
 
+def _free_port() -> int:
+    with socket.socket() as s:
+        s.bind(("", 0))
+        return s.getsockname()[1]
+
+
 async def test_startup_and_sigterm_shutdown(tmp_path):
     import core.node as node_module
     node_module.NODE_REGISTRY.clear()
 
+    port = _free_port()
     cfg_path = tmp_path / "config.yaml"
     cfg_path.write_text(
-        "collectors: []\nwebsocket:\n  port: 18766\n  fps: 4\nsqlite:\n  path: "
+        f"collectors: []\nwebsocket:\n  port: {port}\n  fps: 4\nsqlite:\n  path: "
         + str(tmp_path / "state.db")
         + "\n"
     )
@@ -27,7 +35,7 @@ async def test_startup_and_sigterm_shutdown(tmp_path):
     updater = StateUpdater(state, db_conn)
     collector_tasks = start_all_collectors(config, updater.queue, state)
     ws_server_task, ws_broadcast_task = await start_websocket_server(
-        state, config.websocket.port, config.websocket.fps
+        state, port, config.websocket.fps
     )
     updater_task = asyncio.create_task(updater.run())
 
