@@ -1,6 +1,7 @@
 """DSP Engine — Pedalboard + pyrubberband → FFmpeg stdin → RTMP."""
 import asyncio
 import os
+import shutil
 import subprocess
 from pathlib import Path
 
@@ -98,6 +99,7 @@ async def run_dsp(
     state: GlobalState,
     playback_queue: asyncio.Queue,
     state_queue: asyncio.Queue,
+    browser_ready: asyncio.Event | None = None,
 ) -> None:
     rtmp_url = os.environ.get("RTMP_URL", "")
     if not rtmp_url:
@@ -109,14 +111,40 @@ async def run_dsp(
         log.warning("dsp_disabled", reason="RTMP_URL not set")
         return
 
+    display = os.environ.get("OVERLAY_DISPLAY", ":99")
+    use_x11grab = shutil.which("Xvfb") is not None and browser_ready is not None
+
+    if browser_ready is not None:
+        await browser_ready.wait()
+        log.info("dsp_browser_ready")
+
+    if use_x11grab:
+        video_input = [
+            "-f", "x11grab",
+            "-framerate", "30",
+            "-video_size", "1280x720",
+            "-i", f"{display}.0",
+        ]
+    else:
+        video_input = [
+            "-f", "lavfi",
+            "-i", "color=c=0x0a0a1a:s=1280x720:r=30",
+        ]
+
+    video_encode = [
+        "-c:v", "libx264", "-preset", "veryfast",
+        "-b:v", "400k", "-pix_fmt", "yuv420p",
+    ]
+    if not use_x11grab:
+        # static colour frame — stillimage tune cuts CPU/bitrate significantly
+        video_encode += ["-tune", "stillimage"]
+
     ffmpeg_cmd = [
         "ffmpeg", "-y",
-        # Static dark video — YouTube requires video; near-zero bitrate for static frame
-        "-f", "lavfi", "-i", "color=c=0x0a0a1a:s=1280x720:r=30",
+        *video_input,
         # Audio from stdin (PCM 16-bit stereo)
         "-f", "s16le", "-ar", str(_SR), "-ac", "2", "-i", "pipe:0",
-        "-c:v", "libx264", "-preset", "veryfast", "-tune", "stillimage",
-        "-b:v", "400k", "-pix_fmt", "yuv420p",
+        *video_encode,
         "-c:a", "aac", "-b:a", "192k",
         "-map", "0:v", "-map", "1:a",
         "-f", "flv", rtmp_url,
