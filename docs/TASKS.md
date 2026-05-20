@@ -118,14 +118,19 @@ PRD : `.claude/prds/phase3-collectors.md` | Plan : `.claude/plans/phase3-collect
 
 ---
 
-## Phase 4 — DSP & Visuel
+## Phase 4 — DSP & Visuel (EN COURS 🔄)
 
-| Module | Fichier | État |
-|--------|---------|------|
-| Pedalboard DSP engine | `core/dsp.py` | ❌ à créer |
-| FFmpeg → RTMP pipe | `core/dsp.py` | ❌ à créer |
-| Three.js overlay graph complet | `overlays/graph.html` | ❌ à créer |
-| DJ commentary | `core/commentary.py` | ❌ à créer |
+Vérifié 2026-05-20 — 298 tests verts. NO FAKE validé sur tous les overlays.
+
+| Module | Fichier | État | PR/Commit |
+|--------|---------|------|-----------|
+| Pedalboard DSP engine | `core/dsp.py` | ✅ mergé | 2f763f1 |
+| FFmpeg → RTMP pipe | `core/dsp.py` | ✅ mergé | 2f763f1 |
+| CalendarEngine 15 événements | `core/calendar_engine.py` | ✅ mergé | 2f763f1 |
+| Three.js graph @node | `overlays/graph.html` | ✅ mergé | 2f763f1 |
+| Three.js 4 modes (neural/particles/globe/nebula) | `overlays/visualizer.html` | ✅ mergé | 2f763f1 |
+| CNN Fear & Greed collecteur | `collectors/cnn_fear_greed.py` | ✅ mergé | 2f763f1 |
+| DJ commentary | `core/commentary.py` | ❌ à créer | — |
 
 ---
 
