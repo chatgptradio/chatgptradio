@@ -18,6 +18,7 @@ Return JSON only: {"artist": "...", "title": "..."}.
 
 _EMOTION_ORDER = [
     "excitement", "anxiety", "frustration", "curiosity", "creativity",
+    "wonder", "melancholy", "urgency",
 ]
 
 async def generate_track_name(state: GlobalState) -> str:

@@ -87,3 +87,28 @@ async def test_generate_track_name_returns_str():
         from core.track_namer import generate_track_name
         result = await generate_track_name(state)
     assert isinstance(result, str)
+
+
+def test_emotion_order_length():
+    """_EMOTION_ORDER has exactly 8 entries."""
+    from core.track_namer import _EMOTION_ORDER
+    assert len(_EMOTION_ORDER) == 8
+
+
+def test_wonder_in_top2_dominant_emotions():
+    """wonder with high prediction_error and low volatility appears in top-2 dominant emotions."""
+    from core.track_namer import _EMOTION_ORDER
+
+    state = _make_state(
+        prediction_errors={"wonder": 2.0},
+        signal_volatilities={"wonder": 0.1},
+    )
+
+    pe = state.prediction_errors
+    vol = state.signal_volatilities
+
+    def sig(k: str) -> float:
+        return abs(pe.get(k, 0.0)) / max(vol.get(k, 0.1), 0.001)
+
+    top2 = sorted(_EMOTION_ORDER, key=sig, reverse=True)[:2]
+    assert "wonder" in top2
