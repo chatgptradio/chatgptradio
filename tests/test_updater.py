@@ -121,3 +121,53 @@ def test_compute_derived_harmonic_complexity():
     s = GlobalState(curiosity=1.0, creativity=1.0)
     compute_derived(s)
     assert s.harmonic_complexity == pytest.approx(0.6 + 0.4)
+
+
+def test_wonder_positive_when_curiosity_pe_high():
+    s = GlobalState()
+    s.prediction_errors["curiosity"] = 2.0
+    s.signal_volatilities["curiosity"] = 0.1
+    compute_derived(s)
+    assert s.wonder > 0
+
+
+def test_melancholy_positive_when_low_audience_long_territory():
+    s = GlobalState()
+    s.audience_energy = 0.0
+    s.time_in_territory_h = 8.0
+    compute_derived(s)
+    assert s.melancholy > 0.5
+
+
+def test_urgency_positive_when_world_event_burst():
+    s = GlobalState()
+    # Trigger world_event_burst via gdelt PE > 2× vol, and set a real crisis
+    s.prediction_errors["gdelt_conflict_intensity"] = 1.0
+    s.signal_volatilities["gdelt_conflict_intensity"] = 0.1
+    s.openai_status = 0.0  # drives crisis_level via openai_crisis = 1.0
+    compute_derived(s)
+    assert s.urgency > 0
+
+
+async def test_wonder_prediction_error_set_after_updater_cycle(db):
+    s = GlobalState()
+    # Seed a low curiosity baseline so that enqueueing a high value produces a real PE,
+    # which in turn makes compute_derived yield wonder > 0 and register it in self-model.
+    s.signal_baselines["curiosity"] = 0.0
+    s.signal_volatilities["curiosity"] = 0.1
+    updater = StateUpdater(s, db)
+    task = asyncio.create_task(updater.run())
+
+    # Cycle 1: curiosity = 1.0 vs baseline 0.0 → PE = 1.0 → wonder > 0 → wonder baseline set
+    await updater.enqueue("curiosity", 1.0)
+    await updater.queue.join()
+    # Cycle 2: curiosity = 0.0 → PE negative → wonder drops → wonder PE != 0
+    await updater.enqueue("curiosity", 0.0)
+    await updater.queue.join()
+    task.cancel()
+    try:
+        await task
+    except asyncio.CancelledError:
+        pass
+
+    assert s.prediction_errors.get("wonder", 0) != 0

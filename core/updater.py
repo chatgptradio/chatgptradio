@@ -66,6 +66,29 @@ def compute_derived(state: GlobalState) -> None:
         max(abs(v) for v in state.prediction_errors.values()) if state.prediction_errors else 0.0
     )
 
+    pe = state.prediction_errors
+    vol = state.signal_volatilities
+
+    def _z(signal: str) -> float:
+        return pe.get(signal, 0.0) / max(vol.get(signal, 0.1), 0.001)
+
+    state.wonder = max(0.0, min(1.0,
+        0.4 * _z("curiosity")
+        + 0.3 * _z("arxiv_papers_today")
+        + 0.2 * _z("github_ai_stars")
+        + 0.1 * _z("hedonometer_happiness")
+    ))
+    state.melancholy = max(0.0, min(1.0,
+        0.4 * (1.0 - state.audience_energy)
+        + 0.3 * max(0.0, -_z("hedonometer_happiness"))
+        + 0.3 * min(state.time_in_territory_h / 4.0, 1.0)
+    ))
+    state.urgency = max(0.0, min(1.0,
+        0.4 * min(abs(state.drift_velocity) * 5.0, 1.0)
+        + 0.3 * state.crisis_level
+        + 0.3 * float(state.world_event_burst)
+    ))
+
 
 class StateUpdater:
     def __init__(self, state: GlobalState, db_conn: aiosqlite.Connection) -> None:
@@ -99,6 +122,8 @@ class StateUpdater:
             try:
                 self._apply(signal, value)
                 compute_derived(self.state)
+                for sig in ("wonder", "melancholy", "urgency"):
+                    update_self_model(self.state, sig, getattr(self.state, sig))
 
                 now = time.monotonic()
                 dt_h = (now - self._last_ts) / 3600.0
