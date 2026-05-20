@@ -378,3 +378,32 @@ async def test_index_clip_called_with_display_name(tmp_path):
     assert len(recorded) >= 1
     assert all(r["display_name"] == "Test Artist - Test Track" for r in recorded)
     await conn.close()
+
+
+# ── find_reference includes source='reference' clips ─────────────────────────
+
+
+@pytest.mark.asyncio
+async def test_find_reference_returns_reference_source_clip(tmp_path):
+    """find_reference() selects clips with source='reference'."""
+    from core.audio_library import index_clip
+    from core.audio_queue import find_reference
+
+    state = GlobalState()
+    conn = await _make_conn(tmp_path)
+
+    # Create a real file so the path existence check passes
+    ref_clip = tmp_path / "ref_001.mp3"
+    ref_clip.write_bytes(b"fake_ref_audio")
+
+    # Insert a clip with source='reference' and play_count=1
+    await index_clip(conn, ref_clip, state, prompt="", source="reference")
+    await conn.execute(
+        "UPDATE audio_clips SET play_count = 1 WHERE path = ?", (str(ref_clip),)
+    )
+    await conn.commit()
+
+    result = await find_reference(conn, state)
+
+    assert result == ref_clip
+    await conn.close()

@@ -691,42 +691,6 @@ def build_music_prompt(state: GlobalState) -> str:
 
 ---
 
-### Ordre d'implémentation recommandé (sans réécriture)
-
-Chaque étape est un système fonctionnel et streamable.
-
-```
-Étape 1 — Fondation
-  GlobalState dataclass + SQLite persistence (aiosqlite)
-  → State s'écrit et se lit. Rien d'autre.
-
-Étape 2 — Premier signal réel
-  Collecteur OpenAI Status RSS → met à jour openai_ok + api_latency
-  → GlobalState a une vraie valeur qui change en temps réel.
-
-Étape 3 — WebSocket broadcast
-  Serveur asyncio → broadcast GlobalState en JSON à chaque update
-  → n'importe quel client peut lire l'état en temps réel.
-
-Étape 4 — Three.js minimaliste (3 nœuds seulement)
-  [Reddit] → [BERT sentiment] → [excitement]
-  → Premier graphe fonctionnel, OBS Browser Source connecté.
-
-Étape 5 — Premier son
-  build_music_prompt(state) → Stable Audio 2.5 → fichier audio → FFmpeg queue
-  → Stream live avec musique réelle pilotée par GlobalState.
-
-Étape 6 — Premier journal
-  build_journal_context(state) → GPT-4o → ticker overlay
-  → Le stream pense à voix haute.
-
-Étape 7+ — Collecteurs additionnels (un par un)
-  Reddit → Twitter → Google Trends → HN → Wikipedia → YouTube chat
-  Chaque ajout = nouveaux nœuds dans le graphe, plus de signal, même architecture.
-```
-
----
-
 ## Génération Musicale — Architecture Technique
 
 ### Le problème économique de base

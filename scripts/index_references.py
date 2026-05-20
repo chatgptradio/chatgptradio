@@ -9,8 +9,7 @@ No renaming — original artist/title filenames are kept.
 The DB is the source of truth for what a clip sounds like.
 
 Usage:
-    # Move your reference tracks to streams/references/ first, then:
-    uv run python scripts/index_references.py [--force]
+    uv run --group scripts python scripts/index_references.py [--force]
 
     --force : re-index already-indexed files (updates metadata)
 """

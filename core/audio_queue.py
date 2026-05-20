@@ -107,7 +107,7 @@ async def find_reference(
     async with conn.execute(
         """
         SELECT path FROM audio_clips
-        WHERE source IN ('generated', 'fal_derived')
+        WHERE source IN ('generated', 'fal_derived', 'reference')
           AND play_count >= 1
         ORDER BY last_played_at DESC
         LIMIT 5
