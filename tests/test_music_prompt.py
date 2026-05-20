@@ -131,3 +131,75 @@ def test_territory_drone():
     state = GlobalState(drift_territory="drone")
     result = bmp(state)
     assert "drone" in result
+
+
+def test_territory_lo_fi():
+    from builders.music_prompt import build_music_prompt as bmp
+    state = GlobalState(drift_territory="lo-fi")
+    result = bmp(state)
+    assert "lo-fi hip hop" in result
+
+
+def test_territory_cinematic():
+    from builders.music_prompt import build_music_prompt as bmp
+    state = GlobalState(drift_territory="cinematic")
+    result = bmp(state)
+    assert "cinematic" in result
+
+
+def test_territory_darkwave():
+    from builders.music_prompt import build_music_prompt as bmp
+    state = GlobalState(drift_territory="darkwave")
+    result = bmp(state)
+    assert "darkwave" in result
+
+
+def test_territory_techno():
+    from builders.music_prompt import build_music_prompt as bmp
+    state = GlobalState(drift_territory="techno")
+    result = bmp(state)
+    assert "techno" in result
+
+
+def test_territory_psych():
+    from builders.music_prompt import build_music_prompt as bmp
+    state = GlobalState(drift_territory="psych")
+    result = bmp(state)
+    assert "psychedelic" in result
+
+
+def test_territory_noise():
+    from builders.music_prompt import build_music_prompt as bmp
+    state = GlobalState(drift_territory="noise")
+    result = bmp(state)
+    assert "noise" in result
+
+
+def test_territory_minimalist():
+    from builders.music_prompt import build_music_prompt as bmp
+    state = GlobalState(drift_territory="minimalist")
+    result = bmp(state)
+    assert "minimalist" in result
+
+
+def test_territory_blues():
+    from builders.music_prompt import build_music_prompt as bmp
+    state = GlobalState(drift_territory="blues")
+    result = bmp(state)
+    assert "blues" in result
+
+
+def test_all_15_territories_no_fallback():
+    from builders.music_prompt import build_music_prompt as bmp
+    territories = [
+        "ambient", "electronic", "jazz", "industrial", "neoclassical",
+        "experimental", "drone", "lo-fi", "cinematic", "darkwave",
+        "techno", "psych", "noise", "minimalist", "blues",
+    ]
+    for territory in territories:
+        state = GlobalState(drift_territory=territory)
+        result = bmp(state)
+        if territory != "ambient":
+            assert "ambient electronic" not in result, (
+                f"Territory '{territory}' fell back to default 'ambient electronic': {result}"
+            )

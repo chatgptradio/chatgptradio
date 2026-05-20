@@ -10,6 +10,14 @@ _TERRITORY_PROFILE: dict[str, tuple[str, str, str]] = {
     "neoclassical": ("neoclassical",            "piano, chamber strings, sparse arrangement",        "refined, melancholic"),
     "experimental": ("experimental electronic", "granular synthesis, glitch textures, atonal pads",  "avant-garde, unpredictable"),
     "drone":        ("drone ambient",           "sustained tones, subharmonics, morphing pads",      "hypnotic, minimal"),
+    "lo-fi":        ("lo-fi hip hop",           "warm Rhodes, vinyl crackle, muted 808",             "loopable, cassette warmth"),
+    "cinematic":    ("cinematic score",         "orchestral strings, piano, swelling brass",         "high quality, no vocals"),
+    "darkwave":     ("darkwave",                "cold synths, minor arpeggios, distant reverb",      "bleak, cavernous"),
+    "techno":       ("techno",                  "driving kick, acid bassline, mechanical arpeggios", "club-ready, relentless"),
+    "psych":        ("psychedelic ambient",     "modular drones, phased guitars, spatial reverb",    "mind-expanding, surreal"),
+    "noise":        ("harsh noise",             "saturated feedback, distorted drones, broken rhythms", "abrasive, maximal"),
+    "minimalist":   ("minimalist",              "sparse piano, long tones, silence as texture",      "breathing room, austere"),
+    "blues":        ("blues",                   "slide guitar, walking bass, brushed snare",         "raw, intimate, soulful"),
 }
 
 _EMOTION_DESCRIPTORS: dict[str, tuple[str, str]] = {
@@ -61,10 +69,8 @@ def build_music_prompt(state: GlobalState, prev_prompt: str | None = None) -> st
         ("ambient electronic", "evolving pads, sparse textures", "44.1kHz stereo"),
     )
 
-    # Crisis overrides genre and adds degradation descriptors
+    # Crisis level modifies emotional color; genre/instruments follow the territory
     if state.crisis_level > 0.5:
-        genre = "glitch ambient"
-        instruments = "fragmented pads, broken rhythms, hollow drones"
         emotional_color += ", signal degradation, system failure undertone"
     elif state.crisis_level > 0.2:
         emotional_color += ", slight instability, tension without resolution"
