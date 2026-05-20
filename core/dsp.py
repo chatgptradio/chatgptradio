@@ -133,10 +133,10 @@ async def run_dsp(
 
     video_encode = [
         "-c:v", "libx264", "-preset", "veryfast",
-        "-b:v", "400k", "-pix_fmt", "yuv420p",
+        "-b:v", "2500k", "-minrate", "2500k", "-maxrate", "2500k",
+        "-bufsize", "5000k", "-pix_fmt", "yuv420p",
     ]
     if not use_x11grab:
-        # static colour frame — stillimage tune cuts CPU/bitrate significantly
         video_encode += ["-tune", "stillimage"]
 
     ffmpeg_cmd = [
@@ -156,7 +156,7 @@ async def run_dsp(
     def _start_ffmpeg() -> subprocess.Popen[bytes]:
         return subprocess.Popen(
             ffmpeg_cmd, stdin=subprocess.PIPE,
-            stdout=subprocess.DEVNULL, stderr=subprocess.PIPE,
+            stdout=subprocess.DEVNULL, stderr=subprocess.DEVNULL,
         )
 
     proc: subprocess.Popen[bytes] = await loop.run_in_executor(None, _start_ffmpeg)
@@ -173,22 +173,53 @@ async def run_dsp(
                 restart_delay = 2.0
 
             try:
-                clip_path: Path = await asyncio.wait_for(playback_queue.get(), timeout=1.0)
-            except asyncio.TimeoutError:
+                clip_path = playback_queue.get_nowait()
+            except asyncio.QueueEmpty:
+                # No clip ready — write one silence chunk at real-time rate.
+                if proc.poll() is None and proc.stdin is not None:
+                    try:
+                        await loop.run_in_executor(
+                            None, proc.stdin.write, bytes(_CHUNK_SAMPLES * 4)
+                        )
+                    except BrokenPipeError:
+                        log.warning("dsp_ffmpeg_pipe_broken")
+                        proc = await loop.run_in_executor(None, _start_ffmpeg)
+                await asyncio.sleep(_CHUNK_SAMPLES / _SR)
                 continue
 
-            try:
-                audio = await loop.run_in_executor(
-                    None, _read_and_stretch, clip_path, state.drift_bpm
-                )
-                audio = await loop.run_in_executor(None, _normalize_lufs, audio, _SR)
-            except Exception:
-                log.exception("dsp_read_error", path=str(clip_path))
+            # Process clip in a background task so we can keep writing silence
+            # to FFmpeg stdin during CPU-intensive operations (prevents A/V stall).
+            async def _process_clip() -> np.ndarray:
+                try:
+                    a = await loop.run_in_executor(
+                        None, _read_and_stretch, clip_path, state.drift_bpm
+                    )
+                    a = await loop.run_in_executor(None, _normalize_lufs, a, _SR)
+                except Exception:
+                    log.exception("dsp_read_error", path=str(clip_path))
+                    return np.array([], dtype=np.float32)
+                ch = _build_chain(state)
+                return await loop.run_in_executor(None, _process_audio, a, ch)
+
+            process_task = asyncio.create_task(_process_clip())
+
+            pipe_ok = True
+            while not process_task.done():
+                if proc.poll() is None and proc.stdin is not None:
+                    try:
+                        await loop.run_in_executor(
+                            None, proc.stdin.write, bytes(_CHUNK_SAMPLES * 4)
+                        )
+                    except BrokenPipeError:
+                        log.warning("dsp_ffmpeg_pipe_broken")
+                        proc = await loop.run_in_executor(None, _start_ffmpeg)
+                        pipe_ok = False
+                await asyncio.sleep(_CHUNK_SAMPLES / _SR)
+
+            processed = await process_task
+            if not pipe_ok or len(processed) == 0:
                 playback_queue.task_done()
                 continue
-
-            chain = _build_chain(state)
-            processed = await loop.run_in_executor(None, _process_audio, audio, chain)
 
             if prev_audio is not None:
                 tail_len = min(_CROSSFADE_SAMPLES, len(prev_audio), len(processed))

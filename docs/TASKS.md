@@ -80,15 +80,16 @@ Vérifié le 2026-05-20 — smoke test OK : GlobalState 77 champs, WebSocket 4fp
 | DB schema : table `journal_entries` | `core/db.py` | ✅ mergé |
 | DB schema : colonne `viewers.display_name` | `core/db.py` | ✅ mergé |
 | GlobalState : champ `journal_text` | `core/state.py` | ✅ mergé |
-| `CommandEngine` instancié dans main.py | `main.py` | ⏳ dépend YouTube Live Chat |
+| `CommandEngine` instancié dans main.py | `main.py` | ✅ câblé (PR #130) |
 
-### Bloqué — activation YouTube requise
+### Activation YouTube — TERMINÉ ✅ (2026-05-20)
 
 | Module | Fichier | État |
 |--------|---------|------|
-| YouTube broadcast lifecycle | `core/youtube.py` | ❌ bloqué activation YouTube |
-| YouTube Live Chat polling | `collectors/chat.py` | ❌ bloqué activation YouTube |
-| GPT-4o-mini réponses in-character | `collectors/chat.py` | ❌ bloqué activation YouTube |
+| YouTube Live Chat polling (pytchat) | `collectors/youtube_chat.py` | ✅ PR #130 |
+| !commands (song/request/vibe) | `core/chat_commands.py` | ✅ PR #130 |
+| CommandEngine injecté via make_collector() | `main.py` | ✅ PR #130 |
+| YouTube broadcast lifecycle (auto-start) | `core/youtube.py` | ❌ pas encore implémenté |
 
 ### Prérequis manuels
 
@@ -99,8 +100,10 @@ Vérifié le 2026-05-20 — smoke test OK : GlobalState 77 champs, WebSocket 4fp
 | `openai` installé | ✅ OK (PR #79) |
 | `FAL_API_KEY` dans `.env` | ✅ OK |
 | `OPENAI_API_KEY` dans `.env` | ✅ OK |
-| YouTube Studio → activation live streaming | ❌ en cours |
-| Stream Key + RTMP URL dans `.env` | ❌ après activation YouTube |
+| YouTube Studio → activation live streaming | ✅ actif |
+| Stream Key + RTMP URL dans `.env` | ✅ configuré |
+| `YOUTUBE_CHANNEL_ID` dans `.env` | ✅ configuré |
+| Xvfb + Chromium installés | ✅ installés |
 
 ---
 
@@ -129,7 +132,9 @@ PRD : `.claude/prds/phase3-collectors.md` | Plan : `.claude/plans/phase3-collect
 
 ## Phase 4 — DSP & Visuel (EN COURS 🔄)
 
-Vérifié 2026-05-20 — 298 tests verts. NO FAKE validé sur tous les overlays.
+Vérifié 2026-05-20 — 353+ tests verts. NO FAKE validé sur tous les overlays. Stream live actif.
+
+### Pipeline initial (2026-05-20)
 
 | Module | Fichier | État | PR/Commit |
 |--------|---------|------|-----------|
@@ -139,6 +144,24 @@ Vérifié 2026-05-20 — 298 tests verts. NO FAKE validé sur tous les overlays.
 | Three.js graph @node | `overlays/graph.html` | ✅ mergé | 2f763f1 |
 | Three.js 4 modes (neural/synapse/particles/chaos) | `overlays/visualizer.html` | ✅ mergé | PR #118 |
 | CNN Fear & Greed collecteur | `collectors/cnn_fear_greed.py` | ✅ mergé | 2f763f1 |
+| SceneRotator (rotation 6 modes auto) | `core/scene_rotator.py` | ✅ mergé | 2f763f1 |
+
+### Pipeline visuel headless (2026-05-20)
+
+| Module | Fichier | État | Notes |
+|--------|---------|------|-------|
+| LUFS normalization (-14 LUFS) | `core/dsp.py` | ✅ hotfix | pyloudnorm, ±18dB cap |
+| Real-time audio throttle (4096-sample chunks) | `core/dsp.py` | ✅ hotfix | `asyncio.sleep` entre chunks |
+| Overlay HTTP server (aiohttp static) | `main.py` | ✅ PR #129 | port 8080, sert `overlays/` |
+| browser_display.py (Xvfb + Chromium) | `core/browser_display.py` | ✅ PR #129 | auto-restart Chromium |
+| Chromium SwiftShader (WebGL headless) | `core/browser_display.py` | ✅ hotfix | `--enable-unsafe-swiftshader --use-gl=swiftshader` |
+| x11grab DSP pipeline | `core/dsp.py` | ✅ PR #132 | `-f x11grab -i :99.0` |
+| YouTube Live Chat (pytchat, no quota) | `collectors/youtube_chat.py` | ✅ PR #130 | `!commands` câblés |
+| YouTube API quota backoff | `collectors/youtube_chat.py` | ✅ hotfix | 2 min / 1h selon erreur 403 |
+| Silence filler PCM (gap entre clips) | `core/dsp.py` | ✅ hotfix | `get_nowait()` + silence real-time |
+| Background DSP processing (silence pendant encoding) | `core/dsp.py` | ✅ hotfix | `asyncio.create_task` |
+| FFmpeg stderr DEVNULL (évite deadlock pipe) | `core/dsp.py` | ✅ hotfix | buffer 64KB → plus de stall |
+| FFmpeg CBR 2500k (débit YouTube recommandé) | `core/dsp.py` | ✅ hotfix | `-b:v 2500k -minrate -maxrate -bufsize` |
 
 ---
 

@@ -17,10 +17,13 @@ SOURCE_NAME = "youtube_chat"
 COLLECTOR_META = {"name": SOURCE_NAME, "interval_s": 10}
 
 _video_id_cache: str | None = None
+_search_backoff_until: float = 0.0  # epoch seconds; don't search before this time
+_SEARCH_BACKOFF_NO_LIVE = 120.0    # 2 min when no live found
+_SEARCH_BACKOFF_QUOTA = 3600.0     # 1 hr when quota exceeded
 
 
 async def _resolve_video_id() -> str | None:
-    global _video_id_cache
+    global _video_id_cache, _search_backoff_until
     if _video_id_cache:
         return _video_id_cache
 
@@ -28,6 +31,10 @@ async def _resolve_video_id() -> str | None:
     if vid:
         _video_id_cache = vid
         return vid
+
+    now = time.time()
+    if now < _search_backoff_until:
+        return None
 
     channel_id = os.environ.get("YOUTUBE_CHANNEL_ID", "").strip()
     api_key = os.environ.get("YOUTUBE_API_KEY", "").strip()
@@ -40,6 +47,7 @@ async def _resolve_video_id() -> str | None:
 
     try:
         from googleapiclient.discovery import build  # type: ignore[import-untyped]
+        from googleapiclient.errors import HttpError  # type: ignore[import-untyped]
 
         service = build("youtube", "v3", developerKey=api_key)
         resp = (
@@ -55,12 +63,22 @@ async def _resolve_video_id() -> str | None:
         items = resp.get("items", [])
         if not items:
             log.warning("youtube_chat_no_live", channel_id=channel_id)
+            _search_backoff_until = time.time() + _SEARCH_BACKOFF_NO_LIVE
             return None
         _video_id_cache = items[0]["id"]["videoId"]
         log.info("youtube_chat_video_found", video_id=_video_id_cache)
         return _video_id_cache
+    except HttpError as exc:
+        if exc.status_code == 403:
+            log.warning("youtube_chat_quota_exceeded", backoff_s=_SEARCH_BACKOFF_QUOTA)
+            _search_backoff_until = time.time() + _SEARCH_BACKOFF_QUOTA
+        else:
+            log.exception("youtube_chat_search_error")
+            _search_backoff_until = time.time() + _SEARCH_BACKOFF_NO_LIVE
+        return None
     except Exception:
         log.exception("youtube_chat_search_error")
+        _search_backoff_until = time.time() + _SEARCH_BACKOFF_NO_LIVE
         return None
 
 

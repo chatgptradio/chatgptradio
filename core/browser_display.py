@@ -49,7 +49,14 @@ async def run_browser_display(
     async def _start_chromium() -> asyncio.subprocess.Process:
         return await asyncio.create_subprocess_exec(
             chromium_bin,
-            "--no-sandbox", "--disable-gpu",
+            "--no-sandbox",
+            "--disable-gpu",
+            "--enable-unsafe-swiftshader",   # software WebGL on headless Xvfb
+            "--ignore-gpu-blocklist",
+            "--use-gl=swiftshader",
+            "--disable-dev-shm-usage",
+            "--no-first-run",
+            "--test-type",                   # suppresses --no-sandbox warning bar
             "--window-size=1280,720",
             f"--display={display}",
             f"--app={overlay_url}",

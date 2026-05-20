@@ -405,6 +405,14 @@ Représentation : forme d'énergie abstraite Three.js (pulse, contracte, couleur
 | 2026-05-20 | Override crise genre glitch SUPPRIMÉ : territoire noise gère ça nativement via drift. L'override était un NO FAKE. | VALIDÉ |
 | 2026-05-20 | find_reference()/find_reusable() scoring state-aware : territoire (+3) + BPM proximity ±15 (+2) + cosine mood (+1) | VALIDÉ |
 | 2026-05-20 | last_prompt_hash : MD5 8 chars du prompt — skip génération si hash inchangé ET queue_length > 0 | VALIDÉ |
+| 2026-05-20 | Pipeline visuel headless : Xvfb :99 + Chromium SwiftShader → x11grab → FFmpeg → RTMP. Pas d'OBS. | VALIDÉ |
+| 2026-05-20 | Chromium SwiftShader : `--enable-unsafe-swiftshader --use-gl=swiftshader --ignore-gpu-blocklist` — WebGL sans GPU physique (headless server) | VALIDÉ |
+| 2026-05-20 | FFmpeg CBR 2500k : `-b:v 2500k -minrate 2500k -maxrate 2500k -bufsize 5000k` — YouTube recommande 2500 Kbps minimum 720p30. CBR évite les drops de débit pendant le silence. | VALIDÉ |
+| 2026-05-20 | Silence filler PCM : `get_nowait()` + silence chunk 4096 samples à chaque itération vide — maintient le flux audio en continu pour éviter timeout RTMP YouTube | VALIDÉ |
+| 2026-05-20 | Background DSP processing : `asyncio.create_task(_process_clip())` pendant que le silence continue d'être écrit — évite le stall A/V pendant l'encoding Pedalboard (5-10s) | VALIDÉ |
+| 2026-05-20 | FFmpeg stderr=DEVNULL : pipe DEVNULL au lieu de PIPE — évite deadlock quand buffer 64KB se remplit (FFmpeg bloque sur stderr → stdin stalle → BrokenPipeError) | VALIDÉ |
+| 2026-05-20 | YouTube API quota backoff : 2 min si pas de live trouvé, 1h si 403 quotaExceeded. `search.list` = 100 unités/appel, quota épuisé en 17 min sans backoff. | VALIDÉ |
+| 2026-05-20 | YouTube broadcast lifecycle (`core/youtube.py`) : activation manuelle YouTube Studio pour l'instant. Implémentation auto-start à faire en Phase 4. | EN DISCUSSION |
 
 ---
 
@@ -1095,38 +1103,42 @@ def derive_territory_from_errors(pe: dict, vol: dict) -> str:
 
 ### Phase 0+1 — TERMINÉE ✅ (2026-05-17)
 
-GlobalState (80+ champs), StateUpdater, SQLite WAL, self_model EMA, drift momentum, collector_runner, WebSocket 4fps, collecteur OpenAI Status RSS. 168 tests verts.
+GlobalState (80+ champs), StateUpdater, SQLite WAL, self_model EMA, drift momentum, collector_runner, WebSocket 4fps, collecteur OpenAI Status RSS. 353+ tests verts.
 
-### Phase 2 — EN COURS 🔄
+### Phase 2 — TERMINÉE ✅ (2026-05-20)
 
-**Audio intelligence — TERMINÉ ✅ (2026-05-20, PRs #96–#105)**
+**Audio intelligence (PRs #96–#105)**
 - 15 territoires dans drift.py + music_prompt.py
 - `wonder`, `melancholy`, `urgency` : champs dérivés GlobalState + self-model complet
 - `strength` / `guidance_scale` / `total_seconds` state-driven (NO HARDCODE)
 - `find_reference()` + `find_reusable()` : scoring state-aware (territoire + BPM + mood)
 - `last_prompt_hash` : dédup génération redondante
-- librosa dans `pyproject.toml` (group scripts)
 
-**Bibliothèque audio — corrections 2026-05-20**
-- `find_reusable` exclut `source='reference'` — références jamais jouées directement
-- `find_reference` : références éligibles dès indexation (plus de deadlock `play_count >= 1`)
-- Auto-scan `streams/references/` au démarrage (indexation sans librosa)
-- Flux : `/references` → sources audio-to-audio fal.ai → `/audio` (lecture directe)
-- Nomenclature affichée : `"Artiste - Titre"` via GPT-4o-mini (`track_namer.py`)
+**Câblage prod (PR #130)**
+- `run_audio_queue()` / `run_journal()` / `CommandEngine` dans `main.py` ✅
+- YouTube Live Chat (pytchat, zéro quota) + !commands câblés ✅
 
-**Bloqué — activation YouTube requise**
-- `run_audio_queue()` / `run_journal()` / `CommandEngine` dans `main.py`
-- YouTube broadcast lifecycle, Live Chat polling, réponses GPT-4o-mini
+**YouTube broadcast lifecycle** — `core/youtube.py` (auto-start, rotation 8h) : non implémenté, activation manuelle via YouTube Studio pour l'instant.
 
 ### Phase 3 — TERMINÉE ✅ (2026-05-20)
 
-333 tests verts. Collecteurs : HN, Wikipedia, Google Trends, GDELT, Hedonometer, yfinance, ArXiv, Nitter RSS, GitHub trending, Reddit, NewsAPI.ai, Media Cloud.
+353+ tests verts. Collecteurs : HN, Wikipedia, Google Trends, GDELT, Hedonometer, yfinance, ArXiv, Nitter RSS, GitHub trending, Reddit, NewsAPI.ai, Media Cloud.
 
-### Phase 4 — EN COURS 🔄
+### Phase 4 — EN COURS 🔄 (stream live actif)
 
-Pedalboard DSP ✅ · CalendarEngine ✅ · Three.js 4 modes (neural / synapse / particles / chaos) ✅
-Corrections bibliothèque audio (find_reusable, find_reference, auto-index références) ✅
-Prochaine étape : activation YouTube → câblage prod (run_audio_queue, run_journal, CommandEngine).
+**Pipeline audio/DSP ✅**
+- Pedalboard DSP + pyrubberband time-stretch + LUFS normalization (-14 LUFS)
+- FFmpeg CBR 2500k (YouTube recommended) · silence filler real-time · background DSP processing
+- CalendarEngine 15 événements
+
+**Pipeline visuel headless ✅**
+- Xvfb :99 + Chromium SwiftShader (WebGL sans GPU) → x11grab → FFmpeg → RTMP YouTube
+- Overlay HTTP server (aiohttp, port 8080) · browser_display.py avec auto-restart
+- Three.js 6 modes (neural / synapse / particles / chaos / globe / nebula) · SceneRotator
+
+**Prochaine étape**
+- YouTube broadcast auto-lifecycle (`core/youtube.py`) — rotation toutes les 8h
+- Phase 3 collectors à activer dans `config.yaml` (tous implémentés, aucun actif sauf OpenAI Status + YouTube Chat)
 
 ### Phase 5 — À FAIRE ❌
 
