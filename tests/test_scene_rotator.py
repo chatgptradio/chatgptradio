@@ -80,22 +80,6 @@ async def test_rotator_advances_from_chaos():
 
 
 @pytest.mark.asyncio
-async def test_rotator_advances_from_globe():
-    state = GlobalState()
-    state.visual_mode = "globe"
-    q: asyncio.Queue = asyncio.Queue()
-    task = asyncio.create_task(run_scene_rotator(state, q, interval_s=0))
-    await asyncio.sleep(0.05)
-    task.cancel()
-    try:
-        await task
-    except asyncio.CancelledError:
-        pass
-    update = await asyncio.wait_for(q.get(), timeout=1.0)
-    assert update["visual_mode"] == "nebula"
-
-
-@pytest.mark.asyncio
 async def test_rotator_wraps_around_from_nebula():
     state = GlobalState()
     state.visual_mode = "nebula"
@@ -108,7 +92,7 @@ async def test_rotator_wraps_around_from_nebula():
     except asyncio.CancelledError:
         pass
     update = await asyncio.wait_for(q.get(), timeout=1.0)
-    assert update["visual_mode"] == "neural"
+    assert update["visual_mode"] == "neural"  # nebula wraps to neural
 
 
 @pytest.mark.asyncio

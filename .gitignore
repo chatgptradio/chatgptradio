@@ -6,11 +6,12 @@ accounts/*/credentials.json
 streams/*.json
 streams/state.db
 streams/decisions.log
-streams/audio/*.mp3
-streams/audio/*.wav
-streams/references/*.mp3
-streams/references/*.wav
-streams/references/*.flac
+streams/audio/*
+!streams/audio/.gitkeep
+streams/references/*
+!streams/references/.gitkeep
+assets/fallback/*
+!assets/fallback/.gitkeep
 logs/
 __pycache__/
 *.pyc

@@ -5,6 +5,7 @@ from __future__ import annotations
 import asyncio
 import hashlib
 import os
+import time
 from pathlib import Path
 
 import aiosqlite
@@ -16,13 +17,32 @@ from core.track_namer import generate_track_name
 
 log = structlog.get_logger()
 
-_POLL_INTERVAL = 5.0          # seconds between queue-fill attempts
-_QUEUE_TARGET  = 2            # desired minimum clips in playback_queue
-_CLIPS_DIR     = Path("streams/audio")
-_FALLBACK_DIR  = Path("assets/fallback")
+_POLL_INTERVAL    = 5.0          # seconds between queue-fill attempts
+_QUEUE_TARGET     = 2            # desired minimum clips in playback_queue
+_RESCAN_INTERVAL  = 60.0         # seconds between references directory rescans
+_CLIPS_DIR        = Path("streams/audio")
+_FALLBACK_DIR     = Path("assets/fallback")
+_REFERENCES_DIR   = Path("streams/references")
+_AUDIO_EXTENSIONS = {".mp3", ".wav", ".flac", ".ogg", ".m4a"}
 
 
 # ── Helpers ───────────────────────────────────────────────────────────────────
+
+
+async def _get_ref_duration(path: Path) -> int:
+    """Return audio duration in seconds via ffprobe, or 0 on failure."""
+    proc = await asyncio.create_subprocess_exec(
+        "ffprobe", "-v", "quiet",
+        "-show_entries", "format=duration",
+        "-of", "csv=p=0", str(path),
+        stdout=asyncio.subprocess.PIPE,
+        stderr=asyncio.subprocess.DEVNULL,
+    )
+    stdout, _ = await proc.communicate()
+    try:
+        return int(float(stdout.decode().strip()))
+    except (ValueError, UnicodeDecodeError):
+        return 0
 
 
 async def _wav_to_mp3(wav_bytes: bytes) -> bytes:
@@ -87,6 +107,10 @@ async def _generate_from_reference(ref_path: Path, prompt: str, state: GlobalSta
         1.0 + state.source_divergence * 0.2
     ))
 
+    # Use reference file's actual duration (no arbitrary cap) — max 190s (Stable Audio limit)
+    ref_secs = await _get_ref_duration(ref_path)
+    total_seconds = min(max(ref_secs, 30), 190) if ref_secs else 90
+
     result = await fal_client.run_async(
         "fal-ai/stable-audio-25/audio-to-audio",
         arguments={
@@ -95,7 +119,7 @@ async def _generate_from_reference(ref_path: Path, prompt: str, state: GlobalSta
             "strength": strength,
             "guidance_scale": guidance_scale,
             "num_inference_steps": 8,
-            "total_seconds": 47,
+            "total_seconds": total_seconds,
         },
     )
     audio_url: str = result["audio"]["url"]
@@ -119,9 +143,9 @@ async def find_reference(
     async with conn.execute(
         """
         SELECT path, territory, mood_snapshot FROM audio_clips
-        WHERE source IN ('generated', 'fal_derived', 'reference')
-          AND play_count >= 1
-        ORDER BY last_played_at DESC
+        WHERE (source = 'reference')
+           OR (source IN ('generated', 'fal_derived') AND play_count >= 1)
+        ORDER BY last_played_at ASC
         LIMIT 20
         """,
     ) as cur:
@@ -285,6 +309,41 @@ async def _index_fallback_clips(
     return paths
 
 
+# ── Auto-index references on startup ─────────────────────────────────────────
+
+
+async def _auto_index_references_on_startup(
+    conn: aiosqlite.Connection,
+    state: GlobalState,
+) -> int:
+    """Index any new files in streams/references/ that are not yet in the DB.
+
+    Runs at startup — no librosa analysis (use scripts/index_references.py for
+    BPM/territory enrichment). Guarantees references are immediately available
+    as audio-to-audio sources even before the script is run manually.
+    """
+    if not _REFERENCES_DIR.exists():
+        return 0
+
+    async with conn.execute(
+        "SELECT path FROM audio_clips WHERE source = 'reference'"
+    ) as cur:
+        indexed = {row[0] async for row in cur}
+
+    new_count = 0
+    for path in sorted(_REFERENCES_DIR.iterdir()):
+        if path.suffix.lower() not in _AUDIO_EXTENSIONS:
+            continue
+        if str(path) in indexed:
+            continue
+        await index_clip(conn, path, state, prompt="", source="reference", display_name=path.stem)
+        new_count += 1
+
+    if new_count:
+        log.info("references_auto_indexed", count=new_count)
+    return new_count
+
+
 # ── Music prompt builder ──────────────────────────────────────────────────────
 
 
@@ -320,50 +379,62 @@ async def run_audio_queue(
 
     _CLIPS_DIR.mkdir(parents=True, exist_ok=True)
 
-    # Index fallback clips on startup
     fallback_paths = await _index_fallback_clips(conn, state, state_queue)
-    ready: list[Path] = list(fallback_paths)
+    refs_indexed = await _auto_index_references_on_startup(conn, state)
 
-    log.info("audio_queue_started", fallbacks=len(fallback_paths))
+    log.info("audio_queue_started", fallbacks=len(fallback_paths), refs_indexed=refs_indexed)
+
+    last_refs_scan = time.time()
 
     while True:
+        # ── Periodic rescan of streams/references/ for newly deposited files ──
+        now = time.time()
+        if now - last_refs_scan >= _RESCAN_INTERVAL:
+            await _auto_index_references_on_startup(conn, state)
+            last_refs_scan = now
+
+        # ── Only fill queue when below target ─────────────────────────────────
+        qsize = playback_queue.qsize() if playback_queue is not None else 0
+        if qsize >= _QUEUE_TARGET:
+            await state_queue.put({"queue_length": qsize})
+            await asyncio.sleep(_POLL_INTERVAL)
+            continue
+
         # ── Reuse an existing clip if available ───────────────────────────────
         result = await find_reusable(conn, state)
         if result is not None:
             candidate, display_name = result
             await mark_played(conn, candidate)
-            ready.append(candidate)
             if playback_queue is not None:
                 await playback_queue.put(candidate)
             if display_name:
                 await state_queue.put({"current_track_name": display_name})
-            await state_queue.put({"queue_length": len(ready)})
+            await state_queue.put({"queue_length": playback_queue.qsize() if playback_queue is not None else 1})
             await asyncio.sleep(_POLL_INTERVAL)
             continue
 
         # ── Generate a new clip ───────────────────────────────────────────────
         prompt = _build_prompt(state)
         prompt_hash = hashlib.md5(prompt.encode()).hexdigest()[:8]
-        if prompt_hash == state.last_prompt_hash and state.queue_length > 0:
+        if prompt_hash == state.last_prompt_hash and qsize > 0:
             await asyncio.sleep(_POLL_INTERVAL)
             continue
 
         ref_path = await find_reference(conn, state)
 
         try:
-            # Launch name generation concurrently with audio generation
             name_task = asyncio.create_task(generate_track_name(state))
 
             if ref_path is not None:
                 audio_bytes = await _generate_from_reference(ref_path, prompt, state)
+                # Rotate references: update last_played_at so next generation favours others
+                await mark_played(conn, ref_path)
             else:
                 audio_bytes = await _generate_audio(prompt)
 
             display_name = await name_task
 
-            import time as _time
-
-            outpath = _CLIPS_DIR / f"clip_{int(_time.time() * 1000)}.mp3"
+            outpath = _CLIPS_DIR / f"clip_{int(time.time() * 1000)}.mp3"
             outpath.write_bytes(audio_bytes)
 
             await index_clip(
@@ -379,10 +450,9 @@ async def run_audio_queue(
                 await state_queue.put({"current_track_name": display_name})
 
             await state_queue.put({"last_prompt_hash": prompt_hash})
-            ready.append(outpath)
             if playback_queue is not None:
                 await playback_queue.put(outpath)
-            await state_queue.put({"queue_length": len(ready)})
+            await state_queue.put({"queue_length": playback_queue.qsize() if playback_queue is not None else 1})
 
             log.info(
                 "audio_clip_generated",

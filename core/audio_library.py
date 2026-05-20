@@ -78,7 +78,7 @@ async def find_reusable(
     async with conn.execute(
         """
         SELECT path, display_name, territory, mood_snapshot FROM audio_clips
-        WHERE play_count < ?
+        WHERE play_count < ? AND source != 'reference'
         ORDER BY last_played_at ASC
         LIMIT 20
         """,

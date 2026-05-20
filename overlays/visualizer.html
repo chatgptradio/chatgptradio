@@ -142,7 +142,7 @@ class NeuralMode {
     this._cam=new THREE.PerspectiveCamera(55,innerWidth/innerHeight,0.1,600);
     this._cam.position.set(0,4,28);
     this._controls=new OrbitControls(this._cam, renderer.domElement);
-    Object.assign(this._controls,{enableDamping:true,dampingFactor:0.05,autoRotate:false,autoRotateSpeed:0,enablePan:false,enableZoom:false,enableRotate:false});
+    Object.assign(this._controls,{enableDamping:true,dampingFactor:0.05,autoRotate:true,autoRotateSpeed:0.5,enablePan:false,enableZoom:false,enableRotate:false});
     // Stars
     const N=4000,pos=[];for(let i=0;i<N;i++){const r=THREE.MathUtils.randFloat(50,150),phi=Math.acos(THREE.MathUtils.randFloatSpread(2)),theta=THREE.MathUtils.randFloat(0,Math.PI*2);pos.push(r*Math.sin(phi)*Math.cos(theta),r*Math.sin(phi)*Math.sin(theta),r*Math.cos(phi));}
     const sg=new THREE.BufferGeometry();sg.setAttribute('position',new THREE.Float32BufferAttribute(pos,3));
@@ -203,6 +203,7 @@ class NeuralMode {
       cg.setAttribute('connStr',new THREE.Float32BufferAttribute(cs,1));
       cg.setAttribute('pathIdx',new THREE.Float32BufferAttribute(ci,1));
       cg.setAttribute('connColor',new THREE.Float32BufferAttribute(cc,3));
+      const idx=[];edges.forEach((_,ei)=>{for(let s=0;s<SEG-1;s++)idx.push(ei*SEG+s,ei*SEG+s+1);});cg.setIndex(idx);
       const cm=new THREE.ShaderMaterial({uniforms:{uTime:{value:0}},vertexShader:_NN_CONN_VS,fragmentShader:_NN_CONN_FS,transparent:true,depthWrite:false,blending:THREE.AdditiveBlending});
       this._cMesh=new THREE.LineSegments(cg,cm);sc.add(this._cMesh);
     }
@@ -244,7 +245,7 @@ class NeuralMode {
     const now=performance.now();
     if(now-this._lastSig>400){this._updateSig(state);this._lastSig=now;}
     if(this._bloomPass) this._bloomPass.strength=1.2+crisis*1.5+wt*0.4;
-    if(this._controls){this._controls.autoRotate=excit>0.05;this._controls.autoRotateSpeed=excit*0.3;}
+    if(this._controls){this._controls.autoRotate=true;this._controls.autoRotateSpeed=0.5+excit*1.5;}
     const r=crisis*0.04,b=0.02+(1-crisis)*0.03;
     scene.background=new THREE.Color(r,0,b);
     if(this._composer) this._composer.render();
@@ -617,6 +618,7 @@ class SynapseMode {
       cg.setAttribute('connStr', new THREE.Float32BufferAttribute(cs, 1));
       cg.setAttribute('pathIdx', new THREE.Float32BufferAttribute(ci, 1));
       cg.setAttribute('connColor', new THREE.Float32BufferAttribute(cc, 3));
+      const idx=[];edges.forEach((_,ei)=>{for(let s=0;s<SEG-1;s++)idx.push(ei*SEG+s,ei*SEG+s+1);});cg.setIndex(idx);
       const cm = new THREE.ShaderMaterial({
         uniforms: {
           uTime: { value: 0 },

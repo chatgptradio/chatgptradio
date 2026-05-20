@@ -62,6 +62,15 @@ Vérifié le 2026-05-20 — smoke test OK : GlobalState 77 champs, WebSocket 4fp
 | #95 C6 | last_prompt_hash : skip génération redondante | `core/audio_queue.py` | ✅ | #100 |
 | #87b A4b | _EMOTION_ORDER : ré-ajouter wonder/melancholy/urgency (réels) | `core/track_namer.py` | ✅ | #100 |
 
+### Corrections bibliothèque audio (2026-05-20)
+
+| Correctif | Fichiers | État |
+|-----------|---------|------|
+| `find_reusable` : exclut `source='reference'` (jamais en lecture directe) | `core/audio_library.py` | ✅ |
+| `find_reference` : références éligibles dès `play_count=0` (plus de deadlock) | `core/audio_queue.py` | ✅ |
+| Auto-scan `streams/references/` au démarrage (indexation sans librosa) | `core/audio_queue.py` | ✅ |
+| `.gitignore` : patterns répertoire + `.gitkeep` (tous formats audio exclus) | `.gitignore` | ✅ |
+
 ### Câblage prod — TERMINÉ ✅ (vérifié 2026-05-20)
 
 | Tâche | Fichier | État |
@@ -128,7 +137,7 @@ Vérifié 2026-05-20 — 298 tests verts. NO FAKE validé sur tous les overlays.
 | FFmpeg → RTMP pipe | `core/dsp.py` | ✅ mergé | 2f763f1 |
 | CalendarEngine 15 événements | `core/calendar_engine.py` | ✅ mergé | 2f763f1 |
 | Three.js graph @node | `overlays/graph.html` | ✅ mergé | 2f763f1 |
-| Three.js 4 modes (neural/particles/globe/nebula) | `overlays/visualizer.html` | ✅ mergé | 2f763f1 |
+| Three.js 4 modes (neural/synapse/particles/chaos) | `overlays/visualizer.html` | ✅ mergé | PR #118 |
 | CNN Fear & Greed collecteur | `collectors/cnn_fear_greed.py` | ✅ mergé | 2f763f1 |
 
 ---

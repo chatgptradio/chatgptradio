@@ -4,6 +4,7 @@ import sys
 from pathlib import Path as _PathType
 
 import structlog
+from dotenv import load_dotenv
 
 from core.audio_queue import run_audio_queue
 from core.calendar_engine import build_event_list, run_calendar
@@ -17,6 +18,8 @@ from core.memory import restore_self_model
 from core.state import GlobalState
 from core.updater import StateUpdater
 from core.websocket_server import start_websocket_server
+
+load_dotenv()  # loads .env from cwd or any parent directory
 
 log = structlog.get_logger()
 

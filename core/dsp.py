@@ -88,14 +88,24 @@ async def run_dsp(
 ) -> None:
     rtmp_url = os.environ.get("RTMP_URL", "")
     if not rtmp_url:
+        base = os.environ.get("YOUTUBE_RTMP_URL", "").rstrip("/")
+        key = os.environ.get("YOUTUBE_STREAM_KEY", "")
+        if base and key:
+            rtmp_url = f"{base}/{key}"
+    if not rtmp_url:
         log.warning("dsp_disabled", reason="RTMP_URL not set")
         return
 
     ffmpeg_cmd = [
         "ffmpeg", "-y",
-        "-f", "s16le", "-ar", str(_SR), "-ac", "2",
-        "-i", "pipe:0",
+        # Static dark video — YouTube requires video; near-zero bitrate for static frame
+        "-f", "lavfi", "-i", "color=c=0x0a0a1a:s=1280x720:r=30",
+        # Audio from stdin (PCM 16-bit stereo)
+        "-f", "s16le", "-ar", str(_SR), "-ac", "2", "-i", "pipe:0",
+        "-c:v", "libx264", "-preset", "veryfast", "-tune", "stillimage",
+        "-b:v", "400k", "-pix_fmt", "yuv420p",
         "-c:a", "aac", "-b:a", "192k",
+        "-map", "0:v", "-map", "1:a",
         "-f", "flv", rtmp_url,
     ]
     loop = asyncio.get_running_loop()

@@ -1107,20 +1107,26 @@ GlobalState (80+ champs), StateUpdater, SQLite WAL, self_model EMA, drift moment
 - `last_prompt_hash` : dédup génération redondante
 - librosa dans `pyproject.toml` (group scripts)
 
-**À faire — câblage prod**
-- `run_audio_queue()` / `run_journal()` / `CommandEngine` dans `main.py`
-- DB schema : table `journal_entries`, colonne `viewers.display_name`, champ `journal_text`
+**Bibliothèque audio — corrections 2026-05-20**
+- `find_reusable` exclut `source='reference'` — références jamais jouées directement
+- `find_reference` : références éligibles dès indexation (plus de deadlock `play_count >= 1`)
+- Auto-scan `streams/references/` au démarrage (indexation sans librosa)
+- Flux : `/references` → sources audio-to-audio fal.ai → `/audio` (lecture directe)
+- Nomenclature affichée : `"Artiste - Titre"` via GPT-4o-mini (`track_namer.py`)
 
 **Bloqué — activation YouTube requise**
+- `run_audio_queue()` / `run_journal()` / `CommandEngine` dans `main.py`
 - YouTube broadcast lifecycle, Live Chat polling, réponses GPT-4o-mini
 
-### Phase 3 — À FAIRE ❌
+### Phase 3 — TERMINÉE ✅ (2026-05-20)
 
-Collecteurs sociaux + mondiaux (voir docs/TASKS.md pour la liste complète).
+333 tests verts. Collecteurs : HN, Wikipedia, Google Trends, GDELT, Hedonometer, yfinance, ArXiv, Nitter RSS, GitHub trending, Reddit, NewsAPI.ai, Media Cloud.
 
-### Phase 4 — À FAIRE ❌
+### Phase 4 — EN COURS 🔄
 
-Pedalboard DSP + pyrubberband + FFmpeg RTMP, Three.js graph complet.
+Pedalboard DSP ✅ · CalendarEngine ✅ · Three.js 4 modes (neural / synapse / particles / chaos) ✅
+Corrections bibliothèque audio (find_reusable, find_reference, auto-index références) ✅
+Prochaine étape : activation YouTube → câblage prod (run_audio_queue, run_journal, CommandEngine).
 
 ### Phase 5 — À FAIRE ❌
 

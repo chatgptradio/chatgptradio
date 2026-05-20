@@ -142,6 +142,19 @@ async def test_find_reusable_respects_max_play_count(tmp_db, real_audio_file):
 
 
 @pytest.mark.asyncio
+async def test_find_reusable_excludes_references(tmp_db, tmp_path):
+    """find_reusable must never return reference clips — they exist only as audio-to-audio sources."""
+    state = GlobalState()
+    ref_file = tmp_path / "ref.mp3"
+    ref_file.write_bytes(b"fake")
+    await index_clip(
+        tmp_db, ref_file, state, prompt="ref", source="reference", display_name="Ref Track"
+    )
+    result = await find_reusable(tmp_db, state)
+    assert result is None
+
+
+@pytest.mark.asyncio
 async def test_find_reusable_prefers_territory_match(tmp_db, tmp_path):
     """find_reusable returns the clip whose territory matches state.drift_territory."""
     state = GlobalState(drift_territory="ambient")

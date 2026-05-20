@@ -103,19 +103,19 @@ async def test_switch_explicit_valid_mode():
     state, eng, q, conn = _make_deps()
     state.visual_mode = "neural"
     eng.try_switch.return_value = True
-    result = await handle_command("!switch nebula", state, eng, q, conn)
-    assert result == "◈ switching to nebula"
+    result = await handle_command("!switch chaos", state, eng, q, conn)
+    assert result == "◈ switching to chaos"
     update = await asyncio.wait_for(q.get(), timeout=1.0)
-    assert update["visual_mode"] == "nebula"
+    assert update["visual_mode"] == "chaos"
 
 
 @pytest.mark.asyncio
 async def test_switch_invalid_explicit_mode_advances():
     state, eng, q, conn = _make_deps()
-    state.visual_mode = "globe"
+    state.visual_mode = "unknown_xyz"  # not in SCENE_CYCLE → fallback to neural → next = synapse
     eng.try_switch.return_value = True
     result = await handle_command("!switch badmode", state, eng, q, conn)
-    assert result == "◈ switching to nebula"
+    assert result == "◈ switching to synapse"
 
 
 @pytest.mark.asyncio
@@ -131,9 +131,9 @@ async def test_switch_on_cooldown_returns_message():
 
 
 @pytest.mark.asyncio
-async def test_switch_wraps_around_from_nebula():
+async def test_switch_wraps_around_from_chaos():
     state, eng, q, conn = _make_deps()
-    state.visual_mode = "nebula"
+    state.visual_mode = "chaos"
     eng.try_switch.return_value = True
     result = await handle_command("!switch", state, eng, q, conn)
-    assert result == "◈ switching to neural"
+    assert result == "◈ switching to globe"
