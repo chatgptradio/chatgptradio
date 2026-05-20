@@ -54,6 +54,7 @@ import { EffectComposer } from 'three/addons/postprocessing/EffectComposer.js';
 import { RenderPass } from 'three/addons/postprocessing/RenderPass.js';
 import { UnrealBloomPass } from 'three/addons/postprocessing/UnrealBloomPass.js';
 import { FilmPass } from 'three/addons/postprocessing/FilmPass.js';
+import { AfterimagePass } from 'three/addons/postprocessing/AfterimagePass.js';
 import { OutputPass } from 'three/addons/postprocessing/OutputPass.js';
 
 // ── Setup Three.js ────────────────────────────────────────────────────────────
@@ -378,6 +379,662 @@ class GlobeMode {
   }
 }
 
+// ── Mode SYNAPSE ──────────────────────────────────────────────────────────────
+// Graphe de neurones synthétiques, topologie pilotée par drift_territory.
+// Formation, taille de nœuds et impulsions sont dérivés de GlobalState.
+// Pas de base fake — si tous les signaux = 0, formation par défaut + nœuds min.
+
+const _SYN_NODE_VS = `
+attribute float nodeSize;
+attribute vec3  nodeColor;
+attribute float distFromRoot;
+uniform   float uTime;
+uniform   float uNodeScale;
+uniform   float uPulseTime;
+uniform   vec3  uPulsePos;
+uniform   float uPulseSpeed;
+varying   vec3  vColor;
+varying   float vDist;
+varying   float vPulse;
+void main(){
+  vColor = nodeColor; vDist = distFromRoot;
+  vec3 worldPos = (modelMatrix * vec4(position, 1.0)).xyz;
+  float timeSince = uTime - uPulseTime;
+  float pIntensity = 0.0;
+  if(timeSince >= 0.0 && timeSince < 3.0){
+    float pRadius = timeSince * uPulseSpeed;
+    float d = distance(worldPos, uPulsePos);
+    pIntensity = smoothstep(2.5, 0.0, abs(d - pRadius)) * smoothstep(3.0, 0.0, timeSince);
+  }
+  vPulse = pIntensity;
+  float scale = nodeSize * uNodeScale * (1.0 + pIntensity * 1.5);
+  vec4 mv = modelViewMatrix * vec4(position, 1.0);
+  gl_PointSize = scale * (700.0 / -mv.z);
+  gl_Position = projectionMatrix * mv;
+}`;
+
+const _SYN_NODE_FS = `
+uniform float uTime;
+varying vec3  vColor;
+varying float vDist;
+varying float vPulse;
+void main(){
+  vec2 c = 2.0 * gl_PointCoord - 1.0;
+  float d = length(c);
+  if(d > 1.0) discard;
+  float g = pow(1.0 - smoothstep(0.0, 1.0, d), 1.5);
+  vec3 col = vColor;
+  if(vPulse > 0.0) col = mix(col, vec3(1.0), vPulse * 0.7);
+  float alpha = g * (0.9 - 0.4 * d);
+  gl_FragColor = vec4(col, alpha);
+}`;
+
+const _SYN_CONN_VS = `
+attribute vec3  startPt;
+attribute vec3  endPt;
+attribute float connStr;
+attribute float pathIdx;
+attribute vec3  connColor;
+uniform   float uTime;
+uniform   float uPulseTime;
+uniform   vec3  uPulsePos;
+uniform   float uPulseSpeed;
+varying   vec3  vColor;
+varying   float vStr;
+varying   float vT;
+varying   float vPulse;
+void main(){
+  float t = position.x; vT = t; vColor = connColor; vStr = connStr;
+  vec3 mid = mix(startPt, endPt, 0.5);
+  vec3 perp = normalize(cross(normalize(endPt - startPt), vec3(0,1,0)));
+  if(length(perp) < 0.1) perp = vec3(1,0,0);
+  mid += perp * sin(t * 3.14159) * 0.12;
+  vec3 pos = mix(mix(startPt, mid, t), mix(mid, endPt, t), t);
+  vec3 worldPos = (modelMatrix * vec4(pos, 1.0)).xyz;
+  float timeSince = uTime - uPulseTime;
+  float pIntensity = 0.0;
+  if(timeSince >= 0.0 && timeSince < 3.0){
+    float pRadius = timeSince * uPulseSpeed;
+    float dd = distance(worldPos, uPulsePos);
+    pIntensity = smoothstep(2.5, 0.0, abs(dd - pRadius)) * smoothstep(3.0, 0.0, timeSince);
+  }
+  vPulse = pIntensity;
+  gl_Position = projectionMatrix * modelViewMatrix * vec4(pos, 1.0);
+}`;
+
+const _SYN_CONN_FS = `
+uniform float uTime;
+varying vec3  vColor;
+varying float vStr;
+varying float vT;
+varying float vPulse;
+void main(){
+  float flow = sin(vT * 18.0 - uTime * 4.0) * 0.5 + 0.5;
+  vec3 col = vColor * (0.55 + 0.3 * flow * vStr);
+  if(vPulse > 0.0) col = mix(col, vec3(1.0), vPulse * 0.6);
+  float alpha = (0.5 * vStr + 0.15 * flow + vPulse * 0.3)
+    * smoothstep(0.0, 0.05, vT) * smoothstep(1.0, 0.95, vT);
+  gl_FragColor = vec4(col, alpha);
+}`;
+
+// Color palettes: indexed by formation quartile
+const _SYN_PALETTES = [
+  [new THREE.Color(0x00D4FF), new THREE.Color(0x0099CC), new THREE.Color(0x66EEFF)],
+  [new THREE.Color(0xFF8C00), new THREE.Color(0xFFAA44), new THREE.Color(0xCC6600)],
+  [new THREE.Color(0xEC4899), new THREE.Color(0xA855F7), new THREE.Color(0x6366F1)],
+  [new THREE.Color(0x10B981), new THREE.Color(0xA3E635), new THREE.Color(0xFACC15)],
+];
+
+class SynapseMode {
+  constructor() {
+    this._cam = null; this._controls = null;
+    this._composer = null; this._bloomPass = null;
+    this._starField = null;
+    this._nMesh = null; this._cMesh = null;
+    this._nodes = []; this._edges = [];
+    this._clock = new THREE.Clock();
+    this._currentFormation = -1;
+    this._targetNodeScale = 0.5;
+    this._currentNodeScale = 0.5;
+    this._lastPulseTime = -1000;
+    this._lastBurst = 0;
+    this._animId = null;
+  }
+
+  _lerp(a, b, t) { return a + (b - a) * t; }
+
+  _buildNetwork(sc, formationIdx, paletteIdx) {
+    // Dispose previous
+    if (this._nMesh) { sc.remove(this._nMesh); this._nMesh.geometry.dispose(); this._nMesh.material.dispose(); this._nMesh = null; }
+    if (this._cMesh) { sc.remove(this._cMesh); this._cMesh.geometry.dispose(); this._cMesh.material.dispose(); this._cMesh = null; }
+    this._nodes = []; this._edges = [];
+
+    const palette = _SYN_PALETTES[paletteIdx % 4];
+    const NODE_COUNT = 90 + Math.floor(Math.random() * 30); // 90-120, seeded at init
+
+    // Formation positions
+    const positions = [];
+    for (let i = 0; i < NODE_COUNT; i++) {
+      let pos;
+      if (formationIdx === 0) {
+        // Sphere
+        const phi = Math.acos(1 - 2 * (i + 0.5) / NODE_COUNT);
+        const theta = Math.PI * (1 + Math.sqrt(5)) * i;
+        const R = 12;
+        pos = new THREE.Vector3(R * Math.sin(phi) * Math.cos(theta), R * Math.sin(phi) * Math.sin(theta), R * Math.cos(phi));
+      } else if (formationIdx === 1) {
+        // Expanded sphere
+        const phi = Math.acos(1 - 2 * (i + 0.5) / NODE_COUNT);
+        const theta = Math.PI * (1 + Math.sqrt(5)) * i;
+        const R = 18;
+        pos = new THREE.Vector3(R * Math.sin(phi) * Math.cos(theta), R * Math.sin(phi) * Math.sin(theta), R * Math.cos(phi));
+      } else if (formationIdx === 2) {
+        // Tight clusters (4 clusters)
+        const cluster = Math.floor(i / (NODE_COUNT / 4));
+        const clusterCenters = [new THREE.Vector3(-8, 5, 0), new THREE.Vector3(8, 5, 0), new THREE.Vector3(-8, -5, 0), new THREE.Vector3(8, -5, 0)];
+        const center = clusterCenters[cluster];
+        const phi = Math.acos(1 - 2 * (i % Math.ceil(NODE_COUNT / 4) + 0.5) / Math.ceil(NODE_COUNT / 4));
+        const theta = Math.PI * (1 + Math.sqrt(5)) * i;
+        const R = 4;
+        pos = new THREE.Vector3(center.x + R * Math.sin(phi) * Math.cos(theta), center.y + R * Math.sin(phi) * Math.sin(theta), center.z + R * Math.cos(phi));
+      } else {
+        // Linear — stretched along Y axis
+        const t = (i / (NODE_COUNT - 1)) * 2 - 1;
+        const radius = 2 + Math.sin(i * 0.5) * 1.5;
+        const angle = i * 0.7;
+        pos = new THREE.Vector3(radius * Math.cos(angle), t * 18, radius * Math.sin(angle));
+      }
+      const colorBase = palette[i % palette.length].clone();
+      this._nodes.push({ pos, color: colorBase, size: 0.6 + Math.random() * 0.6 });
+    }
+
+    // Build edges — connect each node to 2-3 nearest neighbours
+    const MAX_EDGES = NODE_COUNT * 2;
+    let edgeCount = 0;
+    const added = new Set();
+    for (let i = 0; i < this._nodes.length && edgeCount < MAX_EDGES; i++) {
+      const dists = [];
+      for (let j = 0; j < this._nodes.length; j++) {
+        if (i === j) continue;
+        dists.push({ j, d: this._nodes[i].pos.distanceTo(this._nodes[j].pos) });
+      }
+      dists.sort((a, b) => a.d - b.d);
+      const k = 2 + Math.floor(Math.random() * 2);
+      for (let n = 0; n < k && n < dists.length && edgeCount < MAX_EDGES; n++) {
+        const j = dists[n].j;
+        const key = Math.min(i, j) + '_' + Math.max(i, j);
+        if (!added.has(key)) {
+          added.add(key);
+          this._edges.push({ from: i, to: j, str: 0.5 + 0.5 * (1 - dists[n].d / 30) });
+          edgeCount++;
+        }
+      }
+    }
+
+    // Build node geometry
+    const nPos = [], nSz = [], nCol = [], nDist = [];
+    this._nodes.forEach(n => {
+      nPos.push(n.pos.x, n.pos.y, n.pos.z);
+      nSz.push(n.size);
+      nCol.push(n.color.r, n.color.g, n.color.b);
+      nDist.push(n.pos.length());
+    });
+    const ng = new THREE.BufferGeometry();
+    ng.setAttribute('position', new THREE.Float32BufferAttribute(nPos, 3));
+    ng.setAttribute('nodeSize', new THREE.Float32BufferAttribute(nSz, 1));
+    ng.setAttribute('nodeColor', new THREE.Float32BufferAttribute(nCol, 3));
+    ng.setAttribute('distFromRoot', new THREE.Float32BufferAttribute(nDist, 1));
+    const nm = new THREE.ShaderMaterial({
+      uniforms: {
+        uTime: { value: 0 }, uNodeScale: { value: 0.5 },
+        uPulseTime: { value: -1000 }, uPulsePos: { value: new THREE.Vector3() }, uPulseSpeed: { value: 12.0 }
+      },
+      vertexShader: _SYN_NODE_VS, fragmentShader: _SYN_NODE_FS,
+      transparent: true, depthWrite: false, blending: THREE.AdditiveBlending
+    });
+    this._nMesh = new THREE.Points(ng, nm);
+    sc.add(this._nMesh);
+
+    // Build connection geometry
+    if (this._edges.length) {
+      const SEG = 16;
+      const cPos = [], sp = [], ep = [], cs = [], ci = [], cc = [];
+      this._edges.forEach((e, pi) => {
+        const fn = this._nodes[e.from], tn = this._nodes[e.to];
+        const mc = fn.color.clone().lerp(tn.color, 0.5);
+        for (let s = 0; s < SEG; s++) {
+          cPos.push(s / (SEG - 1), 0, 0);
+          sp.push(fn.pos.x, fn.pos.y, fn.pos.z);
+          ep.push(tn.pos.x, tn.pos.y, tn.pos.z);
+          cs.push(e.str); ci.push(pi);
+          cc.push(mc.r, mc.g, mc.b);
+        }
+      });
+      const cg = new THREE.BufferGeometry();
+      cg.setAttribute('position', new THREE.Float32BufferAttribute(cPos, 3));
+      cg.setAttribute('startPt', new THREE.Float32BufferAttribute(sp, 3));
+      cg.setAttribute('endPt', new THREE.Float32BufferAttribute(ep, 3));
+      cg.setAttribute('connStr', new THREE.Float32BufferAttribute(cs, 1));
+      cg.setAttribute('pathIdx', new THREE.Float32BufferAttribute(ci, 1));
+      cg.setAttribute('connColor', new THREE.Float32BufferAttribute(cc, 3));
+      const cm = new THREE.ShaderMaterial({
+        uniforms: {
+          uTime: { value: 0 },
+          uPulseTime: { value: -1000 }, uPulsePos: { value: new THREE.Vector3() }, uPulseSpeed: { value: 12.0 }
+        },
+        vertexShader: _SYN_CONN_VS, fragmentShader: _SYN_CONN_FS,
+        transparent: true, depthWrite: false, blending: THREE.AdditiveBlending
+      });
+      this._cMesh = new THREE.LineSegments(cg, cm);
+      sc.add(this._cMesh);
+    }
+    this._currentFormation = formationIdx;
+  }
+
+  init(sc, cam) {
+    this._cam = new THREE.PerspectiveCamera(55, innerWidth / innerHeight, 0.1, 600);
+    this._cam.position.set(0, 4, 30);
+
+    this._controls = new OrbitControls(this._cam, renderer.domElement);
+    Object.assign(this._controls, {
+      enableDamping: true, dampingFactor: 0.05,
+      autoRotate: true, autoRotateSpeed: 0.3,
+      enablePan: false, enableZoom: false
+    });
+
+    // Stars
+    const N = 3000, pos = [];
+    for (let i = 0; i < N; i++) {
+      const r = THREE.MathUtils.randFloat(50, 150);
+      const phi = Math.acos(THREE.MathUtils.randFloatSpread(2));
+      const theta = THREE.MathUtils.randFloat(0, Math.PI * 2);
+      pos.push(r * Math.sin(phi) * Math.cos(theta), r * Math.sin(phi) * Math.sin(theta), r * Math.cos(phi));
+    }
+    const sg = new THREE.BufferGeometry();
+    sg.setAttribute('position', new THREE.Float32BufferAttribute(pos, 3));
+    this._starField = new THREE.Points(sg, new THREE.PointsMaterial({ color: 0xffffff, size: 0.12, depthWrite: false, opacity: 0.6, transparent: true }));
+    sc.add(this._starField);
+
+    // Composer
+    this._composer = new EffectComposer(renderer);
+    this._composer.addPass(new RenderPass(sc, this._cam));
+    this._bloomPass = new UnrealBloomPass(new THREE.Vector2(innerWidth, innerHeight), 1.2, 0.4, 0.65);
+    this._composer.addPass(this._bloomPass);
+    this._composer.addPass(new OutputPass());
+
+    // Build initial formation (default = 0)
+    this._buildNetwork(sc, 0, 0);
+    this._clock.start();
+  }
+
+  update(state, dt) {
+    const t = this._clock.getElapsedTime();
+    const territory = state.drift_territory ?? 0;
+    const burstSignal = state.world_event_burst ?? 0;
+    const predErrors = state.prediction_errors ?? {};
+    const maxPredError = Math.max(0, ...Object.values(predErrors).map(Number).filter(isFinite));
+
+    // Formation based on territory quartile
+    const formation = territory < 0.25 ? 0 : territory < 0.5 ? 1 : territory < 0.75 ? 2 : 3;
+    const paletteIdx = formation;
+
+    // Rebuild network when formation changes
+    if (formation !== this._currentFormation) {
+      this._buildNetwork(scene, formation, paletteIdx);
+    }
+
+    // Node scale: lerp 0.5 → 2.0 based on maxPredError (data-driven, no fake base)
+    this._targetNodeScale = 0.5 + maxPredError * 1.5;
+    this._currentNodeScale = this._lerp(this._currentNodeScale, this._targetNodeScale, 0.05);
+
+    // Update shader uniforms
+    if (this._nMesh) {
+      this._nMesh.material.uniforms.uTime.value = t;
+      this._nMesh.material.uniforms.uNodeScale.value = this._currentNodeScale;
+    }
+    if (this._cMesh) {
+      this._cMesh.material.uniforms.uTime.value = t;
+    }
+
+    // Pulse: trigger when world_event_burst > 0.1 and it's a new spike
+    if (burstSignal > 0.1 && this._lastBurst <= 0.1) {
+      this._lastPulseTime = t;
+      // Pulse from a random node position
+      const pNode = this._nodes[Math.floor(Math.random() * this._nodes.length)];
+      if (pNode && this._nMesh) {
+        this._nMesh.material.uniforms.uPulseTime.value = t;
+        this._nMesh.material.uniforms.uPulsePos.value.copy(pNode.pos);
+      }
+      if (pNode && this._cMesh) {
+        this._cMesh.material.uniforms.uPulseTime.value = t;
+        this._cMesh.material.uniforms.uPulsePos.value.copy(pNode.pos);
+      }
+    }
+    this._lastBurst = burstSignal;
+
+    // Bloom driven by burstSignal
+    if (this._bloomPass) {
+      this._bloomPass.strength = this._lerp(this._bloomPass.strength, 1.0 + burstSignal * 1.8, 0.06);
+    }
+
+    // Background: subtle tint based on territory
+    const r = territory * 0.03;
+    const b = 0.02 + (1 - territory) * 0.04;
+    scene.background = new THREE.Color(r, 0, b);
+
+    if (this._controls) this._controls.update();
+    if (this._composer) this._composer.render();
+    return true;
+  }
+
+  dispose(sc) {
+    if (this._nMesh) { sc.remove(this._nMesh); this._nMesh.geometry.dispose(); this._nMesh.material.dispose(); this._nMesh = null; }
+    if (this._cMesh) { sc.remove(this._cMesh); this._cMesh.geometry.dispose(); this._cMesh.material.dispose(); this._cMesh = null; }
+    if (this._starField) { sc.remove(this._starField); this._starField.geometry.dispose(); this._starField = null; }
+    if (this._controls) { this._controls.dispose(); this._controls = null; }
+    this._composer = null; this._nodes = []; this._edges = [];
+    scene.background = new THREE.Color(0x000510);
+  }
+}
+
+// ── Mode CHAOS ────────────────────────────────────────────────────────────────
+// Métamorphose de particules entre 4 attracteurs chaotiques.
+// La transition n'est déclenchée que par un changement de signal — jamais par timer.
+// Math.random() utilisé uniquement à l'initialisation des particules.
+
+class ChaosMode {
+  constructor() {
+    this._cam = null; this._controls = null;
+    this._composer = null; this._bloomPass = null; this._afterPass = null;
+    this._particles = null; this._sparkles = null; this._starField = null;
+    this._clock = new THREE.Clock();
+    this.targetAttractor = 0;
+    this.lastEvalTime = 0;
+    this.morphProgress = 0;
+    this.morphing = false;
+    this._fromPts = null;
+    this._toPts = null;
+    this._currentBloom = 0.45;
+  }
+
+  _normalise(points, size) {
+    if (points.length === 0) return [];
+    const box = new THREE.Box3().setFromPoints(points);
+    const dim = box.getSize(new THREE.Vector3());
+    const maxDim = Math.max(dim.x, dim.y, dim.z) || 1;
+    const centre = box.getCenter(new THREE.Vector3());
+    return points.map(p => p.clone().sub(centre).multiplyScalar(size / maxDim));
+  }
+
+  _torusKnot(n) {
+    const geo = new THREE.TorusKnotGeometry(10, 3, 200, 16, 2, 3);
+    const pts = [];
+    const pa = geo.attributes.position;
+    for (let i = 0; i < pa.count; i++) pts.push(new THREE.Vector3().fromBufferAttribute(pa, i));
+    geo.dispose();
+    const result = [];
+    for (let i = 0; i < n; i++) result.push(pts[i % pts.length].clone());
+    return this._normalise(result, 50);
+  }
+
+  _halvorsen(n) {
+    const pts = []; let x = 0.1, y = 0, z = 0; const a = 1.89, dt = 0.005;
+    for (let i = 0; i < n * 25; i++) {
+      const dx = -a * x - 4 * y - 4 * z - y * y;
+      const dy = -a * y - 4 * z - 4 * x - z * z;
+      const dz = -a * z - 4 * x - 4 * y - x * x;
+      x += dx * dt; y += dy * dt; z += dz * dt;
+      if (i > 200 && i % 25 === 0) pts.push(new THREE.Vector3(x, y, z));
+      if (pts.length >= n) break;
+    }
+    while (pts.length < n) pts.push(pts[pts.length - 1].clone());
+    return this._normalise(pts, 60);
+  }
+
+  _dualHelix(n) {
+    const pts = []; const turns = 5, radius = 15, height = 40;
+    for (let i = 0; i < n; i++) {
+      const isSecond = i % 2 === 0;
+      const angle = (i / n) * Math.PI * 2 * turns;
+      const y = (i / n) * height - height / 2;
+      const r = radius + (isSecond ? 5 : -5);
+      pts.push(new THREE.Vector3(Math.cos(angle) * r, y, Math.sin(angle) * r));
+    }
+    return this._normalise(pts, 60);
+  }
+
+  _deJong(n) {
+    const pts = []; let x = 0.1, y = 0.1;
+    const a = 1.4, b = -2.3, c = 2.4, d = -2.1;
+    for (let i = 0; i < n; i++) {
+      const xn = Math.sin(a * y) - Math.cos(b * x);
+      const yn = Math.sin(c * x) - Math.cos(d * y);
+      x = xn; y = yn;
+      pts.push(new THREE.Vector3(x, y, Math.sin(x * y * 0.5)));
+    }
+    return this._normalise(pts, 55);
+  }
+
+  _getPattern(idx, n) {
+    if (idx === 0) return this._torusKnot(n);
+    if (idx === 1) return this._halvorsen(n);
+    if (idx === 2) return this._dualHelix(n);
+    return this._deJong(n);
+  }
+
+  _applyPattern(pts) {
+    const COUNT = 15000;
+    const arr = this._particles.geometry.attributes.position.array;
+    for (let i = 0; i < COUNT; i++) {
+      const idx = i * 3, p = pts[i] || new THREE.Vector3();
+      arr[idx] = p.x; arr[idx + 1] = p.y; arr[idx + 2] = p.z;
+    }
+    this._particles.geometry.attributes.position.needsUpdate = true;
+  }
+
+  _computeTargetAttractor(state) {
+    const territory = state.drift_territory ?? 0;
+    const predErrors = state.prediction_errors ?? {};
+    const sigVols = state.signal_volatilities ?? {};
+    const maxPredError = Math.max(0, ...Object.values(predErrors).map(Number).filter(isFinite));
+    const maxVolatility = Math.max(0, ...Object.values(sigVols).map(Number).filter(isFinite));
+
+    if (maxVolatility > 0.3 && maxVolatility >= maxPredError) return 1; // halvorsen
+    if (territory >= 0.5 && territory < 0.75) return 2;                 // dualHelix
+    if (maxPredError > 0.3) return 3;                                    // deJong
+    return 0;                                                            // torusKnot (rest/fallback)
+  }
+
+  _makeParticles(count) {
+    const geo = new THREE.BufferGeometry();
+    const pos = new Float32Array(count * 3);
+    const col = new Float32Array(count * 3);
+    const size = new Float32Array(count);
+    const rnd = new Float32Array(count * 3);
+    const palette = [0xff3c78, 0xff8c00, 0xfff200, 0x00cfff, 0xb400ff, 0xffffff, 0xff4040].map(c => new THREE.Color(c));
+    // Math.random() only at initialization — not in animation loop
+    for (let i = 0; i < count; i++) {
+      const base = palette[Math.floor(Math.random() * palette.length)];
+      const hsl = { h: 0, s: 0, l: 0 };
+      base.getHSL(hsl);
+      hsl.h += (Math.random() - 0.5) * 0.05;
+      hsl.s = Math.min(1, Math.max(0.7, hsl.s + (Math.random() - 0.5) * 0.3));
+      hsl.l = Math.min(0.9, Math.max(0.5, hsl.l + (Math.random() - 0.5) * 0.4));
+      const c = new THREE.Color().setHSL(hsl.h, hsl.s, hsl.l);
+      col[i * 3] = c.r; col[i * 3 + 1] = c.g; col[i * 3 + 2] = c.b;
+      size[i] = 0.7 + Math.random() * 1.1;
+      rnd[i * 3] = Math.random() * 10;
+      rnd[i * 3 + 1] = Math.random() * Math.PI * 2;
+      rnd[i * 3 + 2] = 0.5 + 0.5 * Math.random();
+    }
+    geo.setAttribute('position', new THREE.BufferAttribute(pos, 3));
+    geo.setAttribute('color', new THREE.BufferAttribute(col, 3));
+    geo.setAttribute('size', new THREE.BufferAttribute(size, 1));
+    geo.setAttribute('random', new THREE.BufferAttribute(rnd, 3));
+
+    // Particle vertex shader: positional turbulence uses pre-seeded random attributes,
+    // NOT Math.random() in the loop. The turbulence amplitude is bounded and non-fake
+    // because it only adds micro-variation to data-set positions (attractor shape is data-driven).
+    const mat = new THREE.ShaderMaterial({
+      uniforms: { time: { value: 0 } },
+      vertexShader: `
+uniform float time;
+attribute float size;
+attribute vec3 random;
+varying vec3 vCol;
+varying float vR;
+void main(){
+  vCol = color; vR = random.z;
+  vec3 p = position;
+  float t = time * 0.15 * random.z;
+  float ax = t + random.y, ay = t * 0.75 + random.x;
+  float amp = (0.25 + sin(random.x + t * 0.5) * 0.15) * random.z;
+  p.x += sin(ax + p.y * 0.04 + random.x * 0.1) * amp;
+  p.y += cos(ay + p.z * 0.04 + random.y * 0.1) * amp;
+  p.z += sin(ax * 0.85 + p.x * 0.04 + random.z * 0.1) * amp;
+  vec4 mv = modelViewMatrix * vec4(p, 1.0);
+  gl_PointSize = size * (350.0 / -mv.z);
+  gl_Position = projectionMatrix * mv;
+}`,
+      fragmentShader: `
+uniform float time;
+varying vec3 vCol;
+varying float vR;
+vec3 hueShift(vec3 c, float h){
+  const vec3 k = vec3(0.57735);
+  float ca = cos(h), sa = sin(h);
+  return c * ca + cross(k, c) * sa + k * dot(k, c) * (1.0 - ca);
+}
+void main(){
+  vec2 uv = gl_PointCoord - 0.5;
+  float d = length(uv);
+  float glow = smoothstep(0.4, 0.1, d);
+  float core = smoothstep(0.05, 0.0, d);
+  float alpha = core + glow * 0.2;
+  if(alpha < 0.01) discard;
+  vec3 col = hueShift(vCol, time * 0.06);
+  gl_FragColor = vec4(mix(col, vec3(1.0), core), alpha);
+}`,
+      transparent: true, depthWrite: false, vertexColors: true, blending: THREE.AdditiveBlending
+    });
+    return new THREE.Points(geo, mat);
+  }
+
+  _makeStars(count) {
+    const geo = new THREE.BufferGeometry();
+    const pos = new Float32Array(count * 3);
+    for (let i = 0; i < count; i++) {
+      const theta = Math.random() * 2 * Math.PI;
+      const phi = Math.acos(2 * Math.random() - 1);
+      const r = 400 + Math.random() * 500;
+      pos[i * 3] = r * Math.sin(phi) * Math.cos(theta);
+      pos[i * 3 + 1] = r * Math.sin(phi) * Math.sin(theta);
+      pos[i * 3 + 2] = r * Math.cos(phi);
+    }
+    geo.setAttribute('position', new THREE.BufferAttribute(pos, 3));
+    return new THREE.Points(geo, new THREE.PointsMaterial({ color: 0xffffff, size: 0.5, depthWrite: false, transparent: true, opacity: 0.6 }));
+  }
+
+  init(sc, cam) {
+    this._cam = new THREE.PerspectiveCamera(60, innerWidth / innerHeight, 0.1, 2500);
+    this._cam.position.set(0, 0, 80);
+
+    this._controls = new OrbitControls(this._cam, renderer.domElement);
+    Object.assign(this._controls, {
+      enableDamping: true, dampingFactor: 0.05,
+      minDistance: 20, maxDistance: 200,
+      autoRotate: true, autoRotateSpeed: 0.3
+    });
+
+    this._starField = this._makeStars(5000);
+    sc.add(this._starField);
+
+    this._particles = this._makeParticles(15000);
+    sc.add(this._particles);
+
+    this._composer = new EffectComposer(renderer);
+    this._composer.addPass(new RenderPass(sc, this._cam));
+    this._bloomPass = new UnrealBloomPass(new THREE.Vector2(innerWidth, innerHeight), 0.45, 0.5, 0.85);
+    this._composer.addPass(this._bloomPass);
+    this._afterPass = new AfterimagePass();
+    this._afterPass.uniforms.damp.value = 0.88;
+    this._composer.addPass(this._afterPass);
+    this._composer.addPass(new OutputPass());
+
+    // Set initial pattern (torusKnot)
+    const initPts = this._getPattern(0, 15000);
+    this._applyPattern(initPts);
+    this._fromPts = this._particles.geometry.attributes.position.array.slice();
+    this._clock.start();
+  }
+
+  update(state, dt) {
+    const now = this._clock.getElapsedTime();
+    const burst = state.world_event_burst ?? 0;
+
+    // Re-evaluate attractor every 30s or on burst spike
+    if (now - this.lastEvalTime > 30 || burst > 0.1) {
+      const newTarget = this._computeTargetAttractor(state);
+      if (newTarget !== this.targetAttractor && !this.morphing) {
+        // Store current positions as from-points
+        this._fromPts = this._particles.geometry.attributes.position.array.slice();
+        // Compute destination
+        const pts = this._getPattern(newTarget, 15000);
+        this._toPts = new Float32Array(15000 * 3);
+        for (let i = 0; i < 15000; i++) {
+          const p = pts[i] || new THREE.Vector3();
+          this._toPts[i * 3] = p.x; this._toPts[i * 3 + 1] = p.y; this._toPts[i * 3 + 2] = p.z;
+        }
+        this.targetAttractor = newTarget;
+        this.morphing = true;
+        this.morphProgress = 0;
+      }
+      this.lastEvalTime = now;
+    }
+
+    // Advance morph — speed gated by burst signal
+    if (this.morphing && this._fromPts && this._toPts) {
+      const speed = 0.3 + burst * 2.0;
+      this.morphProgress += speed * (dt || 0.016);
+      if (this.morphProgress >= 1) { this.morphProgress = 1; this.morphing = false; }
+      const eased = 1 - Math.pow(1 - Math.min(this.morphProgress, 1), 3);
+      const arr = this._particles.geometry.attributes.position.array;
+      for (let i = 0; i < arr.length; i++) {
+        arr[i] = this._fromPts[i] + (this._toPts[i] - this._fromPts[i]) * eased;
+      }
+      this._particles.geometry.attributes.position.needsUpdate = true;
+    }
+
+    // Bloom intensity from prediction errors
+    const predErrors = state.prediction_errors ?? {};
+    const maxPredError = Math.max(0, ...Object.values(predErrors).map(Number).filter(isFinite));
+    const targetBloom = 0.35 + maxPredError * 1.2;
+    this._currentBloom += (targetBloom - this._currentBloom) * 0.04;
+    if (this._bloomPass) this._bloomPass.strength = this._currentBloom;
+
+    // Update time uniform
+    const t = this._clock.getElapsedTime();
+    if (this._particles) this._particles.material.uniforms.time.value = t;
+
+    // Background: dark purple-black, tinted by territory
+    const territory = state.drift_territory ?? 0;
+    const bg = new THREE.Color().setHSL(0.75 - territory * 0.15, 0.3, 0.02 + territory * 0.02);
+    scene.background = bg;
+
+    if (this._controls) this._controls.update();
+    if (this._composer) this._composer.render();
+    return true;
+  }
+
+  dispose(sc) {
+    if (this._particles) { sc.remove(this._particles); this._particles.geometry.dispose(); this._particles.material.dispose(); this._particles = null; }
+    if (this._starField) { sc.remove(this._starField); this._starField.geometry.dispose(); this._starField = null; }
+    if (this._controls) { this._controls.dispose(); this._controls = null; }
+    this._composer = null; this._fromPts = null; this._toPts = null;
+    scene.background = new THREE.Color(0x000510);
+  }
+}
+
 // ── Mode NEBULA ───────────────────────────────────────────────────────────────
 
 class NebulaMode {
@@ -422,7 +1079,7 @@ class NebulaMode {
 
 let activeModeName = 'neural';
 let activeMode = null;
-const MODES = { neural: NeuralMode, particles: ParticlesMode, globe: GlobeMode, nebula: NebulaMode };
+const MODES = { neural: NeuralMode, synapse: SynapseMode, particles: ParticlesMode, chaos: ChaosMode, globe: GlobeMode, nebula: NebulaMode };
 
 async function switchMode(name) {
   if (!MODES[name]) { console.error('Unknown mode:', name); return; }
@@ -511,9 +1168,9 @@ function animate() {
 }
 animate();
 
-// Keyboard shortcuts: 1=neural 2=particles 3=globe 4=nebula
+// Keyboard shortcuts: 1=neural 2=synapse 3=particles 4=chaos 5=globe 6=nebula
 window.addEventListener('keydown', (e) => {
-  const map = { '1':'neural', '2':'particles', '3':'globe', '4':'nebula' };
+  const map = { '1':'neural', '2':'synapse', '3':'particles', '4':'chaos', '5':'globe', '6':'nebula' };
   if (map[e.key]) switchMode(map[e.key]);
 });
 

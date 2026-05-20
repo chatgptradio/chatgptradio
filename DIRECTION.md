@@ -236,7 +236,7 @@ Voir `core/audio_queue._wav_to_mp3()`.
 
 ### Interactivité chat
 
-- **[VALIDÉ]** Commandes : `!song`, `!request <genre>`, `!vibe`, `!story`
+- **[VALIDÉ]** Commandes : `!song`, `!request <genre>`, `!vibe`
 - **[VALIDÉ]** Votes genre musical (YouTube poll API)
 - **[REJETÉ]** TTS voix, sentiment analysis chat — V1 : votes explicites uniquement
 

@@ -93,9 +93,9 @@ async def test_switch_advances_to_next_mode():
     state.visual_mode = "neural"
     eng.try_switch.return_value = True
     result = await handle_command("!switch", state, eng, q, conn)
-    assert result == "◈ switching to particles"
+    assert result == "◈ switching to synapse"
     update = await asyncio.wait_for(q.get(), timeout=1.0)
-    assert update["visual_mode"] == "particles"
+    assert update["visual_mode"] == "synapse"
 
 
 @pytest.mark.asyncio
