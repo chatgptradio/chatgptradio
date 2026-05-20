@@ -6,6 +6,11 @@ accounts/*/credentials.json
 streams/*.json
 streams/state.db
 streams/decisions.log
+streams/audio/*.mp3
+streams/audio/*.wav
+streams/references/*.mp3
+streams/references/*.wav
+streams/references/*.flac
 logs/
 __pycache__/
 *.pyc
