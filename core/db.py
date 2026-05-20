@@ -54,13 +54,50 @@ async def init_db(path: str) -> aiosqlite.Connection:
             await conn.execute(stmt)
     await conn.commit()
 
-    # Idempotent migration: add display_name if missing
+    # Idempotent migration: rebuild audio_clips if the old legacy schema is detected.
+    # The old schema used 'filename' as the UNIQUE key; the current schema uses 'path'.
     async with conn.execute("PRAGMA table_info(audio_clips)") as cur:
         cols = {row[1] async for row in cur}
-    if "display_name" not in cols:
+
+    if "filename" in cols:
+        # Legacy schema detected — rebuild the table preserving existing data.
+        await conn.execute("ALTER TABLE audio_clips RENAME TO _audio_clips_legacy")
         await conn.execute(
-            "ALTER TABLE audio_clips ADD COLUMN display_name TEXT NOT NULL DEFAULT ''"
+            """
+            CREATE TABLE audio_clips (
+                id             INTEGER PRIMARY KEY AUTOINCREMENT,
+                path           TEXT NOT NULL UNIQUE,
+                prompt         TEXT NOT NULL DEFAULT '',
+                source         TEXT NOT NULL DEFAULT 'generated',
+                display_name   TEXT NOT NULL DEFAULT '',
+                created_at     REAL NOT NULL DEFAULT 0,
+                last_played_at REAL NOT NULL DEFAULT 0,
+                play_count     INTEGER NOT NULL DEFAULT 0,
+                duration_s     REAL NOT NULL DEFAULT 0,
+                mood_snapshot  TEXT NOT NULL DEFAULT ''
+            )
+            """
         )
+        # Copy rows, mapping old columns to new ones; skip rows with duplicate path.
+        await conn.execute(
+            """
+            INSERT OR IGNORE INTO audio_clips
+                (path, prompt, source, display_name, created_at, last_played_at,
+                 play_count, duration_s, mood_snapshot)
+            SELECT
+                path,
+                COALESCE(prompt, prompt_text, ''),
+                COALESCE(source, 'generated'),
+                COALESCE(display_name, ''),
+                created_at,
+                COALESCE(last_played_at, 0),
+                COALESCE(play_count, played_count, 0),
+                COALESCE(duration_s, 0),
+                COALESCE(mood_snapshot, '')
+            FROM _audio_clips_legacy
+            """
+        )
+        await conn.execute("DROP TABLE _audio_clips_legacy")
         await conn.commit()
 
     return conn
