@@ -1,5 +1,6 @@
 import asyncio
 import importlib
+import inspect
 import pkgutil
 from typing import Any
 
@@ -24,17 +25,36 @@ def _discover_collectors() -> list[Any]:
     return found
 
 
+def _call_collector(fn: Any, state: GlobalState, queue: asyncio.Queue) -> Any:  # type: ignore[type-arg]
+    """Call *fn* with ``(state, queue)`` if it accepts two positional parameters,
+    otherwise fall back to the legacy single-argument ``(state,)`` signature."""
+    try:
+        sig = inspect.signature(fn)
+        params = [
+            p
+            for p in sig.parameters.values()
+            if p.default is inspect.Parameter.empty
+            and p.kind
+            not in (inspect.Parameter.VAR_POSITIONAL, inspect.Parameter.VAR_KEYWORD)
+        ]
+        if len(params) >= 2:
+            return fn(state, queue)
+    except (ValueError, TypeError):
+        pass
+    return fn(state)
+
+
 async def run_collector(
     name: str,
-    fn,
+    fn: Any,
     interval_s: int,
-    queue: asyncio.Queue,
+    queue: asyncio.Queue,  # type: ignore[type-arg]
     state: GlobalState,
 ) -> None:
     while True:
         try:
             updates: dict[str, Any] = await asyncio.wait_for(
-                fn(state), timeout=max(interval_s * 0.8, 0.05)
+                _call_collector(fn, state, queue), timeout=max(interval_s * 0.8, 0.05)
             )
             for signal, value in updates.items():
                 await queue.put((signal, value))

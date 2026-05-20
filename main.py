@@ -1,9 +1,11 @@
 import asyncio
+import os
 import signal
 import sys
 from pathlib import Path as _PathType
 
 import structlog
+from aiohttp import web
 from dotenv import load_dotenv
 
 from core.audio_queue import run_audio_queue
@@ -18,11 +20,18 @@ from core.journal import run_journal
 from core.memory import restore_self_model
 from core.state import GlobalState
 from core.updater import StateUpdater
+from core.browser_display import run_browser_display
 from core.websocket_server import start_websocket_server
 
 load_dotenv()  # loads .env from cwd or any parent directory
 
 log = structlog.get_logger()
+
+
+def _make_overlay_app() -> web.Application:
+    app = web.Application()
+    app.router.add_static("/", _PathType("overlays"), show_index=True)
+    return app
 
 
 async def run() -> None:
@@ -52,6 +61,17 @@ async def run() -> None:
     )
     updater_task = asyncio.create_task(updater.run())
 
+    overlay_port = int(os.environ.get("OVERLAY_HTTP_PORT", "8080"))
+    overlay_app = _make_overlay_app()
+    overlay_runner = web.AppRunner(overlay_app)
+    await overlay_runner.setup()
+    overlay_site = web.TCPSite(overlay_runner, "localhost", overlay_port)
+    await overlay_site.start()
+    log.info("overlay_http_started", port=overlay_port)
+
+    browser_ready = asyncio.Event()
+    browser_task = asyncio.create_task(run_browser_display(browser_ready))
+
     playback_queue: asyncio.Queue[_PathType] = asyncio.Queue(maxsize=4)
     audio_task = asyncio.create_task(run_audio_queue(state, updater.queue, db_conn, playback_queue))
     dsp_task = asyncio.create_task(run_dsp(state, playback_queue, updater.queue))
@@ -77,11 +97,12 @@ async def run() -> None:
 
     log.info("chatgpt_radio_shutdown_started")
 
-    all_tasks = collector_tasks + [ws_server_task, ws_broadcast_task, updater_task, audio_task, dsp_task, journal_task, calendar_task, scene_task]
+    all_tasks = collector_tasks + [ws_server_task, ws_broadcast_task, updater_task, audio_task, dsp_task, journal_task, calendar_task, scene_task, browser_task]
     for task in all_tasks:
         task.cancel()
     await asyncio.gather(*all_tasks, return_exceptions=True)
 
+    await overlay_runner.cleanup()
     await db_conn.close()
     log.info("chatgpt_radio_shutdown_complete")
 

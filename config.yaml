@@ -2,6 +2,9 @@ collectors:
   - name: openai_status
     module: collectors.openai_status
     interval_s: 30
+  - name: youtube_chat
+    module: collectors.youtube_chat
+    interval_s: 10
 
 websocket:
   port: 8765
