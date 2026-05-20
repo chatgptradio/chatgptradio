@@ -5,6 +5,7 @@ import subprocess
 from pathlib import Path
 
 import numpy as np
+import pyloudnorm as pyln
 import pyrubberband
 import structlog
 from pedalboard import Chorus, Compressor, Gain, HighShelfFilter, Limiter, PitchShift, Reverb  # type: ignore[attr-defined]
@@ -19,6 +20,8 @@ _SR = 44100
 _CROSSFADE_S = 3
 _CROSSFADE_SAMPLES = _CROSSFADE_S * _SR
 _FFMPEG_RESTART_MAX_S = 60
+_TARGET_LUFS = -14.0
+_MAX_GAIN_DB = 18.0
 
 
 def _clamp(v: float, lo: float, hi: float) -> float:
@@ -81,6 +84,15 @@ def _process_audio(audio: np.ndarray, chain: Pedalboard) -> np.ndarray:
     return chain(audio.T, _SR).T
 
 
+def _normalize_lufs(audio: np.ndarray, sr: int) -> np.ndarray:
+    meter = pyln.Meter(sr)
+    lufs = meter.integrated_loudness(audio.astype(np.float64))
+    if lufs == float("-inf") or lufs < -70.0:
+        return audio
+    gain_db = _clamp(_TARGET_LUFS - lufs, -_MAX_GAIN_DB, _MAX_GAIN_DB)
+    return (audio * 10.0 ** (gain_db / 20.0)).astype(np.float32)
+
+
 async def run_dsp(
     state: GlobalState,
     playback_queue: asyncio.Queue,
@@ -140,6 +152,7 @@ async def run_dsp(
                 audio = await loop.run_in_executor(
                     None, _read_and_stretch, clip_path, state.drift_bpm
                 )
+                audio = await loop.run_in_executor(None, _normalize_lufs, audio, _SR)
             except Exception:
                 log.exception("dsp_read_error", path=str(clip_path))
                 playback_queue.task_done()
