@@ -3,6 +3,7 @@
 from __future__ import annotations
 
 import asyncio
+import hashlib
 import os
 from pathlib import Path
 
@@ -67,7 +68,7 @@ async def _generate_audio(prompt: str) -> bytes:
     return await _wav_to_mp3(wav_bytes)
 
 
-async def _generate_from_reference(ref_path: Path, prompt: str) -> bytes:
+async def _generate_from_reference(ref_path: Path, prompt: str, state: GlobalState) -> bytes:
     """Derive a new clip from *ref_path* using the fal.ai audio-to-audio endpoint."""
     import base64
 
@@ -79,13 +80,22 @@ async def _generate_from_reference(ref_path: Path, prompt: str) -> bytes:
     mime = "audio/wav" if ref_path.suffix.lower() == ".wav" else "audio/mpeg"
     data_uri = f"data:{mime};base64,{base64.b64encode(ref_bytes).decode()}"
 
+    strength = max(0.3, min(0.9,
+        0.3 + state.drift_velocity * 0.4 + state.crisis_level * 0.3
+    ))
+    guidance_scale = max(1.0, min(1.2,
+        1.0 + state.source_divergence * 0.2
+    ))
+
     result = await fal_client.run_async(
         "fal-ai/stable-audio-25/audio-to-audio",
         arguments={
             "prompt": prompt,
             "audio_url": data_uri,
-            "strength": 0.65,
+            "strength": strength,
+            "guidance_scale": guidance_scale,
             "num_inference_steps": 8,
+            "total_seconds": 47,
         },
     )
     audio_url: str = result["audio"]["url"]
@@ -313,6 +323,11 @@ async def run_audio_queue(
 
         # ── Generate a new clip ───────────────────────────────────────────────
         prompt = _build_prompt(state)
+        prompt_hash = hashlib.md5(prompt.encode()).hexdigest()[:8]
+        if prompt_hash == state.last_prompt_hash and state.queue_length > 0:
+            await asyncio.sleep(_POLL_INTERVAL)
+            continue
+
         ref_path = await find_reference(conn, state)
 
         try:
@@ -320,7 +335,7 @@ async def run_audio_queue(
             name_task = asyncio.create_task(generate_track_name(state))
 
             if ref_path is not None:
-                audio_bytes = await _generate_from_reference(ref_path, prompt)
+                audio_bytes = await _generate_from_reference(ref_path, prompt, state)
             else:
                 audio_bytes = await _generate_audio(prompt)
 
@@ -343,6 +358,7 @@ async def run_audio_queue(
             if display_name:
                 await state_queue.put({"current_track_name": display_name})
 
+            await state_queue.put({"last_prompt_hash": prompt_hash})
             ready.append(outpath)
             if playback_queue is not None:
                 await playback_queue.put(outpath)
