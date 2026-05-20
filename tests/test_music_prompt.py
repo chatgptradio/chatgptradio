@@ -84,8 +84,50 @@ def test_no_vocals_always_present():
     assert "no vocals" in result
 
 
-def test_genre_in_output():
+def test_territory_ambient():
     from builders.music_prompt import build_music_prompt as bmp
-    state = GlobalState(drift_territory="lo-fi")
+    state = GlobalState(drift_territory="ambient")
     result = bmp(state)
-    assert "lo-fi" in result
+    assert "ambient" in result
+
+
+def test_territory_electronic():
+    from builders.music_prompt import build_music_prompt as bmp
+    state = GlobalState(drift_territory="electronic")
+    result = bmp(state)
+    assert "electronic" in result
+
+
+def test_territory_jazz():
+    from builders.music_prompt import build_music_prompt as bmp
+    state = GlobalState(drift_territory="jazz")
+    result = bmp(state)
+    assert "jazz" in result
+
+
+def test_territory_industrial():
+    from builders.music_prompt import build_music_prompt as bmp
+    state = GlobalState(drift_territory="industrial")
+    result = bmp(state)
+    assert "industrial" in result
+
+
+def test_territory_neoclassical():
+    from builders.music_prompt import build_music_prompt as bmp
+    state = GlobalState(drift_territory="neoclassical")
+    result = bmp(state)
+    assert "neoclassical" in result
+
+
+def test_territory_experimental():
+    from builders.music_prompt import build_music_prompt as bmp
+    state = GlobalState(drift_territory="experimental")
+    result = bmp(state)
+    assert "experimental" in result
+
+
+def test_territory_drone():
+    from builders.music_prompt import build_music_prompt as bmp
+    state = GlobalState(drift_territory="drone")
+    result = bmp(state)
+    assert "drone" in result

@@ -3,12 +3,13 @@ from core.state import GlobalState
 
 # Maps territory → (genre descriptor, primary instruments, production keyword)
 _TERRITORY_PROFILE: dict[str, tuple[str, str, str]] = {
-    "ambient":     ("ambient electronic",     "evolving shimmer pads, sparse piano",  "meditative reverb"),
-    "electronic":  ("electronic",             "driving synths, 808 bass, arpeggios",  "44.1kHz stereo"),
-    "lo-fi":       ("lo-fi hip hop",          "warm Rhodes, vinyl crackle, 808 bass", "loopable, chill"),
-    "cinematic":   ("cinematic score",        "orchestral strings, piano, brass",     "high quality, no vocals"),
-    "jazz":        ("jazz instrumental",      "upright bass, brushed drums, piano",   "warm, intimate"),
-    "glitch":      ("glitch ambient",         "fragmented pads, broken rhythms",      "experimental, digital"),
+    "ambient":      ("ambient electronic",      "evolving shimmer pads, sparse piano",              "meditative reverb"),
+    "electronic":   ("electronic",              "driving synths, 808 bass, arpeggios",               "44.1kHz stereo"),
+    "jazz":         ("jazz instrumental",       "upright bass, brushed drums, piano",                "warm, intimate"),
+    "industrial":   ("industrial",              "distorted synths, heavy percussion, abrasive noise", "harsh, relentless"),
+    "neoclassical": ("neoclassical",            "piano, chamber strings, sparse arrangement",        "refined, melancholic"),
+    "experimental": ("experimental electronic", "granular synthesis, glitch textures, atonal pads",  "avant-garde, unpredictable"),
+    "drone":        ("drone ambient",           "sustained tones, subharmonics, morphing pads",      "hypnotic, minimal"),
 }
 
 _EMOTION_DESCRIPTORS: dict[str, tuple[str, str]] = {
