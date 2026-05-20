@@ -10,6 +10,7 @@ from core.audio_queue import run_audio_queue
 from core.calendar_engine import build_event_list, run_calendar
 from core.scene_rotator import run_scene_rotator
 from core.collector_runner import start_all_collectors
+from core.command_engine import CommandEngine
 from core.config import load_config
 from core.db import init_db
 from core.dsp import run_dsp
@@ -34,6 +35,16 @@ async def run() -> None:
     await restore_self_model(db_conn, state)
 
     updater = StateUpdater(state, db_conn)
+
+    # Inject CommandEngine + db connection into the YouTube chat collector so it
+    # can route !commands without breaking the standard collector protocol.
+    cmd_engine = CommandEngine()
+    try:
+        import collectors.youtube_chat as _yt_chat
+
+        _yt_chat.make_collector(cmd_engine, db_conn)
+    except ImportError:
+        pass
 
     collector_tasks = start_all_collectors(config, updater.queue, state)
     ws_server_task, ws_broadcast_task = await start_websocket_server(
