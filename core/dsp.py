@@ -134,7 +134,10 @@ async def run_dsp(
     video_encode = [
         "-c:v", "libx264", "-preset", "veryfast",
         "-b:v", "2500k", "-minrate", "2500k", "-maxrate", "2500k",
-        "-bufsize", "5000k", "-pix_fmt", "yuv420p",
+        "-bufsize", "2500k",               # tight buffer = strict CBR
+        "-g", "60",                        # keyframe every 2s at 30fps (YouTube requires ≤4s)
+        "-x264-params", "nal-hrd=cbr",     # NAL padding to maintain exact bitrate
+        "-pix_fmt", "yuv420p",
     ]
     if not use_x11grab:
         video_encode += ["-tune", "stillimage"]
