@@ -16,10 +16,18 @@ _TERRITORY_PROFILES: dict[str, dict[str, int]] = {
     "ambient":      {"excitement": -1, "anxiety": -1, "crisis_level": -1},
     "electronic":   {"excitement": +1, "curiosity": +1},
     "jazz":         {"curiosity": +1, "creativity": +1, "frustration": -1},
-    "industrial":   {"frustration": +1, "crisis_level": +1, "anxiety": +1},
+    "industrial":   {"frustration": +1, "crisis_level": +1, "anxiety": +1, "creativity": +1},
     "neoclassical": {"anxiety": +1, "curiosity": +1, "excitement": -1},
     "experimental": {"creativity": +1, "source_divergence": +1},
     "drone":        {"crisis_level": +1, "excitement": -1},
+    "lo-fi":        {"melancholy": +1, "excitement": -1},
+    "cinematic":    {"wonder": +1, "harmonic_complexity": +1},
+    "darkwave":     {"anxiety": +1, "melancholy": +1, "excitement": -1},
+    "techno":       {"urgency": +1, "excitement": +1, "frustration": +1},
+    "psych":        {"wonder": +1, "source_divergence": +1, "curiosity": +1},
+    "noise":        {"frustration": +2, "anxiety": +2, "crisis_level": +2},
+    "minimalist":   {"curiosity": +1},
+    "blues":        {"melancholy": +1, "frustration": +1, "excitement": -1},
 }
 
 
