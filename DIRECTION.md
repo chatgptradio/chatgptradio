@@ -41,8 +41,139 @@
 
 ### Stack musique — Stable Audio 2.5 API (V1)
 
-**→ Décision bloquée sur : le serveur a-t-il un GPU ?**
-Si oui → Option C (ACE-Step) prioritaire : aligné open-source, coût zéro, vitesse maximale.
+**Provider** : fal.ai — clé `FAL_KEY` dans `.env`
+**Coût** : ~$0.20 / génération
+
+#### Endpoints
+
+| Usage | Model slug |
+|-------|-----------|
+| Text-to-audio | `fal-ai/stable-audio-25/text-to-audio` |
+| Audio-to-audio | `fal-ai/stable-audio-25/audio-to-audio` |
+| Inpainting | `fal-ai/stable-audio-25/inpaint` |
+
+#### Paramètres text-to-audio
+
+| Paramètre | Type | Défaut | Notes |
+|-----------|------|--------|-------|
+| `prompt` | str | requis | Description textuelle |
+| `num_inference_steps` | int | 8 | Étapes de débruitage |
+| `guidance_scale` | float | 1.0 | Adhérence au prompt |
+| `total_seconds` | int | 30 | Durée en secondes |
+
+#### Paramètres audio-to-audio
+
+| Paramètre | Type | Défaut | Notes |
+|-----------|------|--------|-------|
+| `prompt` | str | requis | Décrit la transformation |
+| `audio_url` | str | requis | URL publique ou data URI base64 |
+| `strength` | float | 0.8 | 0 = inchangé, 1 = régénération totale |
+| `num_inference_steps` | int | 8 | |
+| `guidance_scale` | float | 1.0 | |
+| `total_seconds` | int | 30 | |
+
+#### Réponse
+
+```json
+{
+  "audio": {
+    "url": "https://v3b.fal.media/files/...",
+    "content_type": "application/octet-stream",
+    "file_name": "output.wav",
+    "file_size": 23814078
+  },
+  "seed": 1255888443
+}
+```
+Extraction : `result["audio"]["url"]`
+
+#### Usage Python (async)
+
+```python
+import fal_client
+
+# Text-to-audio
+result = await fal_client.run_async(
+    "fal-ai/stable-audio-25/text-to-audio",
+    arguments={"prompt": "...", "total_seconds": 60, "num_inference_steps": 8, "guidance_scale": 1.2},
+)
+
+# Audio-to-audio (data URI)
+import base64
+mime = "audio/wav" if ref_path.suffix == ".wav" else "audio/mpeg"
+data_uri = f"data:{mime};base64,{base64.b64encode(ref_bytes).decode()}"
+result = await fal_client.run_async(
+    "fal-ai/stable-audio-25/audio-to-audio",
+    arguments={"prompt": "...", "audio_url": data_uri, "strength": 0.65, "num_inference_steps": 8},
+)
+
+audio_url = result["audio"]["url"]
+# Réponse = WAV → convertir via ffmpeg avant sauvegarde
+```
+
+#### Defaults de production ChatGPT Radio
+
+| Paramètre | Text-to-audio | Audio-to-audio |
+|-----------|--------------|----------------|
+| `num_inference_steps` | 8 | 8 |
+| `guidance_scale` | **1.2** | **1.1** |
+| `total_seconds` | **60** (45–90s) | 60 |
+| `strength` | — | **0.65** |
+| `seed` | omis (logguer retour) | omis |
+
+> **Règle guidance_scale** : ne jamais dépasser 1.5 — au-delà les artefacts apparaissent. 1.2 = sweet spot.
+
+#### Prompt engineering — structure optimale
+
+```
+[genre précis], [BPM] BPM, Key of [tonalité],
+[instrument principal], [instruments secondaires (3–5 max)],
+[émotion précise], [qualité de production], [durée ou usage]
+```
+
+**Règles** :
+- BPM et tonalité explicites → cohérence harmonique garantie
+- 3–5 instruments max (au-delà, le modèle est confus)
+- Émotion précise : "euphoric" > "happy", "melancholic" > "sad"
+- Références géo/époque efficaces : "Detroit techno", "70s fusion", "80s gated reverb"
+- Pas de negative_prompt supporté → formulation positive ("pure ambient pads, no drums")
+- Longueur optimale : 15 mots. Diminishing returns au-delà de 150 caractères.
+
+**Templates par territoire ChatGPT Radio** :
+
+| Territoire | Prompt template |
+|-----------|----------------|
+| ambient | `"Ambient space drone, {bpm} BPM, Key of {key}, evolving shimmer pads, meditative reverb, ethereal, 44.1kHz stereo, {seconds} seconds"` |
+| electronic | `"Techno pulse, {bpm} BPM, Key of {key}, driving 808 kicks, analog Moog filter sweeps, {mood}, 44.1kHz stereo, {seconds} seconds"` |
+| lo-fi | `"Lo-fi hip hop, {bpm} BPM, Key of {key}, vinyl crackle, warm Rhodes, dusty 808 bass, chill and focused, loopable, {seconds} seconds"` |
+| cinematic | `"Cinematic score, {bpm} BPM, Key of {key}, orchestral strings, subtle synth drones, {mood}, high quality, {seconds} seconds"` |
+| crisis | `"Glitched ambient, {bpm} BPM, Key of {key}, signal degradation, hollow pads, dissonant harmonics, system failure undertone, {seconds} seconds"` |
+
+#### Audio-to-audio — ce qui est transformé vs préservé
+
+| Aspect | Préservé si strength < 0.7 |
+|--------|--------------------------|
+| Timbre/couleur sonore | Oui |
+| Rythme macro (grille BPM) | Partiellement |
+| Mélodie | Non — régénérée via prompt |
+| Structure harmonique | Partiellement (tonalité influencée) |
+| Durée | Oui (sauf `total_seconds` override) |
+
+**Track de référence idéale** : 20–45s, propre, peu de layers, 44.1kHz.
+**À éviter** : trop compressé, reverb excessive, mix boueux.
+
+#### Format de sortie et pipeline
+
+fal.ai retourne toujours du **WAV** (`content_type: application/octet-stream`).
+Pipeline obligatoire : `WAV bytes → ffmpeg (libmp3lame 192k CBR) → MP3 bytes → streams/audio/`
+Voir `core/audio_queue._wav_to_mp3()`.
+
+#### Limites
+- Concurrence : 2 requêtes simultanées (nouveau compte) → 40 (quota élevé)
+- Durée max : 180 secondes
+- Formats acceptés audio-to-audio : mp3, ogg, wav, m4a, aac
+- `num_inference_steps` max pour audio-to-audio : **8**
+- Dépendance Python : `fal-client>=1.0.0`
 
 ### Stack La Température du Monde
 
@@ -192,7 +323,7 @@ Représentation : forme d'énergie abstraite Three.js (pulse, contracte, couleur
 | 2026-05-16 | Logo : design original évoquant l'esthétique AI sans copier le logo ChatGPT | VALIDÉ |
 | 2026-05-16 | Analyse légale complète trademark/logo | VALIDÉ |
 | 2026-05-16 | Concept 12 : Le Journal de l'IA (ticker conscience visible) | VALIDÉ |
-| 2026-05-16 | Concept 13 : La Dérive (arc musical organique 24h, random walk) | VALIDÉ |
+| 2026-05-16 | Concept 13 : La Dérive (arc musical organique 24h) | VALIDÉ |
 | 2026-05-16 | Concept 14 : La Température du Monde (baromètre humeur mondiale IA, vraies données) | VALIDÉ — concept majeur |
 | 2026-05-16 | Concept 15 : IA Consciente du Public (Option B — dialogue individuel, mémoire réelle) | VALIDÉ |
 | 2026-05-16 | Glitches programmés aléatoires | REJETÉ — pas de fake, uniquement vraies données |
@@ -216,7 +347,7 @@ Représentation : forme d'énergie abstraite Three.js (pulse, contracte, couleur
 | 2026-05-17 | Stack visuels : Three.js + WebGL (graphe GlobalState réel, pas décoratif) | VALIDÉ |
 | 2026-05-17 | TTS ElevenLabs : REJETÉ — entité sans voix, expression via musique + texte uniquement | REJETÉ |
 | 2026-05-17 | Génération musicale : événementielle (Δ>0.15) + couche DSP temps réel | VALIDÉ |
-| 2026-05-17 | La Dérive : random walk BPM + circle of fifths + attraction GlobalState | REMPLACÉ — voir décision 2026-05-17 ci-dessous |
+| 2026-05-17 | La Dérive : circle of fifths + attraction GlobalState | REMPLACÉ — voir décision 2026-05-17 ci-dessous |
 | 2026-05-17 | Infrastructure musique : Stable Audio 2.5 V1 ($30-90/mois), RunPod ACE-Step V2 ($5-15) | VALIDÉ |
 | 2026-05-17 | Sources mondiales : GDELT + Hedonometer + Media Cloud + CNN Fear&Greed ajoutés | VALIDÉ |
 | 2026-05-17 | NewsAPI → NewsAPI.ai (Event Registry) : 150k+ publishers + VADER intégré | VALIDÉ |

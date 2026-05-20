@@ -26,19 +26,16 @@ def test_returns_nonempty_string_for_default_state():
     assert len(result) > 0
 
 
-def test_bpm_key_timbre_territory_in_output():
+def test_bpm_key_in_output():
     from builders.music_prompt import build_music_prompt as bmp
     state = GlobalState(
         drift_bpm=110.0,
         drift_key="F# major",
-        drift_timbre="metallic",
-        drift_territory="industrial",
+        drift_territory="electronic",
     )
     result = bmp(state)
     assert "110 BPM" in result
     assert "F# major" in result
-    assert "metallic" in result
-    assert "industrial" in result
 
 
 def test_crisis_modifier_present_above_0_2():
@@ -69,7 +66,7 @@ def test_dominant_emotion_drives_descriptor():
     state.prediction_errors = {"excitation": 1.0}
     state.signal_volatilities = {"excitation": 0.1}
     result = bmp(state)
-    assert "energetic" in result
+    assert "euphoric" in result or "driving" in result or "bright" in result
 
 
 def test_no_random_in_file():
@@ -80,8 +77,15 @@ def test_no_random_in_file():
     assert "random." not in src
 
 
-def test_high_quality_footer_always_present():
+def test_no_vocals_always_present():
     from builders.music_prompt import build_music_prompt as bmp
     state = GlobalState()
     result = bmp(state)
-    assert "high quality, no vocals, AI ambient electronic music" in result
+    assert "no vocals" in result
+
+
+def test_genre_in_output():
+    from builders.music_prompt import build_music_prompt as bmp
+    state = GlobalState(drift_territory="lo-fi")
+    result = bmp(state)
+    assert "lo-fi" in result

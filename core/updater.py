@@ -89,8 +89,8 @@ class StateUpdater:
             current.update(value)
         else:
             setattr(self.state, signal, value)
-            annotation = GlobalState.model_fields[signal].annotation
-            if annotation in (float, int):
+            field_info = GlobalState.model_fields.get(signal)
+            if field_info and field_info.annotation in (float, int):
                 update_self_model(self.state, signal, float(value))
 
     async def run(self) -> None:

@@ -12,6 +12,7 @@ dependencies = [
     "structlog",
     "pyyaml",
     "openai>=1.0.0",
+    "fal-client>=1.0.0",
 ]
 
 [build-system]

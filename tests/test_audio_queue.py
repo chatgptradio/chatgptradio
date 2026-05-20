@@ -43,8 +43,9 @@ async def test_generate_track_name_called_concurrently(tmp_path):
         patch("core.audio_queue.find_reference", new_callable=AsyncMock) as mock_ref,
         patch("core.audio_queue._build_prompt", return_value="ambient test prompt"),
         patch("core.audio_queue._index_fallback_clips", new_callable=AsyncMock, return_value=[]),
+        patch("core.audio_queue._CLIPS_DIR", tmp_path),
         patch("core.audio_queue._POLL_INTERVAL", 0),
-        patch.dict("os.environ", {"STABILITY_API_KEY": "test-key"}),
+        patch.dict("os.environ", {"FAL_API_KEY": "test-key"}),
     ):
         mock_audio.return_value = b"fake_mp3_bytes"
         mock_name.return_value = "Void Cartographer - Cold Signal"
@@ -88,8 +89,9 @@ async def test_current_track_name_pushed_to_state_queue(tmp_path):
         patch("core.audio_queue.find_reference", new_callable=AsyncMock) as mock_ref,
         patch("core.audio_queue._build_prompt", return_value="ambient test prompt"),
         patch("core.audio_queue._index_fallback_clips", new_callable=AsyncMock, return_value=[]),
+        patch("core.audio_queue._CLIPS_DIR", tmp_path),
         patch("core.audio_queue._POLL_INTERVAL", 0),
-        patch.dict("os.environ", {"STABILITY_API_KEY": "test-key"}),
+        patch.dict("os.environ", {"FAL_API_KEY": "test-key"}),
     ):
         mock_audio.return_value = b"fake_mp3_bytes"
         mock_name.return_value = "Ghost Protocol - Fading Signal"
@@ -141,8 +143,9 @@ async def test_empty_display_name_not_pushed(tmp_path):
         patch("core.audio_queue.find_reference", new_callable=AsyncMock) as mock_ref,
         patch("core.audio_queue._build_prompt", return_value="ambient test prompt"),
         patch("core.audio_queue._index_fallback_clips", new_callable=AsyncMock, return_value=[]),
+        patch("core.audio_queue._CLIPS_DIR", tmp_path),
         patch("core.audio_queue._POLL_INTERVAL", 0),
-        patch.dict("os.environ", {"STABILITY_API_KEY": "test-key"}),
+        patch.dict("os.environ", {"FAL_API_KEY": "test-key"}),
     ):
         mock_audio.return_value = b"fake_mp3_bytes"
         mock_name.return_value = ""  # empty — API error scenario
@@ -192,7 +195,7 @@ async def test_find_reusable_display_name_pushed(tmp_path):
         patch("core.audio_queue.mark_played", new_callable=AsyncMock),
         patch("core.audio_queue._index_fallback_clips", new_callable=AsyncMock, return_value=[]),
         patch("core.audio_queue._POLL_INTERVAL", 9999),  # prevent second loop
-        patch.dict("os.environ", {"STABILITY_API_KEY": "test-key"}),
+        patch.dict("os.environ", {"FAL_API_KEY": "test-key"}),
     ):
         mock_reuse.return_value = (fake_clip, "Reuse Artist - Reuse Track")
 
@@ -238,7 +241,7 @@ async def test_find_reusable_empty_display_name_not_pushed(tmp_path):
         patch("core.audio_queue.mark_played", new_callable=AsyncMock),
         patch("core.audio_queue._index_fallback_clips", new_callable=AsyncMock, return_value=[]),
         patch("core.audio_queue._POLL_INTERVAL", 9999),
-        patch.dict("os.environ", {"STABILITY_API_KEY": "test-key"}),
+        patch.dict("os.environ", {"FAL_API_KEY": "test-key"}),
     ):
         mock_reuse.return_value = (fake_clip, "")  # empty display_name
 
@@ -353,8 +356,9 @@ async def test_index_clip_called_with_display_name(tmp_path):
         patch("core.audio_queue.index_clip", side_effect=capturing_index_clip),
         patch("core.audio_queue._build_prompt", return_value="test prompt"),
         patch("core.audio_queue._index_fallback_clips", new_callable=AsyncMock, return_value=[]),
+        patch("core.audio_queue._CLIPS_DIR", tmp_path),
         patch("core.audio_queue._POLL_INTERVAL", 0),
-        patch.dict("os.environ", {"STABILITY_API_KEY": "test-key"}),
+        patch.dict("os.environ", {"FAL_API_KEY": "test-key"}),
     ):
         mock_audio.return_value = b"audio_data"
         mock_name.return_value = "Test Artist - Test Track"

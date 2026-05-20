@@ -21,68 +21,82 @@ _CLIPS_DIR     = Path("streams/audio")
 _FALLBACK_DIR  = Path("assets/fallback")
 
 
+# ── Helpers ───────────────────────────────────────────────────────────────────
+
+
+async def _wav_to_mp3(wav_bytes: bytes) -> bytes:
+    """Convert raw WAV bytes to MP3 via ffmpeg (192k CBR)."""
+    proc = await asyncio.create_subprocess_exec(
+        "ffmpeg", "-y",
+        "-f", "wav", "-i", "pipe:0",
+        "-codec:a", "libmp3lame", "-b:a", "192k",
+        "-f", "mp3", "pipe:1",
+        stdin=asyncio.subprocess.PIPE,
+        stdout=asyncio.subprocess.PIPE,
+        stderr=asyncio.subprocess.DEVNULL,
+    )
+    mp3_bytes, _ = await proc.communicate(input=wav_bytes)
+    if proc.returncode != 0:
+        raise RuntimeError("ffmpeg WAV→MP3 conversion failed")
+    return mp3_bytes
+
+
 # ── Internal audio generation helpers ────────────────────────────────────────
 
 
 async def _generate_audio(prompt: str) -> bytes:
-    """Generate audio bytes via Stable Audio / fal.ai API.
-
-    Returns raw MP3/WAV bytes on success.  Raises on failure so callers can
-    handle the error path.
-    """
+    """Generate audio bytes via Stable Audio 2.5 / fal.ai text-to-audio endpoint."""
     import fal_client  # type: ignore[import-untyped]
 
-    result = await asyncio.get_running_loop().run_in_executor(
-        None,
-        lambda: fal_client.run(
-            "fal-ai/stable-audio",
-            arguments={
-                "prompt": prompt,
-                "seconds_total": 47,
-                "steps": 100,
-            },
-        ),
+    result = await fal_client.run_async(
+        "fal-ai/stable-audio-25/text-to-audio",
+        arguments={
+            "prompt": prompt,
+            "total_seconds": 47,
+            "num_inference_steps": 8,
+        },
     )
-    audio_url: str = result["audio_file"]["url"]
+    audio_url: str = result["audio"]["url"]
 
     import aiohttp
 
     async with aiohttp.ClientSession() as session:
         async with session.get(audio_url) as resp:
             resp.raise_for_status()
-            return await resp.read()
+            wav_bytes = await resp.read()
+    return await _wav_to_mp3(wav_bytes)
 
 
 async def _generate_from_reference(ref_path: Path, prompt: str) -> bytes:
     """Derive a new clip from *ref_path* using the fal.ai audio-to-audio endpoint."""
+    import base64
+
     import fal_client  # type: ignore[import-untyped]
 
     with ref_path.open("rb") as fh:
         ref_bytes = fh.read()
 
-    import base64
+    mime = "audio/wav" if ref_path.suffix.lower() == ".wav" else "audio/mpeg"
+    data_uri = f"data:{mime};base64,{base64.b64encode(ref_bytes).decode()}"
 
-    data_uri = f"data:audio/mpeg;base64,{base64.b64encode(ref_bytes).decode()}"
-
-    result = await asyncio.get_running_loop().run_in_executor(
-        None,
-        lambda: fal_client.run(
-            "fal-ai/stable-audio",
-            arguments={
-                "prompt": prompt,
-                "audio_file": data_uri,
-                "steps": 80,
-            },
-        ),
+    result = await fal_client.run_async(
+        "fal-ai/stable-audio-25/audio-to-audio",
+        arguments={
+            "prompt": prompt,
+            "audio_url": data_uri,
+            "strength": 0.65,
+            "num_inference_steps": 8,
+        },
     )
-    audio_url: str = result["audio_file"]["url"]
+    audio_url: str = result["audio"]["url"]
 
     import aiohttp
 
     async with aiohttp.ClientSession() as session:
         async with session.get(audio_url) as resp:
             resp.raise_for_status()
-            return await resp.read()
+            wav_bytes = await resp.read()
+    return await _wav_to_mp3(wav_bytes)
 
 
 async def find_reference(
@@ -246,9 +260,9 @@ async def _index_fallback_clips(
 
 def _build_prompt(state: GlobalState) -> str:
     """Derive a Stable Audio text prompt from GlobalState."""
-    from builders.music_prompt import build_prompt  # type: ignore[import-untyped]
+    from builders.music_prompt import build_music_prompt
 
-    return build_prompt(state)
+    return build_music_prompt(state)
 
 
 # ── Main loop ─────────────────────────────────────────────────────────────────
@@ -266,12 +280,13 @@ async def run_audio_queue(
     Pushes ``{"current_track_name": name}`` to *state_queue* whenever a
     clip with a non-empty display name is queued.
     """
-    api_key = os.environ.get("STABILITY_API_KEY", "") or os.environ.get(
-        "FAL_KEY", ""
-    )
+    api_key = os.environ.get("FAL_API_KEY", "") or os.environ.get("FAL_KEY", "")
     if not api_key:
         log.warning("audio_queue_disabled", reason="no API key")
         return
+    # fal_client SDK only reads FAL_KEY; expose our key under that name if needed
+    if not os.environ.get("FAL_KEY"):
+        os.environ["FAL_KEY"] = api_key
 
     _CLIPS_DIR.mkdir(parents=True, exist_ok=True)
 

@@ -26,8 +26,16 @@ CREATE TABLE IF NOT EXISTS viewers (
     viewer_id TEXT PRIMARY KEY,
     first_seen REAL NOT NULL,
     last_seen REAL NOT NULL,
-    session_count INTEGER DEFAULT 1
+    session_count INTEGER DEFAULT 1,
+    display_name TEXT NOT NULL DEFAULT ''
 );
+
+CREATE TABLE IF NOT EXISTS journal_entries (
+    id INTEGER PRIMARY KEY AUTOINCREMENT,
+    ts REAL NOT NULL,
+    entry TEXT NOT NULL
+);
+CREATE INDEX IF NOT EXISTS idx_je ON journal_entries(ts);
 
 CREATE TABLE IF NOT EXISTS audio_clips (
     id INTEGER PRIMARY KEY AUTOINCREMENT,
@@ -98,6 +106,15 @@ async def init_db(path: str) -> aiosqlite.Connection:
             """
         )
         await conn.execute("DROP TABLE _audio_clips_legacy")
+        await conn.commit()
+
+    # Idempotent migration: add display_name to viewers if missing.
+    async with conn.execute("PRAGMA table_info(viewers)") as cur:
+        viewer_cols = {row[1] async for row in cur}
+    if "display_name" not in viewer_cols:
+        await conn.execute(
+            "ALTER TABLE viewers ADD COLUMN display_name TEXT NOT NULL DEFAULT ''"
+        )
         await conn.commit()
 
     return conn

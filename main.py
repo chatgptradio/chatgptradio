@@ -4,9 +4,12 @@ import sys
 
 import structlog
 
+from core.audio_queue import run_audio_queue
 from core.collector_runner import start_all_collectors
 from core.config import load_config
 from core.db import init_db
+from core.journal import run_journal
+from core.memory import restore_self_model
 from core.state import GlobalState
 from core.updater import StateUpdater
 from core.websocket_server import start_websocket_server
@@ -20,12 +23,24 @@ async def run() -> None:
     db_conn = await init_db(config.sqlite.path)
     state = GlobalState()
 
+    # Restore self-model baselines from last session
+    await restore_self_model(db_conn, state)
+
     updater = StateUpdater(state, db_conn)
+
     collector_tasks = start_all_collectors(config, updater.queue, state)
     ws_server_task, ws_broadcast_task = await start_websocket_server(
         state, config.websocket.port, config.websocket.fps
     )
     updater_task = asyncio.create_task(updater.run())
+
+    playback_queue: asyncio.Queue = asyncio.Queue()
+    audio_task = asyncio.create_task(
+        run_audio_queue(state, updater.queue, db_conn, playback_queue)
+    )
+    journal_task = asyncio.create_task(
+        run_journal(state, updater.queue, db_conn)
+    )
 
     shutdown_event = asyncio.Event()
 
@@ -44,7 +59,13 @@ async def run() -> None:
 
     log.info("chatgpt_radio_shutdown_started")
 
-    all_tasks = collector_tasks + [ws_server_task, ws_broadcast_task, updater_task]
+    all_tasks = collector_tasks + [
+        ws_server_task,
+        ws_broadcast_task,
+        updater_task,
+        audio_task,
+        journal_task,
+    ]
     for task in all_tasks:
         task.cancel()
     await asyncio.gather(*all_tasks, return_exceptions=True)
