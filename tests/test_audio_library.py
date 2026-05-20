@@ -35,7 +35,7 @@ def real_audio_file(tmp_path) -> Path:
 
 @pytest.mark.asyncio
 async def test_index_clip_persists_display_name(tmp_db, real_audio_file):
-    state = GlobalState(excitation=0.5)
+    state = GlobalState(excitement=0.5)
     await index_clip(
         tmp_db,
         real_audio_file,

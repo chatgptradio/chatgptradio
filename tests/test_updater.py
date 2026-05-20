@@ -23,7 +23,7 @@ async def test_enqueue_5_updates_produces_5_snapshots(state, db):
     task = asyncio.create_task(updater.run())
 
     for i in range(5):
-        await updater.enqueue("excitation", float(i) * 0.1)
+        await updater.enqueue("excitement", float(i) * 0.1)
 
     await updater.queue.join()
     task.cancel()
@@ -43,7 +43,7 @@ async def test_updates_are_applied_in_order(state, db):
 
     values = [0.1, 0.2, 0.9, 0.4, 0.7]
     for v in values:
-        await updater.enqueue("excitation", v)
+        await updater.enqueue("excitement", v)
 
     await updater.queue.join()
     task.cancel()
@@ -52,7 +52,7 @@ async def test_updates_are_applied_in_order(state, db):
     except asyncio.CancelledError:
         pass
 
-    assert state.excitation == pytest.approx(0.7)
+    assert state.excitement == pytest.approx(0.7)
 
 
 async def test_dict_field_is_merged_not_replaced(state, db):
@@ -76,7 +76,7 @@ async def test_derived_fields_recalculated(state, db):
     updater = StateUpdater(state, db)
     task = asyncio.create_task(updater.run())
 
-    await updater.enqueue("anxiete", 0.6)
+    await updater.enqueue("anxiety", 0.6)
     await updater.enqueue("frustration", 0.4)
 
     await updater.queue.join()
@@ -94,7 +94,7 @@ async def test_updated_at_is_refreshed(state, db):
 
     updater = StateUpdater(state, db)
     task = asyncio.create_task(updater.run())
-    await updater.enqueue("excitation", 0.3)
+    await updater.enqueue("excitement", 0.3)
     await updater.queue.join()
     task.cancel()
     try:
@@ -106,7 +106,7 @@ async def test_updated_at_is_refreshed(state, db):
 
 
 def test_compute_derived_world_temperature():
-    s = GlobalState(excitation=1.0, anxiete=0.5, frustration=0.0, curiosite=0.0, creativite=0.0)
+    s = GlobalState(excitement=1.0, anxiety=0.5, frustration=0.0, curiosity=0.0, creativity=0.0)
     compute_derived(s)
     assert s.world_temperature == pytest.approx(0.3)
 
@@ -118,6 +118,6 @@ def test_compute_derived_crisis_level_from_openai_outage():
 
 
 def test_compute_derived_harmonic_complexity():
-    s = GlobalState(curiosite=1.0, creativite=1.0)
+    s = GlobalState(curiosity=1.0, creativity=1.0)
     compute_derived(s)
     assert s.harmonic_complexity == pytest.approx(0.6 + 0.4)

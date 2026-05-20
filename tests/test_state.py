@@ -33,8 +33,8 @@ def test_drift_defaults():
 
 def test_all_float_fields_default_zero_except_status():
     state = GlobalState()
-    assert state.excitation == 0.0
-    assert state.anxiete == 0.0
+    assert state.excitement == 0.0
+    assert state.anxiety == 0.0
     assert state.world_temperature == 0.0
     assert state.crisis_level == 0.0
 
@@ -60,18 +60,18 @@ def test_model_dump_json_serializable():
     # Should not raise
     dumped = json.dumps(d)
     assert "updated_at" in dumped
-    assert "excitation" in dumped
+    assert "excitement" in dumped
 
 
 def test_mutate_field_and_reserialize():
     state = GlobalState()
-    state.excitation = 0.75
-    state.signal_baselines["excitation"] = 0.43
-    state.drift_weights["bpm"] = {"excitation": 0.38}
+    state.excitement = 0.75
+    state.signal_baselines["excitement"] = 0.43
+    state.drift_weights["bpm"] = {"excitement": 0.38}
     d = state.model_dump(mode="json")
-    assert d["excitation"] == 0.75
-    assert d["signal_baselines"]["excitation"] == 0.43
-    assert d["drift_weights"]["bpm"]["excitation"] == 0.38
+    assert d["excitement"] == 0.75
+    assert d["signal_baselines"]["excitement"] == 0.43
+    assert d["drift_weights"]["bpm"]["excitement"] == 0.38
 
 
 def test_music_vector_dataclass():

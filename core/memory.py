@@ -7,7 +7,7 @@ import orjson
 
 from core.state import GlobalState
 
-_TREND_SIGNALS = ["excitation", "anxiete", "crisis_level", "world_temperature", "anomaly_score"]
+_TREND_SIGNALS = ["excitement", "anxiety", "crisis_level", "world_temperature", "anomaly_score"]
 
 
 @dataclass

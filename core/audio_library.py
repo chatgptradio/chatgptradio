@@ -26,8 +26,8 @@ async def index_clip(
     """Insert or replace an audio clip record in the library."""
     mood_snapshot = orjson.dumps(
         {
-            "excitation": state.excitation,
-            "anxiete": state.anxiete,
+            "excitement": state.excitement,
+            "anxiety": state.anxiety,
             "drift_bpm": state.drift_bpm,
         }
     ).decode()

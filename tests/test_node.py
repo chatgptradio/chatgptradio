@@ -11,7 +11,7 @@ def clear_registry():
 
 
 def test_decorator_registers_sync_function():
-    @node_module.node(name="test_fn", produces="excitation", color="#FF0000", label="Test")
+    @node_module.node(name="test_fn", produces="excitement", color="#FF0000", label="Test")
     def my_fn(state):
         return 0.5
 
@@ -19,7 +19,7 @@ def test_decorator_registers_sync_function():
 
 
 def test_decorator_registers_async_function():
-    @node_module.node(name="async_fn", produces="anxiete", color="#00FF00", label="Async")
+    @node_module.node(name="async_fn", produces="anxiety", color="#00FF00", label="Async")
     async def my_async_fn(state):
         return 0.3
 
@@ -27,7 +27,7 @@ def test_decorator_registers_async_function():
 
 
 def test_decorator_does_not_change_behavior():
-    @node_module.node(name="identity", produces="creativite", color="#0000FF", label="Id")
+    @node_module.node(name="identity", produces="creativity", color="#0000FF", label="Id")
     def add_one(x):
         return x + 1
 

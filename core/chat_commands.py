@@ -13,17 +13,6 @@ from core.audio_library import find_by_display_name
 from core.command_engine import CommandEngine, VALID_GENRES, VALID_VIBES
 from core.state import GlobalState
 
-_EMOTION_EN: dict[str, str] = {
-    "excitation": "excitement",
-    "anxiete": "anxiety",
-    "frustration": "frustration",
-    "curiosite": "curiosity",
-    "creativite": "creativity",
-    "emerveillement": "wonder",
-    "melancolie": "melancholy",
-    "urgence": "urgency",
-}
-
 
 async def handle_command(
     raw: str,
@@ -53,7 +42,7 @@ async def handle_command(
             return None
         dominant = max(pe, key=pe.__getitem__)
         s = pe[dominant] / max(vol.get(dominant, 0.1), 0.01)
-        return f"◈ {_EMOTION_EN.get(dominant, dominant)} ({s:.1f}σ)"
+        return f"◈ {dominant} ({s:.1f}σ)"
 
     # ── !vibe ─────────────────────────────────────────────────────────────────
     if cmd == "!vibe":

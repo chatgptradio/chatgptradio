@@ -116,8 +116,8 @@ def _analyse(path: Path) -> dict:
     territory = _detect_territory(path.name, bpm)
 
     rms = float(np.sqrt(np.mean(y ** 2)))
-    # Normalise RMS → excitation [0, 1] (typical RMS range for music: 0.02 – 0.25)
-    excitation = float(np.clip(rms / 0.15, 0.0, 1.0))
+    # Normalise RMS → excitement [0, 1] (typical RMS range for music: 0.02 – 0.25)
+    excitement = float(np.clip(rms / 0.15, 0.0, 1.0))
 
     spectral_centroid = float(librosa.feature.spectral_centroid(y=y, sr=sr).mean())
     # Normalise centroid → harmonic_complexity [0, 1] (typical range: 500 – 4000 Hz)
@@ -129,7 +129,7 @@ def _analyse(path: Path) -> dict:
 
     zcr = float(librosa.feature.zero_crossing_rate(y).mean())
     # High ZCR → anxious/tense texture
-    anxiete = float(np.clip(zcr / 0.15, 0.0, 1.0))
+    anxiety = float(np.clip(zcr / 0.15, 0.0, 1.0))
 
     print(f"BPM={bpm:.0f} key={key} territory={territory}")
     return {
@@ -137,10 +137,10 @@ def _analyse(path: Path) -> dict:
         "drift_key": key,
         "drift_territory": territory,
         "drift_timbre": "warm",   # default — librosa doesn't distinguish timbre well
-        "excitation": excitation,
+        "excitement": excitement,
         "harmonic_complexity": harmonic_complexity,
         "musical_tension": musical_tension,
-        "anxiete": anxiete,
+        "anxiety": anxiety,
         "world_temperature": 0.5,
         "crisis_level": 0.0,
     }

@@ -63,8 +63,8 @@ def test_no_crisis_modifier_when_crisis_zero():
 def test_dominant_emotion_drives_descriptor():
     from builders.music_prompt import build_music_prompt as bmp
     state = GlobalState()
-    state.prediction_errors = {"excitation": 1.0}
-    state.signal_volatilities = {"excitation": 0.1}
+    state.prediction_errors = {"excitement": 1.0}
+    state.signal_volatilities = {"excitement": 0.1}
     result = bmp(state)
     assert "euphoric" in result or "driving" in result or "bright" in result
 

@@ -6,18 +6,18 @@ from core.self_model import update_self_model
 
 def test_updates_all_four_dicts():
     state = GlobalState()
-    update_self_model(state, "excitation", 0.5)
-    assert "excitation" in state.signal_baselines
-    assert "excitation" in state.signal_adaptation_rates
-    assert "excitation" in state.signal_volatilities
-    assert "excitation" in state.prediction_errors
+    update_self_model(state, "excitement", 0.5)
+    assert "excitement" in state.signal_baselines
+    assert "excitement" in state.signal_adaptation_rates
+    assert "excitement" in state.signal_volatilities
+    assert "excitement" in state.prediction_errors
 
 
 def test_convergence_after_100_stable_calls():
     state = GlobalState()
     for _ in range(100):
-        update_self_model(state, "excitation", 0.5)
-    assert abs(state.signal_baselines["excitation"] - 0.5) < 0.01
+        update_self_model(state, "excitement", 0.5)
+    assert abs(state.signal_baselines["excitement"] - 0.5) < 0.01
 
 
 def test_step_change_creates_large_then_decaying_error():

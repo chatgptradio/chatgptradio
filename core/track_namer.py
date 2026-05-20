@@ -17,20 +17,9 @@ Return JSON only: {"artist": "...", "title": "..."}.
 """
 
 _EMOTION_ORDER = [
-    "excitation", "anxiete", "frustration", "curiosite",
-    "creativite", "emerveillement", "melancolie", "urgence",
+    "excitement", "anxiety", "frustration", "curiosity",
+    "creativity", "wonder", "melancholy", "urgency",
 ]
-_EMOTION_EN: dict[str, str] = {
-    "excitation": "excitement",
-    "anxiete": "anxiety",
-    "frustration": "frustration",
-    "curiosite": "curiosity",
-    "creativite": "creativity",
-    "emerveillement": "wonder",
-    "melancolie": "melancholy",
-    "urgence": "urgency",
-}
-
 
 async def generate_track_name(state: GlobalState) -> str:
     """Return 'Artist - Track Title' via GPT-4o-mini. Empty string on any error."""
@@ -45,11 +34,10 @@ async def generate_track_name(state: GlobalState) -> str:
         return abs(pe.get(k, 0.0)) / max(vol.get(k, 0.1), 0.001)
 
     top2 = sorted(_EMOTION_ORDER, key=sig, reverse=True)[:2]
-    top2_en = [_EMOTION_EN[e] for e in top2]
 
     user_msg = (
         f"territory: {state.drift_territory}, BPM: {state.drift_bpm:.0f}, key: {state.drift_key}\n"
-        f"dominant emotions: {', '.join(top2_en)}\n"
+        f"dominant emotions: {', '.join(top2)}\n"
         f"crisis: {state.crisis_level:.2f}, world_temperature: {state.world_temperature:.2f}"
     )
 

@@ -35,11 +35,11 @@ async def test_song_no_track_name_returns_none():
 @pytest.mark.asyncio
 async def test_mood_english_emotion():
     state, eng, q, conn = _make_deps()
-    state.prediction_errors = {"anxiete": 0.9}
-    state.signal_volatilities = {"anxiete": 0.1}
+    state.prediction_errors = {"anxiety": 0.9}
+    state.signal_volatilities = {"anxiety": 0.1}
     result = await handle_command("!mood", state, eng, q, conn)
     assert result is not None
-    assert "anxiety" in result  # English, not "anxiete"
+    assert "anxiety" in result
 
 
 @pytest.mark.asyncio

@@ -12,14 +12,14 @@ _TERRITORY_PROFILE: dict[str, tuple[str, str, str]] = {
 }
 
 _EMOTION_DESCRIPTORS: dict[str, tuple[str, str]] = {
-    "excitation":    ("euphoric, driving, bright",         "dissolving energy, fading pulse"),
-    "anxiete":       ("tense, sparse, hollow",             "releasing, resolving, open space"),
+    "excitement":    ("euphoric, driving, bright",         "dissolving energy, fading pulse"),
+    "anxiety":       ("tense, sparse, hollow",             "releasing, resolving, open space"),
     "frustration":   ("dissonant, unresolved tension",     "harmonic resolution, clearing"),
-    "curiosite":     ("exploratory, modal, open-ended",    "settling, familiar patterns"),
-    "creativite":    ("experimental, textural, playful",   "minimal, foundational"),
-    "emerveillement":("wondrous, expansive, ethereal",     "grounded, intimate"),
-    "melancolie":    ("melancholic, introspective, muted", "warming, hopeful"),
-    "urgence":       ("urgent, propulsive, relentless",    "decelerating, resolving"),
+    "curiosity":     ("exploratory, modal, open-ended",    "settling, familiar patterns"),
+    "creativity":    ("experimental, textural, playful",   "minimal, foundational"),
+    "wonder":("wondrous, expansive, ethereal",     "grounded, intimate"),
+    "melancholy":    ("melancholic, introspective, muted", "warming, hopeful"),
+    "urgency":       ("urgent, propulsive, relentless",    "decelerating, resolving"),
 }
 
 _EMOTIONS = list(_EMOTION_DESCRIPTORS)

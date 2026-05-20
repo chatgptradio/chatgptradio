@@ -38,7 +38,7 @@ _SOURCE_SIGNAL_FIELDS = [
 
 def compute_derived(state: GlobalState) -> None:
     state.world_temperature = (
-        state.excitation + state.anxiete + state.frustration + state.curiosite + state.creativite
+        state.excitement + state.anxiety + state.frustration + state.curiosity + state.creativity
     ) / 5.0
 
     openai_crisis = 1.0 - state.openai_status
@@ -51,8 +51,8 @@ def compute_derived(state: GlobalState) -> None:
     chat_rate_norm = min(state.chat_rate / 100.0, 1.0)
     state.audience_energy = viewers_norm * chat_rate_norm * (1.0 + state.regulars_ratio)
 
-    state.musical_tension = state.anxiete * 0.5 + state.frustration * 0.5
-    state.harmonic_complexity = state.curiosite * 0.6 + state.creativite * 0.4
+    state.musical_tension = state.anxiety * 0.5 + state.frustration * 0.5
+    state.harmonic_complexity = state.curiosity * 0.6 + state.creativity * 0.4
     state.rhythmic_entropy = state.frustration * 0.5 + state.crisis_level * 0.5
 
     active = [getattr(state, s) for s in _SOURCE_SIGNAL_FIELDS if getattr(state, s) != 0.0]

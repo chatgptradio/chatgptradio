@@ -15,13 +15,13 @@ class MusicVector:
 class GlobalState(BaseModel):
     model_config = ConfigDict(arbitrary_types_allowed=True)
 
-    # ── CATÉGORIE 1 : Température du Monde ────────────────────────────────────
+    # ── CATEGORY 1: World Temperature ───────────────────────────────────────
 
-    excitation: float = 0.0
-    anxiete: float = 0.0
+    excitement: float = 0.0
+    anxiety: float = 0.0
     frustration: float = 0.0
-    curiosite: float = 0.0
-    creativite: float = 0.0
+    curiosity: float = 0.0
+    creativity: float = 0.0
 
     reddit_volume: float = 0.0
     reddit_sentiment: float = 0.0
@@ -45,7 +45,7 @@ class GlobalState(BaseModel):
     msft_delta: float = 0.0
     nvda_delta: float = 0.0
 
-    # ── CATÉGORIE 2 : Infrastructure OpenAI ──────────────────────────────────
+    # ── CATEGORY 2: OpenAI Infrastructure ───────────────────────────────────
 
     openai_status: float = 1.0
     openai_latency_ms: float = 0.0
@@ -53,7 +53,7 @@ class GlobalState(BaseModel):
     anthropic_status: float = 1.0
     gemini_status: float = 1.0
 
-    # ── CATÉGORIE 3 : Temporel + État de La Dérive ───────────────────────────
+    # ── CATEGORY 3: Temporal + Drift State ──────────────────────────────────
 
     hour_utc: int = 0
     day_of_week: int = 0
@@ -66,7 +66,7 @@ class GlobalState(BaseModel):
     time_in_territory_h: float = 0.0
     drift_velocity: float = 0.0
 
-    # ── CATÉGORIE 4 : Audience ────────────────────────────────────────────────
+    # ── CATEGORY 4: Audience ─────────────────────────────────────────────────
 
     viewers: int = 0
     viewers_peak_today: int = 0
@@ -78,7 +78,7 @@ class GlobalState(BaseModel):
     likes_today: int = 0
     subs_delta_today: int = 0
 
-    # ── CATÉGORIE 5 : État du Contenu ─────────────────────────────────────────
+    # ── CATEGORY 5: Content State ────────────────────────────────────────────
 
     songs_played_today: int = 0
     current_song_progress: float = 0.0
@@ -88,7 +88,7 @@ class GlobalState(BaseModel):
     last_prompt_hash: str = ""
     generation_lag_s: float = 0.0
 
-    # ── CATÉGORIE 6 : Système ─────────────────────────────────────────────────
+    # ── CATEGORY 6: System ───────────────────────────────────────────────────
 
     cpu_percent: float = 0.0
     memory_percent: float = 0.0
@@ -96,7 +96,7 @@ class GlobalState(BaseModel):
     dropped_frames: float = 0.0
     source_health: dict[str, bool] = Field(default_factory=dict)
 
-    # ── CATÉGORIE 7 : Auto-modèle ─────────────────────────────────────────────
+    # ── CATEGORY 7: Self-model ───────────────────────────────────────────────
 
     signal_baselines: dict[str, float] = Field(default_factory=dict)
     signal_adaptation_rates: dict[str, float] = Field(default_factory=dict)
@@ -111,7 +111,7 @@ class GlobalState(BaseModel):
     anomaly_score: float = 0.0
     days_since_crisis: float = 0.0
 
-    # ── CATÉGORIE 8 : Champs dérivés ──────────────────────────────────────────
+    # ── CATEGORY 8: Derived fields ───────────────────────────────────────────
 
     world_temperature: float = 0.0
     crisis_level: float = 0.0

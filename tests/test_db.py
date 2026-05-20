@@ -29,13 +29,13 @@ async def test_wal_mode(conn):
 
 
 async def test_persist_snapshot_writes_json(conn):
-    state = GlobalState(excitation=0.7, crisis_level=0.2)
+    state = GlobalState(excitement=0.7, crisis_level=0.2)
     await persist_snapshot(conn, state)
     async with conn.execute("SELECT state_json FROM state_snapshots ORDER BY id DESC LIMIT 1") as cur:
         row = await cur.fetchone()
     assert row is not None
     data = orjson.loads(row[0])
-    assert data["excitation"] == pytest.approx(0.7)
+    assert data["excitement"] == pytest.approx(0.7)
     assert data["crisis_level"] == pytest.approx(0.2)
 
 
@@ -50,10 +50,10 @@ async def test_persist_snapshot_roundtrip(conn):
 
 
 async def test_persist_signal(conn):
-    await persist_signal(conn, "excitation", 0.5, 0.4, 0.1, 0.05)
+    await persist_signal(conn, "excitement", 0.5, 0.4, 0.1, 0.05)
     async with conn.execute("SELECT signal, value, baseline, error, vol FROM signal_history") as cur:
         row = await cur.fetchone()
-    assert row[0] == "excitation"
+    assert row[0] == "excitement"
     assert row[1] == pytest.approx(0.5)
     assert row[3] == pytest.approx(0.1)
 

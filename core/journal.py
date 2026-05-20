@@ -1,4 +1,4 @@
-"""Journal de l'IA — in-character commentary generated from GlobalState."""
+"""AI journal — in-character commentary generated from GlobalState."""
 
 import asyncio
 import hashlib
@@ -35,7 +35,7 @@ def _build_user_prompt(state: GlobalState, ctx: MemoryContext | None = None) -> 
     def sig(k: str) -> float:
         return abs(pe.get(k, 0.0)) / max(vol.get(k, 0.1), 0.001)
 
-    emotions = ["excitation", "anxiete", "frustration", "curiosite", "creativite"]
+    emotions = ["excitement", "anxiety", "frustration", "curiosity", "creativity"]
     dominant = max(emotions, key=sig)
     top_errors = sorted(
         ((k, v) for k, v in pe.items()),

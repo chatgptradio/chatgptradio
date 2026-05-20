@@ -9,7 +9,7 @@ async def test_successful_collector_puts_updates_and_sets_health_true():
     state = GlobalState()
 
     async def good_collect(s):
-        return {"excitation": 0.7}
+        return {"excitement": 0.7}
 
     task = asyncio.create_task(
         run_collector("test_ok", good_collect, interval_s=1, queue=queue, state=state)
@@ -26,7 +26,7 @@ async def test_successful_collector_puts_updates_and_sets_health_true():
         items.append(await queue.get())
 
     signals = {k for k, v in items}
-    assert "excitation" in signals
+    assert "excitement" in signals
     assert ("source_health", {"test_ok": True}) in items
 
 
@@ -40,7 +40,7 @@ async def test_failing_collector_sets_health_false_and_continues():
         call_count += 1
         if call_count <= 2:
             raise RuntimeError("boom")
-        return {"excitation": 0.5}
+        return {"excitement": 0.5}
 
     task = asyncio.create_task(
         run_collector("test_fail", bad_collect, interval_s=0, queue=queue, state=state)
@@ -96,7 +96,7 @@ async def test_one_collector_crash_does_not_affect_others():
         raise RuntimeError("crash")
 
     async def ok_collect(s):
-        return {"anxiete": 0.3}
+        return {"anxiety": 0.3}
 
     t1 = asyncio.create_task(
         run_collector("crasher", crash_collect, interval_s=0, queue=queue, state=state)
@@ -118,5 +118,5 @@ async def test_one_collector_crash_does_not_affect_others():
     while not queue.empty():
         items.append(await queue.get())
 
-    healthy_signals = [k for k, v in items if k == "anxiete"]
+    healthy_signals = [k for k, v in items if k == "anxiety"]
     assert len(healthy_signals) >= 1

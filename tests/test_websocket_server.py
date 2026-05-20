@@ -10,7 +10,7 @@ TEST_PORT = 18765
 
 
 async def test_broadcast_loop_sends_frames_with_state_and_nodes():
-    state = GlobalState(excitation=0.42)
+    state = GlobalState(excitement=0.42)
     connected = set()
     frames = []
 
@@ -36,7 +36,7 @@ async def test_broadcast_loop_sends_frames_with_state_and_nodes():
         assert "state" in frame
         assert "nodes" in frame
         assert "ts" in frame
-        assert frame["state"]["excitation"] == pytest.approx(0.42)
+        assert frame["state"]["excitement"] == pytest.approx(0.42)
 
 
 async def test_broadcast_loop_skips_when_no_clients():
