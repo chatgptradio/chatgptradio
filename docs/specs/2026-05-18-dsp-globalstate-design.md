@@ -38,9 +38,9 @@ où `drift_bpm_norm = (drift_bpm - 60) / 80` (normalisé 0–1 sur plage 60–14
 Ajouter dans Catégorie 1 (après les 5 existantes) :
 
 ```python
-emerveillement: float = 0.0   # wonder, percée, breakthrough
-melancolie: float = 0.0       # déclin, tristesse, dégradation prolongée
-urgence: float = 0.0          # breaking news, rapidité, tension temporelle
+wonder: float = 0.0   # wonder, percée, breakthrough
+melancholy: float = 0.0       # déclin, tristesse, dégradation prolongée
+urgency: float = 0.0          # breaking news, rapidité, tension temporelle
 ```
 
 ### 1.3 Couche manquante — `compute_emotions()`
@@ -56,7 +56,7 @@ def compute_emotions(state: GlobalState) -> None:
     pe = state.prediction_errors
 
     # Arousal positif : buzz communauté + activité marché
-    state.excitation = _clamp(
+    state.excitement = _clamp(
         pe.get("reddit_sentiment", 0.0) * 0.3
         + pe.get("google_trends_ai", 0.0) * 0.3
         + pe.get("msft_delta", 0.0) * 0.2
@@ -65,7 +65,7 @@ def compute_emotions(state: GlobalState) -> None:
     )
 
     # Tension + incertitude
-    state.anxiete = _clamp(
+    state.anxiety = _clamp(
         pe.get("gdelt_conflict_intensity", 0.0) * 0.4
         + pe.get("fear_greed_index", 0.0) * -0.3   # fear_greed bas = anxiété
         + pe.get("newsapi_sentiment", 0.0) * -0.3,
@@ -81,7 +81,7 @@ def compute_emotions(state: GlobalState) -> None:
     )
 
     # Curiosité intellectuelle + recherche
-    state.curiosite = _clamp(
+    state.curiosity = _clamp(
         pe.get("hn_ai_score", 0.0) * 0.4
         + pe.get("wikipedia_views_ai", 0.0) * 0.3
         + pe.get("arxiv_papers_today", 0.0) * 0.3,
@@ -89,7 +89,7 @@ def compute_emotions(state: GlobalState) -> None:
     )
 
     # Momentum créatif + innovation
-    state.creativite = _clamp(
+    state.creativity = _clamp(
         pe.get("github_ai_stars", 0.0) * 0.5
         + pe.get("arxiv_papers_today", 0.0) * 0.3
         + pe.get("hn_ai_score", 0.0) * 0.2,
@@ -97,7 +97,7 @@ def compute_emotions(state: GlobalState) -> None:
     )
 
     # Wonder : anomalie positive confirmée
-    state.emerveillement = _clamp(
+    state.wonder = _clamp(
         max(pe.get("arxiv_papers_today", 0.0), 0.0) * 0.5
         + max(pe.get("fear_greed_index", 0.0), 0.0) * 0.3
         + (state.anomaly_score if state.anomaly_score > 0.5 else 0.0) * 0.2,
@@ -105,7 +105,7 @@ def compute_emotions(state: GlobalState) -> None:
     )
 
     # Mélancolie : dégradation prolongée + monde triste
-    state.melancolie = _clamp(
+    state.melancholy = _clamp(
         max(0.0, -pe.get("hedonometer_happiness", 0.0)) * 0.4
         + (state.openai_incident_age_h / 24.0) * 0.4   # incident long = mélancolie
         + max(0.0, -pe.get("msft_delta", 0.0)) * 0.2,
@@ -114,7 +114,7 @@ def compute_emotions(state: GlobalState) -> None:
 
     # Urgence : événement burst + conflit en hausse
     burst_float = 1.0 if state.world_event_burst else 0.0
-    state.urgence = _clamp(
+    state.urgency = _clamp(
         burst_float * 0.5
         + max(pe.get("gdelt_conflict_intensity", 0.0), 0.0) * 0.5,
         0.0, 1.0
@@ -128,12 +128,12 @@ def compute_derived(state: GlobalState) -> None:
     compute_emotions(state)   # ← nouveau, en premier
 
     # world_temperature : baseline 0.5 (neutre), pondéré par valence
-    # Positif : excitation, curiosite, emerveillement, creativite
-    # Négatif : anxiete, frustration, melancolie
+    # Positif : excitement, curiosity, wonder, creativity
+    # Négatif : anxiety, frustration, melancholy
     valence = (
-        state.excitation * 0.2 + state.curiosite * 0.2
-        + state.emerveillement * 0.15 + state.creativite * 0.1
-        - state.anxiete * 0.15 - state.frustration * 0.1 - state.melancolie * 0.1
+        state.excitement * 0.2 + state.curiosity * 0.2
+        + state.wonder * 0.15 + state.creativity * 0.1
+        - state.anxiety * 0.15 - state.frustration * 0.1 - state.melancholy * 0.1
     )
     # Incorpore signaux globaux directs quand disponibles
     gdelt_contribution = state.gdelt_global_tone * 0.1       # −1..+1 → petit poids
@@ -151,7 +151,7 @@ def compute_derived(state: GlobalState) -> None:
     # musical_tension : prediction errors (delta), pas valeurs brutes
     pe = state.prediction_errors
     state.musical_tension = _clamp(
-        abs(pe.get("anxiete", 0.0)) * 0.35
+        abs(pe.get("anxiety", 0.0)) * 0.35
         + abs(pe.get("frustration", 0.0)) * 0.35
         + state.anomaly_score * 0.3,
         0.0, 1.0
@@ -159,8 +159,8 @@ def compute_derived(state: GlobalState) -> None:
 
     # harmonic_complexity : curiosité + divergence sources
     state.harmonic_complexity = _clamp(
-        abs(pe.get("curiosite", 0.0)) * 0.4
-        + abs(pe.get("creativite", 0.0)) * 0.25
+        abs(pe.get("curiosity", 0.0)) * 0.4
+        + abs(pe.get("creativity", 0.0)) * 0.25
         + state.source_divergence * 0.35,
         0.0, 1.0
     )
@@ -169,7 +169,7 @@ def compute_derived(state: GlobalState) -> None:
     state.rhythmic_entropy = _clamp(
         state.crisis_level * 0.4
         + state.anomaly_score * 0.35
-        + state.urgence * 0.25,
+        + state.urgency * 0.25,
         0.0, 1.0
     )
 
@@ -218,11 +218,11 @@ FFmpeg stdin pipe  →  aac 192k  →  rtmp://...
 | Effet Pedalboard | Paramètre | Formule | Driver |
 |---|---|---|---|
 | `Reverb` | `room_size` | `0.2 + world_temperature * 0.4 + crisis_level * 0.25` | monde chaud + crise = espace dense |
-| `Reverb` | `wet_level` | `0.1 + crisis_level * 0.5 + melancolie * 0.2` | crise + mélancolie = plus noyé |
+| `Reverb` | `wet_level` | `0.1 + crisis_level * 0.5 + melancholy * 0.2` | crise + mélancolie = plus noyé |
 | `HighShelfFilter` | `gain_db` | `-crisis_level * 18 - musical_tension * 4` | coupure haute fréquence sous tension |
-| `Compressor` | `threshold_db` | `-18 - musical_tension * 12 - urgence * 6` | plus compressé = plus tendu |
-| `Gain` | `gain_db` | `audience_energy * 3 + emerveillement * 2` | public engagé + wonder = plus présent |
-| `PitchShift` | `semitones` | `urgence * 0.5 - melancolie * 0.3` | urgence monte, mélancolie descend |
+| `Compressor` | `threshold_db` | `-18 - musical_tension * 12 - urgency * 6` | plus compressé = plus tendu |
+| `Gain` | `gain_db` | `audience_energy * 3 + wonder * 2` | public engagé + wonder = plus présent |
+| `PitchShift` | `semitones` | `urgency * 0.5 - melancholy * 0.3` | urgency monte, mélancolie descend |
 | `Chorus` | `depth` | `harmonic_complexity * 0.8` | complexité harmonique = chorus riche |
 | `Limiter` | `threshold_db` | `-1.0` | constant (sécurité) |
 | `time_stretch` ratio | pyrubberband | `drift_bpm / 90.0` | tempo suit La Dérive |
@@ -300,8 +300,8 @@ Ajouter un effet DSP = 1 ligne dans `_build_chain()`. Aucune modification d'arch
 - `test_compute_emotions` : champs 0.0 → world_temperature = 0.5 (neutre)
 - `test_world_temperature_neutral` : tous signaux absents → 0.5
 - `test_world_temperature_crisis` : openai_status=0.0 → world_temperature < 0.5
-- `test_new_dimensions_range` : emerveillement/melancolie/urgence ∈ [0.0, 1.0]
-- `test_compute_emotions_prediction_errors` : pe positifs → excitation monte
+- `test_new_dimensions_range` : wonder/melancholy/urgency ∈ [0.0, 1.0]
+- `test_compute_emotions_prediction_errors` : pe positifs → excitement monte
 
 ### DSP
 - `test_build_chain_normal` : crisis=0.0 → reverb.room_size ≈ 0.2

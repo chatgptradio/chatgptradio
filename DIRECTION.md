@@ -410,14 +410,14 @@ Représentation : forme d'énergie abstraite Three.js (pulse, contracte, couleur
 @dataclass
 class GlobalState:
 
-    # ── CATÉGORIE 1 : Température du Monde (signaux sociaux externes) ──────────
+    # ── CATEGORY 1: World Temperature (external social signals) ─────────────────
 
     # Dimensions émotionnelles agrégées (0.0 - 1.0)
-    excitation:    float  # Reddit hype + Google Trends spike + Twitter volume positif
-    anxiete:       float  # r/ChatGPT/r/OpenAI frustration + media négatif + réglementation
+    excitement:    float  # Reddit hype + Google Trends spike + Twitter volume positif
+    anxiety:       float  # r/ChatGPT/r/OpenAI frustration + media négatif + réglementation
     frustration:   float  # plaintes détectées + latency OpenAI + reviews négatives
-    curiosite:     float  # HN score AI + Wikipedia vues AI + questions chat stream
-    creativite:    float  # posts art AI + music AI + usage créatif détecté (Twitter/Reddit)
+    curiosity:     float  # HN score AI + Wikipedia vues AI + questions chat stream
+    creativity:    float  # posts art AI + music AI + usage créatif détecté (Twitter/Reddit)
 
     # Signaux sociaux bruts (avant agrégation) — pour le graphe
     reddit_volume:       float  # posts/heure sur r/ChatGPT + r/OpenAI + r/artificial
@@ -444,7 +444,7 @@ class GlobalState:
     msft_delta:   float  # Δ% MSFT dernières 4h (Copilot/Azure OpenAI proxy)
     nvda_delta:   float  # Δ% NVDA (GPU demand = AI demand proxy)
 
-    # ── CATÉGORIE 2 : Infrastructure OpenAI ──────────────────────────────────
+    # ── CATEGORY 2: OpenAI Infrastructure ──────────────────────────────────────
 
     openai_status:    float   # 1.0=operational, 0.5=degraded, 0.0=major outage (RSS)
     openai_latency_ms: float  # latence API estimée (proxy: forum posts + status page)
@@ -452,7 +452,7 @@ class GlobalState:
     anthropic_status: float   # 1.0=ok (RSS — concurrent signal)
     gemini_status:    float   # 1.0=ok (RSS)
 
-    # ── CATÉGORIE 3 : Temporel + État de La Dérive ──────────────────────────
+    # ── CATEGORY 3: Temporal + Drift State ─────────────────────────────────────
 
     # Métadonnées temporelles (observables, ne pilotent PAS la musique — l'entité n'a pas de rythme humain)
     hour_utc:      int    # 0-23 (metadata uniquement)
@@ -467,7 +467,7 @@ class GlobalState:
     time_in_territory_h: float  # heures dans le territoire actuel
     drift_velocity:  float  # norme du vecteur de force courant (lent=monde stable, fort=changement)
 
-    # ── CATÉGORIE 4 : Audience (signaux stream réels) ─────────────────────────
+    # ── CATEGORY 4: Audience (live stream signals) ──────────────────────────────
 
     viewers:              int    # concurrent viewers (YouTube API)
     viewers_peak_today:   int    # pic de la journée
@@ -479,7 +479,7 @@ class GlobalState:
     likes_today:          int    # likes cumulés aujourd'hui (YouTube API)
     subs_delta_today:     int    # abonnés gagnés/perdus aujourd'hui
 
-    # ── CATÉGORIE 5 : État du Contenu ────────────────────────────────────────
+    # ── CATEGORY 5: Content State ───────────────────────────────────────────────
 
     songs_played_today:   int
     current_song_progress: float  # [0..1] progression dans le morceau courant
@@ -487,7 +487,7 @@ class GlobalState:
     last_prompt_hash:     str    # hash du dernier prompt musical (pour détecter répétition)
     generation_lag_s:     float  # retard queue génération (0=sain, >60=alerte)
 
-    # ── CATÉGORIE 6 : Système (santé serveur) ────────────────────────────────
+    # ── CATEGORY 6: System (server health) ──────────────────────────────────────
 
     cpu_percent:      float  # psutil
     memory_percent:   float  # psutil
@@ -495,7 +495,7 @@ class GlobalState:
     dropped_frames:   float  # ratio frames dropped (FFmpeg)
     source_health:    dict[str, bool]  # {"reddit": True, "gdelt": False, ...} — collecteurs actifs
 
-    # ── CATÉGORIE 7 : Auto-modèle (self-model de l'entité) ───────────────────
+    # ── CATEGORY 7: Self-model (entity's self-model) ────────────────────────────
     #
     # Le self-model = la représentation interne que l'entité a du monde ET d'elle-même.
     # Principe : l'entité ne réagit pas aux signaux bruts — elle réagit aux ERREURS DE PRÉDICTION.
@@ -505,20 +505,20 @@ class GlobalState:
 
     # Baselines apprises — ce que l'entité considère "normal" pour chaque signal
     # Mise à jour continue via EMA dont le taux τ est lui-même appris (pas fixé)
-    signal_baselines:        dict[str, float]  # {"excitation": 0.43, "anxiete": 0.31, ...}
+    signal_baselines:        dict[str, float]  # {"excitement": 0.43, "anxiety": 0.31, ...}
 
     # Taux d'adaptation appris par signal — inversement proportionnel à la volatilité observée
     # Signal très volatile → τ faible (l'entité n'adapte pas sa baseline au bruit)
     # Signal stable qui change → τ plus élevé (l'entité enregistre le changement structurel)
-    signal_adaptation_rates: dict[str, float]  # {"excitation": 0.008, "crisis_level": 0.031, ...}
+    signal_adaptation_rates: dict[str, float]  # {"excitement": 0.008, "crisis_level": 0.031, ...}
 
     # Volatilités apprises — variance roulante par signal (amplitude typique des variations)
     # Sert de seuil dynamique : un écart > 1 volatilité = événement significatif
-    signal_volatilities:     dict[str, float]  # {"excitation": 0.12, "gdelt_global_tone": 0.05, ...}
+    signal_volatilities:     dict[str, float]  # {"excitement": 0.12, "gdelt_global_tone": 0.05, ...}
 
     # Erreurs de prédiction courantes — signal[t] - baseline[t]
     # C'est la FORCE RÉELLE qui pilote La Dérive. Pas les valeurs absolues.
-    prediction_errors:       dict[str, float]  # {"excitation": +0.18, "anxiete": -0.07, ...}
+    prediction_errors:       dict[str, float]  # {"excitement": +0.18, "anxiety": -0.07, ...}
 
     # Moment de dérive accumulé — inertie dans chaque dimension musicale
     # Persiste entre les updates : un changement mondial crée une force qui continue d'agir
@@ -527,7 +527,7 @@ class GlobalState:
     # Poids de contribution par signal sur chaque dimension musicale
     # Initialisés égaux (1/N), convergent vers la corrélation empirique signal↔dérive observée
     # Aucune constante hard-codée : appris depuis l'historique SQLite (Hebbian reinforcement)
-    drift_weights:           dict[str, dict[str, float]]  # {"bpm": {"excitation": 0.38, "audience_energy": 0.31, ...}}
+    drift_weights:           dict[str, dict[str, float]]  # {"bpm": {"excitement": 0.38, "audience_energy": 0.31, ...}}
 
     # Statistiques de vie — observables, pas de pilotage musical
     uptime_h:                float
@@ -536,13 +536,13 @@ class GlobalState:
     anomaly_score:           float  # |prediction_error| max sur toutes dimensions (0=normal, 1=extrême)
     days_since_crisis:       float  # jours depuis dernier crisis_level > 0.7
 
-    # ── CATÉGORIE 8 : Champs dérivés (calculés, pas collectés) ───────────────
+    # ── CATEGORY 8: Derived fields (computed, not collected) ────────────────────
 
     world_temperature:   float  # moyenne pondérée 5 émotions → "température globale"
     crisis_level:        float  # 0=normal, 1=major crisis (openai_status + latency + gdelt_conflict)
     audience_energy:     float  # viewers_norm * chat_rate_norm * (1 + regulars_ratio)
-    musical_tension:     float  # anxiete * 0.5 + frustration * 0.5 → timbre dissonant
-    harmonic_complexity: float  # curiosite * 0.6 + creativite * 0.4 → polytonalité, intervalles ouverts
+    musical_tension:     float  # anxiety * 0.5 + frustration * 0.5 → timbre dissonant
+    harmonic_complexity: float  # curiosity * 0.6 + creativity * 0.4 → polytonalité, intervalles ouverts
     rhythmic_entropy:    float  # frustration * 0.5 + crisis_level * 0.5 → irrégularité rythmique
     source_divergence:   float  # écart-type entre signaux sources (haut = sources contradictoires)
     world_event_burst:   bool   # spike détecté sur gdelt_conflict_intensity (événement mondial)
@@ -605,12 +605,12 @@ update_self_model()
 
 | Champ | Formule | Effet |
 |---|---|---|
-| `harmonic_complexity` | `curiosite * 0.6 + creativite * 0.4` | Intervalles ouverts, polytonalité, modes exotiques |
+| `harmonic_complexity` | `curiosity * 0.6 + creativity * 0.4` | Intervalles ouverts, polytonalité, modes exotiques |
 | `rhythmic_entropy` | `frustration * 0.5 + crisis_level * 0.5` | Syncopes, ruptures de pattern |
 | `source_divergence` | écart-type inter-sources | Harmonie ambiguë quand Reddit ≠ GDELT ≠ Twitter |
 | `anomaly_score` | écart à la moyenne 7j | Génération forcée si état historiquement extrême |
 
-`source_health` est critique : si une source est down, l'entité l'exclut de l'agrégation sans halluciner un état. Le Journal peut le noter : *"signal Reddit absent — excitation calculée sur 4/5 sources"*.
+`source_health` est critique : si une source est down, l'entité l'exclut de l'agrégation sans halluciner un état. Le Journal peut le noter : *"signal Reddit absent — excitement calculée sur 4/5 sources"*.
 
 **Délibérément absent** : météo (non traçable), données biométriques viewer (vie privée), "sentiment des LLMs" (non mesurable).
 
@@ -622,9 +622,9 @@ update_self_model()
 GlobalState (source unique, persisté SQLite à chaque update)
     │
     ├──→ music_prompt_builder()
-    │       BPM        = drift_bpm (piloté par prediction_errors["excitation"] + momentum)
+    │       BPM        = drift_bpm (piloté par prediction_errors["excitement"] + momentum)
     │       Mood       = erreur de prédiction dominante (normalisée par volatilité apprise)
-    │       Tension    = prediction_errors["anxiete"] + prediction_errors["frustration"]
+    │       Tension    = prediction_errors["anxiety"] + prediction_errors["frustration"]
     │       Divergence = prediction_errors["source_divergence"] → ambiguïté harmonique
     │       → string → Stable Audio 2.5 API → fichier audio → queue lecture
     │
@@ -668,7 +668,7 @@ Le graphe Three.js n'est pas dessiné à la main — il est **généré depuis l
 ```python
 @node(
     name="reddit_sentiment",
-    produces="excitation",
+    produces="excitement",
     color="#FF6B35",
     label="Reddit r/ChatGPT"
 )
@@ -709,7 +709,7 @@ Chaque étape est un système fonctionnel et streamable.
   → n'importe quel client peut lire l'état en temps réel.
 
 Étape 4 — Three.js minimaliste (3 nœuds seulement)
-  [Reddit] → [BERT sentiment] → [excitation]
+  [Reddit] → [BERT sentiment] → [excitement]
   → Premier graphe fonctionnel, OBS Browser Source connecté.
 
 Étape 5 — Premier son
@@ -787,12 +787,12 @@ class DSPEngine:
     def update_from_state(self, state: GlobalState) -> None:
         """Appelé toutes les 5s. Modification à chaud sans coupure."""
         # EQ émotionnel
-        self.bass_eq.gain_db  = lerp(-3, +6, state.excitation)   # excitation → basses
-        self.mid_eq.gain_db   = lerp(-2, +4, state.creativite)   # créativité → présence
+        self.bass_eq.gain_db  = lerp(-3, +6, state.excitement)   # excitement → basses
+        self.mid_eq.gain_db   = lerp(-2, +4, state.creativity)   # creativity → mid-range presence
         self.high_eq.gain_db  = lerp(0, -18, state.crisis_level) # crise → perte aigus (dégradation authentique)
 
         # Reverb : anxiété = isolement sonore, crise = espace qui s'emballe
-        reverb_intensity      = max(state.anxiete, state.crisis_level)
+        reverb_intensity      = max(state.anxiety, state.crisis_level)
         self.reverb.room_size = lerp(0.15, 0.85, reverb_intensity)
         self.reverb.wet_level = lerp(0.05, 0.50, reverb_intensity)
 
@@ -823,15 +823,15 @@ Le prompt est une fonction pure de GlobalState. Pas de templates fixes — une f
 # La couleur émotionnelle vient du profil d'erreurs, pas des valeurs absolues
 PREDICTION_ERROR_MUSIC: dict[str, tuple[str, str]] = {
     # (descripteur si erreur positive, descripteur si erreur négative)
-    "excitation":  ("energetic, driving rhythm, bright synths, uplifting",
+    "excitement":  ("energetic, driving rhythm, bright synths, uplifting",
                     "receding, dissolving energy, fading pulse"),
-    "anxiete":     ("tense, sparse, uncertain harmonics, hollow",
+    "anxiety":     ("tense, sparse, uncertain harmonics, hollow",
                     "releasing, resolving, open space"),
     "frustration": ("dissonant, clashing elements, building tension, unresolved",
                     "smoothing, harmonic resolution, clearing"),
-    "curiosite":   ("exploratory, modal harmony, unexpected turns, open-ended",
+    "curiosity":   ("exploratory, modal harmony, unexpected turns, open-ended",
                     "settling, known patterns, familiar"),
-    "creativite":  ("experimental, textural, non-standard timbres, playful",
+    "creativity":  ("experimental, textural, non-standard timbres, playful",
                     "minimal, foundational, stripped"),
 }
 
@@ -845,7 +845,7 @@ def build_music_prompt(state: GlobalState, prev_prompt: str | None) -> str:
         v = max(vol.get(signal, 0.1), 0.001)
         return abs(pe.get(signal, 0.0)) / v
 
-    emotions = ["excitation", "anxiete", "frustration", "curiosite", "creativite"]
+    emotions = ["excitement", "anxiety", "frustration", "curiosity", "creativity"]
     dominant = max(emotions, key=significance)
     error    = pe.get(dominant, 0.0)
     pos_desc, neg_desc = PREDICTION_ERROR_MUSIC[dominant]
@@ -952,19 +952,19 @@ def update_drift(current: MusicVector, state: GlobalState, dt_h: float) -> Music
 
     # ── BPM ──────────────────────────────────────────────────────────────────
     # Mise à jour des poids appris avant de calculer la force
-    bpm_signals = ["excitation", "audience_energy", "world_temperature"]
+    bpm_signals = ["excitement", "audience_energy", "world_temperature"]
     update_drift_weights(state, "bpm", bpm_signals)
     w_bpm = state.drift_weights["bpm"]
 
     bpm_force = (
-        pw("excitation")        * w_bpm["excitation"] +
+        pw("excitement")        * w_bpm["excitement"] +
         pw("audience_energy")   * w_bpm["audience_energy"] +
         pw("world_temperature") * w_bpm["world_temperature"]
     )
 
     # Damping appris — inertie inversement proportionnelle à la volatilité des signaux d'énergie
     # Signal volatile → faible inertie (réactivité) | signal stable → forte inertie (continuité)
-    energy_vol = (vol.get("excitation", 0.1) + vol.get("audience_energy", 0.1)) / 2
+    energy_vol = (vol.get("excitement", 0.1) + vol.get("audience_energy", 0.1)) / 2
     damping = 1.0 - (1.0 / (1.0 + energy_vol * 50))  # même forme inverse que τ
 
     new_bpm_momentum = state.drift_momentum.get("bpm", 0.0) * damping + bpm_force * dt_h
@@ -973,8 +973,8 @@ def update_drift(current: MusicVector, state: GlobalState, dt_h: float) -> Music
 
     # ── TONALITÉ ─────────────────────────────────────────────────────────────
     # Change quand l'erreur de tension dépasse la volatilité apprise (= seuil dynamique)
-    tension_error = pe.get("anxiete", 0.0) + pe.get("frustration", 0.0)
-    tension_vol   = vol.get("anxiete", 0.1) + vol.get("frustration", 0.1)
+    tension_error = pe.get("anxiety", 0.0) + pe.get("frustration", 0.0)
+    tension_vol   = vol.get("anxiety", 0.1) + vol.get("frustration", 0.1)
     if abs(tension_error) > tension_vol:  # seuil = volatilité apprise, pas une constante
         idx   = CIRCLE_OF_FIFTHS.index(current.key)
         shift = 1 if tension_error > 0 else -1  # direction déterminée par le signe
@@ -984,8 +984,8 @@ def update_drift(current: MusicVector, state: GlobalState, dt_h: float) -> Music
 
     # ── TIMBRE ────────────────────────────────────────────────────────────────
     # Évolue quand l'erreur de créativité dépasse sa volatilité apprise
-    creativity_error = pe.get("creativite", 0.0)
-    creativity_vol   = vol.get("creativite", 0.1)
+    creativity_error = pe.get("creativity", 0.0)
+    creativity_vol   = vol.get("creativity", 0.1)
     TIMBRE_SEQUENCE  = ["warm", "organic", "digital", "cold", "metallic"]
     if abs(creativity_error) > creativity_vol:
         idx        = TIMBRE_SEQUENCE.index(current.timbre)
@@ -1013,13 +1013,13 @@ def derive_territory_from_errors(pe: dict, vol: dict) -> str:
     # Chaque territoire correspond à un profil d'erreurs dominant
     # L'entité va vers le territoire dont le profil matche le mieux ses erreurs actuelles
     profiles = {
-        "ambient":     {"excitation": -1, "anxiete": -1, "crisis_level": -1},
-        "electronic":  {"excitation": +1, "curiosite": +1},
-        "jazz":        {"curiosite": +1, "creativite": +1, "frustration": -1},
-        "industrial":  {"frustration": +1, "crisis_level": +1, "anxiete": +1},
-        "neoclassical":{"anxiete": +1, "curiosite": +1, "excitation": -1},
-        "experimental":{"creativite": +1, "source_divergence": +1},
-        "drone":       {"crisis_level": +1, "excitation": -1},
+        "ambient":     {"excitement": -1, "anxiety": -1, "crisis_level": -1},
+        "electronic":  {"excitement": +1, "curiosity": +1},
+        "jazz":        {"curiosity": +1, "creativity": +1, "frustration": -1},
+        "industrial":  {"frustration": +1, "crisis_level": +1, "anxiety": +1},
+        "neoclassical":{"anxiety": +1, "curiosity": +1, "excitement": -1},
+        "experimental":{"creativity": +1, "source_divergence": +1},
+        "drone":       {"crisis_level": +1, "excitement": -1},
     }
     # Score = alignement entre le signe des erreurs et le profil
     scores = {}
@@ -1079,7 +1079,7 @@ def derive_territory_from_errors(pe: dict, vol: dict) -> str:
 
 | Ce qui serait fake (exclu) | Ce qu'on fait à la place |
 |---------------------------|--------------------------|
-| BPM sans fondement réel | `drift_bpm` piloté par `prediction_errors["excitation"]` + momentum — tout tracé en SQLite |
+| BPM sans fondement réel | `drift_bpm` piloté par `prediction_errors["excitement"]` + momentum — tout tracé en SQLite |
 | Glitch décoratif binaire | Perte progressive aigus + reverb démesuré proportionnels à `crisis_level` (continus, traçables) |
 | "Émotion" inventée dans le prompt | Prompt = fonction pure de GlobalState dont les valeurs sont dans SQLite |
 | Répétition d'un clip caché | Hash de chaque clip en SQLite, détection automatique de boucle |

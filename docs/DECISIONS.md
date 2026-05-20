@@ -23,7 +23,7 @@
 | Décision | Raison |
 |----------|--------|
 | LangGraph pour orchestration | Surcharge inutile — asyncio pur suffit (ADR-0004) |
-| `anthropic` SDK pour journal | OpenAI exclusivement (ADR-0006) |
+| Third-party LLM SDK for journal | OpenAI exclusively (ADR-0006) |
 | `STABILITY_API_KEY` | Remplacé par `FAL_API_KEY` pour fal.ai |
 | `random.random()` dans drift | Viole NO FAKE — PE réels uniquement (ADR-0002) |
 | `phase_nuit`, `lunar_phase`, `is_weekend` | Rythme humain externe — entité sans horloge biologique |

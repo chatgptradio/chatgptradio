@@ -34,8 +34,8 @@ CREATE TABLE IF NOT EXISTS audio_clips (
     crisis_level        REAL NOT NULL DEFAULT 0.0,
     musical_tension     REAL NOT NULL DEFAULT 0.0,
     harmonic_complexity REAL NOT NULL DEFAULT 0.0,
-    excitation          REAL NOT NULL DEFAULT 0.0,
-    anxiete             REAL NOT NULL DEFAULT 0.0,
+    excitement          REAL NOT NULL DEFAULT 0.0,
+    anxiety             REAL NOT NULL DEFAULT 0.0,
     -- Prompt
     prompt_hash     TEXT NOT NULL DEFAULT '',
     prompt_text     TEXT NOT NULL DEFAULT '',
@@ -221,7 +221,7 @@ Catégories + couleurs :
   teinte HSL :
     hue        = drift_bpm mappé 200°–280° (bleu→violet)
     saturation = musical_tension
-    luminosité = excitation
+    luminosité = excitement
 Aucune légende
 ```
 
@@ -245,9 +245,9 @@ Teinte fond hémisphère = gdelt_global_tone (froid→chaud)
 
 ```
 Trajectoire dans espace émotionnel 3D :
-  X = excitation - anxiete
-  Y = curiosite  - melancolie
-  Z = creativite - urgence
+  X = excitement - anxiety
+  Y = curiosity  - melancholy
+  Z = creativity - urgency
 
 Point courant = sphère principale lumineuse
 Trail 24h    = tube de particules, opacité ∝ âge

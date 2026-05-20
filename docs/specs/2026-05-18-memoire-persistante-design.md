@@ -99,7 +99,7 @@ async def load_memory_context(
     trend_window_min: int = 30,
 ) -> MemoryContext: ...
 # signal_trends : calcule delta = valeur courante − moyenne signal_history
-# sur les 5 signaux : excitation, anxiete, crisis_level,
+# sur les 5 signaux : excitement, anxiety, crisis_level,
 #                     world_temperature, anomaly_score
 
 async def save_journal_entry(conn: aiosqlite.Connection, entry: str) -> None: ...
@@ -140,7 +140,7 @@ Tes 10 dernières entrées :
 [03:22] Divergence détectée ...
 
 Variations 30 dernières minutes :
-excitation: +0.12, anxiete: -0.05, crisis_level: 0.00,
+excitement: +0.12, anxiety: -0.05, crisis_level: 0.00,
 world_temperature: +0.08, anomaly_score: +0.03
 
 Viewers réguliers actifs cette session :
