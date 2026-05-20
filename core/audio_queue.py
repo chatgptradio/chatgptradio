@@ -113,23 +113,43 @@ async def find_reference(
     conn: aiosqlite.Connection,
     state: GlobalState,
 ) -> Path | None:
-    """Return a reference clip path to derive from, or None."""
+    """Return a reference clip path to derive from, scored by state match."""
+    import json as _json
+
     async with conn.execute(
         """
-        SELECT path FROM audio_clips
+        SELECT path, territory, mood_snapshot FROM audio_clips
         WHERE source IN ('generated', 'fal_derived', 'reference')
           AND play_count >= 1
         ORDER BY last_played_at DESC
-        LIMIT 5
+        LIMIT 20
         """,
     ) as cur:
-        rows = [row async for row in cur]
+        rows = [dict(zip(["path", "territory", "mood_snapshot"], row)) async for row in cur]
 
-    for row in rows:
-        p = Path(row[0])
-        if p.exists():
-            return p
-    return None
+    def _score(row: dict) -> float:
+        s = 0.0
+        if row.get("territory") == state.drift_territory:
+            s += 3.0
+        try:
+            snap = _json.loads(row.get("mood_snapshot") or "{}")
+            bpm_diff = abs(snap.get("drift_bpm", state.drift_bpm) - state.drift_bpm)
+            s += max(0.0, 2.0 * (1.0 - bpm_diff / 15.0))
+            ref_exc = snap.get("excitement", 0.0)
+            ref_anx = snap.get("anxiety", 0.0)
+            dot = ref_exc * state.excitement + ref_anx * state.anxiety
+            norm = (ref_exc**2 + ref_anx**2) ** 0.5 * (state.excitement**2 + state.anxiety**2) ** 0.5
+            if norm > 0:
+                s += dot / norm
+        except Exception:
+            pass
+        return s
+
+    candidates = [(row, _score(row)) for row in rows if Path(row["path"]).exists()]
+    if not candidates:
+        return None
+    best = max(candidates, key=lambda x: x[1])
+    return Path(best[0]["path"])
 
 
 async def mark_played(conn: aiosqlite.Connection, path: Path) -> None:

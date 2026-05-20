@@ -47,7 +47,8 @@ CREATE TABLE IF NOT EXISTS audio_clips (
     last_played_at REAL NOT NULL DEFAULT 0,
     play_count INTEGER NOT NULL DEFAULT 0,
     duration_s REAL NOT NULL DEFAULT 0,
-    mood_snapshot TEXT NOT NULL DEFAULT ''
+    mood_snapshot TEXT NOT NULL DEFAULT '',
+    territory TEXT DEFAULT ''
 );
 """
 
@@ -116,6 +117,13 @@ async def init_db(path: str) -> aiosqlite.Connection:
             "ALTER TABLE viewers ADD COLUMN display_name TEXT NOT NULL DEFAULT ''"
         )
         await conn.commit()
+
+    # Add territory column if missing (idempotent)
+    try:
+        await conn.execute("ALTER TABLE audio_clips ADD COLUMN territory TEXT DEFAULT ''")
+        await conn.commit()
+    except Exception:
+        pass
 
     return conn
 

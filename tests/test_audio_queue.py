@@ -407,3 +407,36 @@ async def test_find_reference_returns_reference_source_clip(tmp_path):
 
     assert result == ref_clip
     await conn.close()
+
+
+# ── find_reference territory scoring ─────────────────────────────────────────
+
+
+@pytest.mark.asyncio
+async def test_find_reference_prefers_territory_match(tmp_path):
+    """find_reference returns the clip whose territory matches state.drift_territory."""
+    from core.audio_library import index_clip
+    from core.audio_queue import find_reference
+
+    state = GlobalState(drift_territory="ambient")
+    conn = await _make_conn(tmp_path)
+
+    clip_ambient = tmp_path / "ref_ambient.mp3"
+    clip_ambient.write_bytes(b"fake_audio")
+    clip_jazz = tmp_path / "ref_jazz.mp3"
+    clip_jazz.write_bytes(b"fake_audio")
+
+    await index_clip(conn, clip_ambient, state, prompt="ambient", territory="ambient")
+    await index_clip(conn, clip_jazz, state, prompt="jazz", territory="jazz")
+
+    # Both clips need play_count >= 1 to be eligible for find_reference
+    await conn.execute(
+        "UPDATE audio_clips SET play_count = 1 WHERE path IN (?, ?)",
+        (str(clip_ambient), str(clip_jazz)),
+    )
+    await conn.commit()
+
+    result = await find_reference(conn, state)
+
+    assert result == clip_ambient
+    await conn.close()

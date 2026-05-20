@@ -138,6 +138,35 @@ async def test_find_reusable_respects_max_play_count(tmp_db, real_audio_file):
     assert result is None
 
 
+# ── find_reusable territory scoring ───────────────────────────────────────────
+
+
+@pytest.mark.asyncio
+async def test_find_reusable_prefers_territory_match(tmp_db, tmp_path):
+    """find_reusable returns the clip whose territory matches state.drift_territory."""
+    state = GlobalState(drift_territory="ambient")
+
+    clip_ambient = tmp_path / "clip_ambient.mp3"
+    clip_ambient.write_bytes(b"fake")
+    clip_jazz = tmp_path / "clip_jazz.mp3"
+    clip_jazz.write_bytes(b"fake")
+
+    await index_clip(
+        tmp_db, clip_ambient, state, prompt="ambient clip",
+        display_name="Ambient Track", territory="ambient",
+    )
+    await index_clip(
+        tmp_db, clip_jazz, state, prompt="jazz clip",
+        display_name="Jazz Track", territory="jazz",
+    )
+
+    result = await find_reusable(tmp_db, state)
+    assert result is not None
+    path, display_name = result
+    assert path == clip_ambient
+    assert display_name == "Ambient Track"
+
+
 # ── find_by_display_name ───────────────────────────────────────────────────────
 
 
