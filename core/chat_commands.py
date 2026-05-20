@@ -11,6 +11,7 @@ import aiosqlite
 
 from core.audio_library import find_by_display_name
 from core.command_engine import CommandEngine, VALID_GENRES, VALID_VIBES
+from core.scene_rotator import SCENE_CYCLE
 from core.state import GlobalState
 
 
@@ -71,6 +72,19 @@ async def handle_command(
         cmd_engine.try_request(arg)
         cmd_engine.push("request", arg)
         return f"request +1 for {arg}"
+
+    # ── !switch ───────────────────────────────────────────────────────────────
+    if cmd == "!switch":
+        if not cmd_engine.try_switch():
+            remaining = cmd_engine.cooldown_remaining("switch", "")
+            return f"switch on cooldown ({remaining:.0f}s)"
+        if arg and arg in SCENE_CYCLE:
+            next_mode = arg
+        else:
+            current = state.visual_mode if state.visual_mode in SCENE_CYCLE else SCENE_CYCLE[0]
+            next_mode = SCENE_CYCLE[(SCENE_CYCLE.index(current) + 1) % len(SCENE_CYCLE)]
+        await state_queue.put({"visual_mode": next_mode})
+        return f"◈ switching to {next_mode}"
 
     # ── !replay ───────────────────────────────────────────────────────────────
     if cmd == "!replay":

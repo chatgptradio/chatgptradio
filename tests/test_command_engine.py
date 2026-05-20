@@ -1,11 +1,10 @@
 """Tests for CommandEngine — cooldowns, push/pop, vibe/request routing."""
-import pytest
-
 from core.command_engine import (
     VALID_GENRES,
     VALID_VIBES,
     CommandEngine,
     _REQUEST_COOLDOWN_S,
+    _SWITCH_COOLDOWN_S,
     _VIBE_COOLDOWN_S,
 )
 
@@ -96,6 +95,27 @@ def test_valid_vibes_non_empty_strings():
 def test_valid_genres_non_empty_strings():
     assert len(VALID_GENRES) > 0
     assert all(isinstance(g, str) for g in VALID_GENRES)
+
+
+def test_try_switch_first_call_succeeds():
+    assert CommandEngine().try_switch() is True
+
+
+def test_try_switch_immediate_retry_blocked():
+    engine = CommandEngine()
+    engine.try_switch()
+    assert engine.try_switch() is False
+
+
+def test_cooldown_remaining_switch_fresh_is_zero():
+    assert CommandEngine().cooldown_remaining("switch", "") == 0.0
+
+
+def test_cooldown_remaining_switch_after_use():
+    engine = CommandEngine()
+    engine.try_switch()
+    remaining = engine.cooldown_remaining("switch", "")
+    assert 0.0 < remaining <= _SWITCH_COOLDOWN_S
 
 
 def test_push_preserves_order():

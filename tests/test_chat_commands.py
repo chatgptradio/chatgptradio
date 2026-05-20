@@ -85,3 +85,55 @@ async def test_replay_no_arg():
     state, eng, q, conn = _make_deps()
     result = await handle_command("!replay", state, eng, q, conn)
     assert result == "usage: !replay <track name>"
+
+
+@pytest.mark.asyncio
+async def test_switch_advances_to_next_mode():
+    state, eng, q, conn = _make_deps()
+    state.visual_mode = "neural"
+    eng.try_switch.return_value = True
+    result = await handle_command("!switch", state, eng, q, conn)
+    assert result == "◈ switching to particles"
+    update = await asyncio.wait_for(q.get(), timeout=1.0)
+    assert update["visual_mode"] == "particles"
+
+
+@pytest.mark.asyncio
+async def test_switch_explicit_valid_mode():
+    state, eng, q, conn = _make_deps()
+    state.visual_mode = "neural"
+    eng.try_switch.return_value = True
+    result = await handle_command("!switch nebula", state, eng, q, conn)
+    assert result == "◈ switching to nebula"
+    update = await asyncio.wait_for(q.get(), timeout=1.0)
+    assert update["visual_mode"] == "nebula"
+
+
+@pytest.mark.asyncio
+async def test_switch_invalid_explicit_mode_advances():
+    state, eng, q, conn = _make_deps()
+    state.visual_mode = "globe"
+    eng.try_switch.return_value = True
+    result = await handle_command("!switch badmode", state, eng, q, conn)
+    assert result == "◈ switching to nebula"
+
+
+@pytest.mark.asyncio
+async def test_switch_on_cooldown_returns_message():
+    state, eng, q, conn = _make_deps()
+    eng.try_switch.return_value = False
+    eng.cooldown_remaining.return_value = 180.0
+    result = await handle_command("!switch", state, eng, q, conn)
+    assert result is not None
+    assert "cooldown" in result
+    assert "180" in result
+    assert q.empty()
+
+
+@pytest.mark.asyncio
+async def test_switch_wraps_around_from_nebula():
+    state, eng, q, conn = _make_deps()
+    state.visual_mode = "nebula"
+    eng.try_switch.return_value = True
+    result = await handle_command("!switch", state, eng, q, conn)
+    assert result == "◈ switching to neural"

@@ -7,6 +7,7 @@ import structlog
 
 from core.audio_queue import run_audio_queue
 from core.calendar_engine import build_event_list, run_calendar
+from core.scene_rotator import run_scene_rotator
 from core.collector_runner import start_all_collectors
 from core.config import load_config
 from core.db import init_db
@@ -43,6 +44,7 @@ async def run() -> None:
     journal_task = asyncio.create_task(run_journal(state, updater.queue, db_conn))
     events = build_event_list(config.calendar)
     calendar_task = asyncio.create_task(run_calendar(state, updater.queue, events))
+    scene_task = asyncio.create_task(run_scene_rotator(state, updater.queue))
 
     shutdown_event = asyncio.Event()
 
@@ -61,7 +63,7 @@ async def run() -> None:
 
     log.info("chatgpt_radio_shutdown_started")
 
-    all_tasks = collector_tasks + [ws_server_task, ws_broadcast_task, updater_task, audio_task, dsp_task, journal_task, calendar_task]
+    all_tasks = collector_tasks + [ws_server_task, ws_broadcast_task, updater_task, audio_task, dsp_task, journal_task, calendar_task, scene_task]
     for task in all_tasks:
         task.cancel()
     await asyncio.gather(*all_tasks, return_exceptions=True)

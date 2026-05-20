@@ -9,6 +9,8 @@ from __future__ import annotations
 import time
 
 
+_SWITCH_COOLDOWN_S: float = 300.0
+
 VALID_VIBES: tuple[str, ...] = (
     "ambient",
     "electronic",
@@ -39,6 +41,7 @@ class CommandEngine:
     def __init__(self) -> None:
         self._vibe_last: dict[str, float] = {}
         self._request_last: dict[str, float] = {}
+        self._switch_last: float = 0.0
         self._pending: list[tuple[str, str]] = []
 
     # ── Public API ────────────────────────────────────────────────────────────
@@ -62,6 +65,14 @@ class CommandEngine:
             return True
         return False
 
+    def try_switch(self) -> bool:
+        """Return True and record timestamp if the global switch cooldown has elapsed."""
+        now = time.monotonic()
+        if now - self._switch_last >= _SWITCH_COOLDOWN_S:
+            self._switch_last = now
+            return True
+        return False
+
     def cooldown_remaining(self, kind: str, arg: str) -> float:
         """Return seconds remaining before *arg* can be used again for *kind*."""
         now = time.monotonic()
@@ -71,6 +82,8 @@ class CommandEngine:
             return max(
                 0.0, _REQUEST_COOLDOWN_S - (now - self._request_last.get(arg, 0.0))
             )
+        if kind == "switch":
+            return max(0.0, _SWITCH_COOLDOWN_S - (now - self._switch_last))
         return 0.0
 
     def try_request(self, genre: str) -> bool:
