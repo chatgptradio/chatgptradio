@@ -327,63 +327,6 @@ class ParticlesMode {
   dispose(scene) { if (this.points) scene.remove(this.points); this.points = null; }
 }
 
-// ── Mode GLOBE ────────────────────────────────────────────────────────────────
-
-class GlobeMode {
-  constructor() { this.globe = null; this.arcs = []; this.arcLines = []; }
-  init(scene, camera) {
-    const geo = new THREE.IcosahedronGeometry(8, 3);
-    const mat = new THREE.MeshBasicMaterial({ color:0x113355, wireframe:true, transparent:true, opacity:0.3 });
-    this.globe = new THREE.Mesh(geo, mat);
-    scene.add(this.globe);
-    camera.position.set(0, 0, 22);
-    const toXYZ = (lat, lon) => {
-      const phi = (90-lat)*Math.PI/180, theta = (lon+180)*Math.PI/180;
-      return new THREE.Vector3(
-        -8*Math.sin(phi)*Math.cos(theta),
-         8*Math.cos(phi),
-         8*Math.sin(phi)*Math.sin(theta)
-      );
-    };
-    this.arcs = [
-      { signal:'reddit_volume',         color:'#FF4500', from:toXYZ(37,-122) },
-      { signal:'hn_ai_score',           color:'#FF6600', from:toXYZ(37,-77)  },
-      { signal:'gdelt_global_tone',     color:'#AAAAFF', from:toXYZ(48,2)    },
-      { signal:'hedonometer_happiness', color:'#FFDD00', from:toXYZ(0,0)     },
-      { signal:'arxiv_papers_today',    color:'#FFFFFF', from:toXYZ(42,2)    },
-      { signal:'wikipedia_views_ai',    color:'#88AAFF', from:toXYZ(51,-0.1) },
-      { signal:'msft_delta',            color:'#44FF44', from:toXYZ(40,-74)  },
-    ];
-    this.arcs.forEach(arc => {
-      const mid = arc.from.clone().multiplyScalar(1.4).add(new THREE.Vector3(0,2,0));
-      const curve = new THREE.QuadraticBezierCurve3(arc.from, mid, new THREE.Vector3(0,0,0));
-      const pts = curve.getPoints(30);
-      const lineGeo = new THREE.BufferGeometry().setFromPoints(pts);
-      const lineMat = new THREE.LineBasicMaterial({ color:arc.color, transparent:true, opacity:0.6 });
-      const line = new THREE.Line(lineGeo, lineMat);
-      scene.add(line);
-      arc.line = line;
-      this.arcLines.push(line);
-    });
-  }
-  update(state, dt) {
-    if (this.globe) this.globe.rotation.y += (state.hn_ai_score||0) * 0.003 + (state.world_temperature||0) * 0.001;
-    this.arcs.forEach(arc => {
-      if (!arc.line) return;
-      const val = state[arc.signal];
-      arc.line.material.opacity = 0.1 + (typeof val === 'number' ? Math.min(Math.max(val,0),1) : 0) * 0.7;
-    });
-    const tone = state.gdelt_global_tone || 0.5;
-    const bg = new THREE.Color().setHSL(0.6 - tone*0.2, 0.3, 0.02 + tone*0.03);
-    scene.background = bg;
-  }
-  dispose(scene) {
-    if (this.globe) scene.remove(this.globe);
-    this.arcLines.forEach(l => scene.remove(l));
-    this.globe = null; this.arcLines = [];
-  }
-}
-
 // ── Mode SYNAPSE ──────────────────────────────────────────────────────────────
 // Graphe de neurones synthétiques, topologie pilotée par drift_territory.
 // Formation, taille de nœuds et impulsions sont dérivés de GlobalState.
@@ -1048,51 +991,15 @@ void main(){
   }
 }
 
-// ── Mode NEBULA ───────────────────────────────────────────────────────────────
-
-class NebulaMode {
-  constructor() { this.sphere = null; this.trailMesh = null; this.trail = []; }
-  init(scene, camera) {
-    const geo = new THREE.SphereGeometry(0.5, 16, 16);
-    const mat = new THREE.MeshStandardMaterial({ color:0x00D4FF, emissive:0x00D4FF, emissiveIntensity:1.5 });
-    this.sphere = new THREE.Mesh(geo, mat);
-    scene.add(this.sphere);
-    camera.position.set(0, 0, 22);
-  }
-  update(state, dt) {
-    const x = ((state.excitation||0) - (state.anxiete||0)) * 8;
-    const y = ((state.curiosite||0) - (state.melancolie||0)) * 8;
-    const z = ((state.creativite||0) - (state.urgence||0)) * 8;
-    if (this.sphere) this.sphere.position.set(x, y, z);
-    this.trail.push(new THREE.Vector3(x, y, z));
-    if (this.trail.length > 500) this.trail.shift();
-    if (this.trailMesh) scene.remove(this.trailMesh);
-    if (this.trail.length > 2) {
-      const curve = new THREE.CatmullRomCurve3(this.trail.slice(-Math.min(this.trail.length,100)));
-      try {
-        const tubeGeo = new THREE.TubeGeometry(curve, 50, 0.05, 4, false);
-        const tubeMat = new THREE.MeshBasicMaterial({ color:0x4488FF, transparent:true, opacity:0.4 });
-        this.trailMesh = new THREE.Mesh(tubeGeo, tubeMat);
-        scene.add(this.trailMesh);
-      } catch(e) {}
-    }
-    const territory = state.drift_territory || 'ambient';
-    const bgColors = { ambient:'#000820', electronic:'#001820', industrial:'#200000', experimental:'#100020', drone:'#080808', jazz:'#001008', neoclassical:'#080818' };
-    const bgHex = bgColors[territory] || '#000510';
-    scene.background = new THREE.Color(bgHex);
-  }
-  dispose(scene) {
-    if (this.sphere) scene.remove(this.sphere);
-    if (this.trailMesh) scene.remove(this.trailMesh);
-    this.sphere = null; this.trailMesh = null; this.trail = [];
-  }
-}
-
 // ── Système de modes ──────────────────────────────────────────────────────────
 
+const MODES = { neural: NeuralMode, synapse: SynapseMode, particles: ParticlesMode, chaos: ChaosMode };
+
 let activeModeName = 'neural';
-let activeMode = null;
-const MODES = { neural: NeuralMode, synapse: SynapseMode, particles: ParticlesMode, chaos: ChaosMode, globe: GlobeMode, nebula: NebulaMode };
+// Initialize NeuralMode immediately — avoids blank canvas until first WS message
+// (the graph builds lazily in update() once liveNodes arrives from WebSocket)
+let activeMode = new NeuralMode();
+activeMode.init(scene, camera);
 
 let _switchInProgress = false;
 async function switchMode(name) {
@@ -1225,9 +1132,9 @@ function animate(now = 0) {
 }
 animate();
 
-// Keyboard shortcuts: 1=neural 2=synapse 3=particles 4=chaos 5=globe 6=nebula
+// Keyboard shortcuts: 1=neural 2=synapse 3=particles 4=chaos
 window.addEventListener('keydown', (e) => {
-  const map = { '1':'neural', '2':'synapse', '3':'particles', '4':'chaos', '5':'globe', '6':'nebula' };
+  const map = { '1':'neural', '2':'synapse', '3':'particles', '4':'chaos' };
   if (map[e.key]) {
     userOverride = true;  // keep user's choice even when WS heartbeat sends visual_mode:'neural'
     switchMode(map[e.key]);
