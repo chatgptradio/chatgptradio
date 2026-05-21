@@ -143,13 +143,17 @@ async def run_dsp(
 
     ffmpeg_cmd = [
         "ffmpeg", "-y",
+        "-max_muxing_queue_size", "1024",  # prevents A/V sync stalls on mux queue overflow
         *video_input,
-        # Audio from stdin (PCM 16-bit stereo)
+        # Audio from stdin (PCM 16-bit stereo) — thread_queue_size prevents blocking when
+        # pipe momentarily empties between clips (avoids "faster than real-time" bursts to RTMP)
+        "-thread_queue_size", "512",
         "-f", "s16le", "-ar", str(_SR), "-ac", "2", "-i", "pipe:0",
         *video_encode,
         "-c:a", "aac", "-b:a", "192k",
         "-map", "0:v", "-map", "1:a",
-        "-f", "flv", rtmp_url,
+        "-f", "flv", "-flvflags", "no_duration_filesize",
+        rtmp_url,
     ]
     loop = asyncio.get_running_loop()
     restart_delay = 2.0

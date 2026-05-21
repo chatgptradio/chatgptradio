@@ -467,12 +467,13 @@ void main(){
 
 const _SYN_CONN_FS = `
 uniform float uTime;
+uniform float uFlowSpeed;
 varying vec3  vColor;
 varying float vStr;
 varying float vT;
 varying float vPulse;
 void main(){
-  float flow = sin(vT * 18.0 - uTime * 4.0) * 0.5 + 0.5;
+  float flow = sin(vT * 18.0 - uTime * uFlowSpeed) * 0.5 + 0.5;
   vec3 col = vColor * (0.55 + 0.3 * flow * vStr);
   if(vPulse > 0.0) col = mix(col, vec3(1.0), vPulse * 0.6);
   float alpha = (0.5 * vStr + 0.15 * flow + vPulse * 0.3)
@@ -624,6 +625,7 @@ class SynapseMode {
       const cm = new THREE.ShaderMaterial({
         uniforms: {
           uTime: { value: 0 },
+          uFlowSpeed: { value: 0 },  // driven by chat_rate — 0 = no flow animation
           uPulseTime: { value: -1000 }, uPulsePos: { value: new THREE.Vector3() }, uPulseSpeed: { value: 12.0 }
         },
         vertexShader: _SYN_CONN_VS, fragmentShader: _SYN_CONN_FS,
@@ -698,6 +700,7 @@ class SynapseMode {
     }
     if (this._cMesh) {
       this._cMesh.material.uniforms.uTime.value = t;
+      this._cMesh.material.uniforms.uFlowSpeed.value = (state.chat_rate ?? 0) * 4.0;
     }
 
     // Pulse: trigger when world_event_burst > 0.1 and it's a new spike
@@ -880,7 +883,7 @@ class ChaosMode {
     // NOT Math.random() in the loop. The turbulence amplitude is bounded and non-fake
     // because it only adds micro-variation to data-set positions (attractor shape is data-driven).
     const mat = new THREE.ShaderMaterial({
-      uniforms: { time: { value: 0 } },
+      uniforms: { time: { value: 0 }, uWonder: { value: 0 } },  // uWonder gates hue shift
       vertexShader: `
 uniform float time;
 attribute float size;
@@ -902,6 +905,7 @@ void main(){
 }`,
       fragmentShader: `
 uniform float time;
+uniform float uWonder;
 varying vec3 vCol;
 varying float vR;
 vec3 hueShift(vec3 c, float h){
@@ -916,7 +920,7 @@ void main(){
   float core = smoothstep(0.05, 0.0, d);
   float alpha = core + glow * 0.2;
   if(alpha < 0.01) discard;
-  vec3 col = hueShift(vCol, time * 0.06);
+  vec3 col = hueShift(vCol, time * 0.06 * uWonder);
   gl_FragColor = vec4(mix(col, vec3(1.0), core), alpha);
 }`,
       transparent: true, depthWrite: false, vertexColors: true, blending: THREE.AdditiveBlending
@@ -1016,9 +1020,12 @@ void main(){
     this._currentBloom += (targetBloom - this._currentBloom) * 0.04;
     if (this._bloomPass) this._bloomPass.strength = this._currentBloom;
 
-    // Update time uniform
+    // Update time and signal-gated uniforms
     const t = this._clock.getElapsedTime();
-    if (this._particles) this._particles.material.uniforms.time.value = t;
+    if (this._particles) {
+      this._particles.material.uniforms.time.value = t;
+      this._particles.material.uniforms.uWonder.value = state.wonder ?? 0;
+    }
 
     // Background: dark purple-black, tinted by territory
     const territory = state.drift_territory ?? 0;
