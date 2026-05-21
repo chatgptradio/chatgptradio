@@ -995,6 +995,10 @@ void main(){
 
 const MODES = { neural: NeuralMode, synapse: SynapseMode, particles: ParticlesMode, chaos: ChaosMode };
 
+// Declared early — NeuralMode.init() reads liveNodes (let TDZ would crash otherwise)
+let liveState = {};
+let liveNodes  = [];   // real @node registry from WebSocket
+
 let activeModeName = 'neural';
 // Initialize NeuralMode immediately — avoids blank canvas until first WS message
 // (the graph builds lazily in update() once liveNodes arrives from WebSocket)
@@ -1107,8 +1111,6 @@ function connect() {
   document.getElementById('ws-status').textContent = '◌ connecting…';
 }
 
-let liveState = {};
-let liveNodes  = [];   // real @node registry from WebSocket
 connect();
 
 // ── Render loop ───────────────────────────────────────────────────────────────
