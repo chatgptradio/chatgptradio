@@ -5,11 +5,14 @@ from datetime import datetime, timezone
 from typing import Any
 
 import aiosqlite
+import structlog
 
 from core.db import persist_signal, persist_snapshot
 from core.drift import update_drift
 from core.self_model import update_self_model
 from core.state import GlobalState, MusicVector
+
+log = structlog.get_logger()
 
 _DICT_FIELDS = {
     "source_health",
@@ -154,5 +157,7 @@ class StateUpdater:
                         vol = self.state.signal_volatilities.get(signal, 0.1)
                         await persist_signal(self.db, signal, float(value), baseline, error, vol)
 
+            except Exception:
+                log.exception("updater_error", item=str(item)[:120])
             finally:
                 self.queue.task_done()
