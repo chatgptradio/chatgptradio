@@ -29,6 +29,15 @@ _AUDIO_EXTENSIONS = {".mp3", ".wav", ".flac", ".ogg", ".m4a"}
 # ── Helpers ───────────────────────────────────────────────────────────────────
 
 
+async def _get_ref_territory(conn: aiosqlite.Connection, path: Path) -> str:
+    """Return the territory stored in the DB for *path*, or '' if not found."""
+    async with conn.execute(
+        "SELECT territory FROM audio_clips WHERE path = ?", (str(path),)
+    ) as cur:
+        row = await cur.fetchone()
+    return row[0] if row and row[0] else ""
+
+
 async def _get_ref_duration(path: Path) -> int:
     """Return audio duration in seconds via ffprobe, or 0 on failure."""
     proc = await asyncio.create_subprocess_exec(
@@ -421,6 +430,7 @@ async def run_audio_queue(
             continue
 
         ref_path = await find_reference(conn, state)
+        ref_territory = await _get_ref_territory(conn, ref_path) if ref_path else ""
 
         try:
             name_task = asyncio.create_task(generate_track_name(state))
@@ -444,7 +454,11 @@ async def run_audio_queue(
                 prompt,
                 source="fal_derived" if ref_path else "generated",
                 display_name=display_name,
+                territory=ref_territory or state.drift_territory if ref_path else state.drift_territory,
             )
+
+            if ref_path and ref_territory:
+                log.info("fal_derived_territory_inherited", ref=str(ref_path), territory=ref_territory)
 
             if display_name:
                 await state_queue.put({"current_track_name": display_name})

@@ -343,9 +343,9 @@ async def test_index_clip_called_with_display_name(tmp_path):
     conn = await _make_conn(tmp_path)
     recorded: list[dict] = []
 
-    async def capturing_index_clip(conn, path, state, prompt, *, source, display_name=""):
+    async def capturing_index_clip(conn, path, state, prompt, *, source, display_name="", territory=""):
         recorded.append({"path": path, "display_name": display_name, "source": source})
-        await real_index_clip(conn, path, state, prompt, source=source, display_name=display_name)
+        await real_index_clip(conn, path, state, prompt, source=source, display_name=display_name, territory=territory)
 
     with (
         patch("core.audio_queue._generate_audio", new_callable=AsyncMock) as mock_audio,
