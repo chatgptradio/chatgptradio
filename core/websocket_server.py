@@ -40,7 +40,7 @@ async def broadcast_loop(
                 }
             )
             await asyncio.gather(
-                *[ws.send(payload) for ws in set(connected)],
+                *[ws.send(payload.decode()) for ws in set(connected)],
                 return_exceptions=True,
             )
         await asyncio.sleep(interval)

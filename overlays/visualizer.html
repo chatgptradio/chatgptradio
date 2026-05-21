@@ -15,6 +15,8 @@
     #journal { position:absolute; bottom:24px; right:24px; color:#8899BB; font-size:11px; max-width:380px; line-height:1.6; opacity:0.85; border-left:1px solid #334; padding-left:12px; }
     #mode-indicator { position:absolute; top:24px; left:24px; font-size:10px; color:#334; }
     #ws-status { position:absolute; top:38px; left:24px; font-size:10px; color:#334; }
+    #chat-status { position:absolute; top:52px; left:24px; font-size:10px; color:#556677; }
+    #chat-status.live { color:#cc7733; }
     #event-banner {
       position: absolute;
       top: 60px; left: 50%; transform: translateX(-50%);
@@ -35,6 +37,7 @@
 <div id="hud">
   <div id="mode-indicator">◆ NEURAL</div>
   <div id="ws-status">◌ connecting…</div>
+  <div id="chat-status"></div>
   <div id="event-banner"></div>
   <div id="drift"></div>
   <div id="sources"></div>
@@ -152,7 +155,6 @@ class NeuralMode {
     this._composer.addPass(new RenderPass(sc,this._cam));
     this._bloomPass=new UnrealBloomPass(new THREE.Vector2(innerWidth/2,innerHeight/2),1.4,0.4,0.65);
     this._composer.addPass(this._bloomPass);
-    this._composer.addPass(new FilmPass(0.12,0.25,2048,false));
     this._composer.addPass(new OutputPass());
     // Build immediately if nodes already received from WebSocket
     if(liveNodes.length > 0) this._build(sc, liveNodes);
@@ -618,7 +620,7 @@ class SynapseMode {
       cg.setAttribute('connStr', new THREE.Float32BufferAttribute(cs, 1));
       cg.setAttribute('pathIdx', new THREE.Float32BufferAttribute(ci, 1));
       cg.setAttribute('connColor', new THREE.Float32BufferAttribute(cc, 3));
-      const idx=[];edges.forEach((_,ei)=>{for(let s=0;s<SEG-1;s++)idx.push(ei*SEG+s,ei*SEG+s+1);});cg.setIndex(idx);
+      const idx=[];this._edges.forEach((_,ei)=>{for(let s=0;s<SEG-1;s++)idx.push(ei*SEG+s,ei*SEG+s+1);});cg.setIndex(idx);
       const cm = new THREE.ShaderMaterial({
         uniforms: {
           uTime: { value: 0 },
@@ -1091,11 +1093,18 @@ async function switchMode(name) {
   const fade = document.getElementById('fade');
   fade.style.opacity = '1';
   await new Promise(r => setTimeout(r, 1500));
-  if (activeMode) activeMode.dispose(scene);
-  activeModeName = name;
-  activeMode = new MODES[name]();
-  activeMode.init(scene, camera);
-  document.getElementById('mode-indicator').textContent = '◆ ' + name.toUpperCase();
+  try {
+    if (activeMode) activeMode.dispose(scene);
+    activeModeName = name;
+    activeMode = new MODES[name]();
+    activeMode.init(scene, camera);
+    document.getElementById('mode-indicator').textContent = '◆ ' + name.toUpperCase();
+  } catch(err) {
+    console.error('switchMode failed for', name, err);
+    fade.style.opacity = '0';
+    _switchInProgress = false;
+    return;
+  }
   await new Promise(r => setTimeout(r, 100));
   fade.style.opacity = '0';
   await new Promise(r => setTimeout(r, 1500));
@@ -1112,8 +1121,8 @@ function updateHUD(st) {
   const crisis = st.crisis_level || 0;
   document.getElementById('drift').innerHTML =
     `<div class="territory">◆ ${st.drift_territory||'ambient'}</div>` +
-    `<div>♪ ${Math.round(st.drift_bpm||90)} BPM · ${st.drift_key||'C minor'}</div>` +
-    `<div>${st.drift_timbre||'warm'}</div>` +
+    `<div>♪ ${Math.round(st.drift_bpm||90)} BPM · ${st.drift_key||'C minor'} · ${st.drift_timbre||'warm'}</div>` +
+    (st.current_track_name ? `<div>♫ ${st.current_track_name}</div>` : '') +
     (crisis > 0.2 ? `<div class="crisis">⚠ CRISIS ${Math.round(crisis*100)}%</div>` : '');
   const sh = st.source_health || {};
   document.getElementById('sources').innerHTML =
@@ -1121,6 +1130,12 @@ function updateHUD(st) {
       `<span style="color:${v?'#446644':'#663333'}">${v?'●':'○'} ${k}</span>`
     ).join('<br>');
   if (st.journal_text) document.getElementById('journal').textContent = st.journal_text;
+  const chatEl = document.getElementById('chat-status');
+  const chatRate = (st.chat_rate || 0).toFixed(1);
+  const chatHealth = (st.source_health || {}).youtube_chat;
+  const chatLive = chatHealth === true || (chatHealth === undefined && parseFloat(chatRate) > 0);
+  chatEl.className = chatLive ? 'live' : '';
+  chatEl.textContent = (chatLive ? '◉' : '◌') + ' chat · ' + chatRate + '/min · ' + (st.viewers || 0) + ' viewers';
   const evtEl = document.getElementById('event-banner');
   if (st.active_event && st.event_intensity > 0) {
     evtEl.textContent = st.event_label;
@@ -1162,7 +1177,7 @@ let liveNodes  = [];   // real @node registry from WebSocket
 connect();
 
 // ── Render loop ───────────────────────────────────────────────────────────────
-const _FRAME_MS = 1000 / 30;
+const _FRAME_MS = 1000 / 24;
 let _lastFrameTime = 0;
 
 function animate(now = 0) {
