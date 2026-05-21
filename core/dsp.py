@@ -143,15 +143,16 @@ async def run_dsp(
 
     ffmpeg_cmd = [
         "ffmpeg", "-y",
-        "-max_muxing_queue_size", "1024",  # prevents A/V sync stalls on mux queue overflow
         *video_input,
-        # Audio from stdin (PCM 16-bit stereo) — thread_queue_size prevents blocking when
-        # pipe momentarily empties between clips (avoids "faster than real-time" bursts to RTMP)
+        # thread_queue_size prevents pipe stalls when audio queue momentarily empties between
+        # clips — avoids "faster than real-time" bursts followed by "no data" on RTMP side
         "-thread_queue_size", "512",
         "-f", "s16le", "-ar", str(_SR), "-ac", "2", "-i", "pipe:0",
         *video_encode,
         "-c:a", "aac", "-b:a", "192k",
         "-map", "0:v", "-map", "1:a",
+        # output options: max_muxing_queue_size must come before the output URL
+        "-max_muxing_queue_size", "1024",
         "-f", "flv", "-flvflags", "no_duration_filesize",
         rtmp_url,
     ]
