@@ -65,7 +65,7 @@ const camera = new THREE.PerspectiveCamera(55, innerWidth/innerHeight, 0.1, 500)
 camera.position.set(0, 0, 22);
 const renderer = new THREE.WebGLRenderer({antialias:true});
 renderer.setSize(innerWidth, innerHeight);
-renderer.setPixelRatio(Math.min(devicePixelRatio, 2));
+renderer.setPixelRatio(1);
 document.body.prepend(renderer.domElement);
 scene.add(new THREE.AmbientLight(0x112233, 2));
 const fill = new THREE.PointLight(0x00D4FF, 3, 60);
@@ -150,7 +150,7 @@ class NeuralMode {
     // Composer with bloom
     this._composer=new EffectComposer(renderer);
     this._composer.addPass(new RenderPass(sc,this._cam));
-    this._bloomPass=new UnrealBloomPass(new THREE.Vector2(innerWidth,innerHeight),1.4,0.4,0.65);
+    this._bloomPass=new UnrealBloomPass(new THREE.Vector2(innerWidth/2,innerHeight/2),1.4,0.4,0.65);
     this._composer.addPass(this._bloomPass);
     this._composer.addPass(new FilmPass(0.12,0.25,2048,false));
     this._composer.addPass(new OutputPass());
@@ -660,7 +660,7 @@ class SynapseMode {
     // Composer
     this._composer = new EffectComposer(renderer);
     this._composer.addPass(new RenderPass(sc, this._cam));
-    this._bloomPass = new UnrealBloomPass(new THREE.Vector2(innerWidth, innerHeight), 1.2, 0.4, 0.65);
+    this._bloomPass = new UnrealBloomPass(new THREE.Vector2(innerWidth/2, innerHeight/2), 1.2, 0.4, 0.65);
     this._composer.addPass(this._bloomPass);
     this._composer.addPass(new OutputPass());
 
@@ -956,7 +956,7 @@ void main(){
 
     this._composer = new EffectComposer(renderer);
     this._composer.addPass(new RenderPass(sc, this._cam));
-    this._bloomPass = new UnrealBloomPass(new THREE.Vector2(innerWidth, innerHeight), 0.45, 0.5, 0.85);
+    this._bloomPass = new UnrealBloomPass(new THREE.Vector2(innerWidth/2, innerHeight/2), 0.45, 0.5, 0.85);
     this._composer.addPass(this._bloomPass);
     this._afterPass = new AfterimagePass();
     this._afterPass.uniforms.damp.value = 0.88;
@@ -1162,9 +1162,13 @@ let liveNodes  = [];   // real @node registry from WebSocket
 connect();
 
 // ── Render loop ───────────────────────────────────────────────────────────────
+const _FRAME_MS = 1000 / 30;
+let _lastFrameTime = 0;
 
-function animate() {
+function animate(now = 0) {
   requestAnimationFrame(animate);
+  if (now - _lastFrameTime < _FRAME_MS) return;
+  _lastFrameTime = now;
   const dt = clock.getDelta();
   const t = clock.getElapsedTime();
   let handled = false;
