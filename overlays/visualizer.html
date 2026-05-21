@@ -754,7 +754,7 @@ class ChaosMode {
   }
 
   _applyPattern(pts) {
-    const COUNT = 15000;
+    const COUNT = 3000;
     const arr = this._particles.geometry.attributes.position.array;
     for (let i = 0; i < COUNT; i++) {
       const idx = i * 3, p = pts[i] || new THREE.Vector3();
@@ -878,14 +878,14 @@ void main(){
       autoRotate: true, autoRotateSpeed: 0.3
     });
 
-    this._starField = this._makeStars(5000);
+    this._starField = this._makeStars(1000);
     sc.add(this._starField);
 
-    this._particles = this._makeParticles(15000);
+    this._particles = this._makeParticles(3000);
     sc.add(this._particles);
 
     // Set initial pattern (torusKnot)
-    const initPts = this._getPattern(0, 15000);
+    const initPts = this._getPattern(0, 3000);
     this._applyPattern(initPts);
     this._fromPts = this._particles.geometry.attributes.position.array.slice();
     this._clock.start();
@@ -902,9 +902,9 @@ void main(){
         // Store current positions as from-points
         this._fromPts = this._particles.geometry.attributes.position.array.slice();
         // Compute destination
-        const pts = this._getPattern(newTarget, 15000);
-        this._toPts = new Float32Array(15000 * 3);
-        for (let i = 0; i < 15000; i++) {
+        const pts = this._getPattern(newTarget, 3000);
+        this._toPts = new Float32Array(3000 * 3);
+        for (let i = 0; i < 3000; i++) {
           const p = pts[i] || new THREE.Vector3();
           this._toPts[i * 3] = p.x; this._toPts[i * 3 + 1] = p.y; this._toPts[i * 3 + 2] = p.z;
         }
