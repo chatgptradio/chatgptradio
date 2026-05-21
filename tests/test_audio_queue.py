@@ -503,6 +503,29 @@ async def test_find_reference_returns_reference_source_clip(tmp_path):
     await conn.close()
 
 
+# ── find_reference existence guard ───────────────────────────────────────────
+
+
+@pytest.mark.asyncio
+async def test_find_reference_returns_none_for_missing_file(tmp_path):
+    """find_reference() returns None when the best candidate path does not exist on disk."""
+    from core.audio_library import index_clip
+    from core.audio_queue import find_reference
+
+    state = GlobalState()
+    conn = await _make_conn(tmp_path)
+
+    ghost_clip = tmp_path / "ghost_ref.mp3"
+    # ghost_clip is NOT created on disk
+
+    await index_clip(conn, ghost_clip, state, prompt="", source="reference")
+
+    result = await find_reference(conn, state)
+
+    assert result is None
+    await conn.close()
+
+
 # ── find_reference territory scoring ─────────────────────────────────────────
 
 

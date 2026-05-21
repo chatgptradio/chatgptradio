@@ -11,7 +11,7 @@ from pathlib import Path
 import aiosqlite
 import structlog
 
-from core.audio_library import find_reusable, index_clip
+from core.audio_library import cleanup_ghost_paths, find_reusable, index_clip
 from core.state import GlobalState
 from core.track_namer import generate_track_name
 
@@ -406,8 +406,14 @@ async def run_audio_queue(
 
     fallback_paths = await _index_fallback_clips(conn, state, state_queue)
     refs_indexed = await _auto_index_references_on_startup(conn, state)
+    ghosts_removed = await cleanup_ghost_paths(conn)
 
-    log.info("audio_queue_started", fallbacks=len(fallback_paths), refs_indexed=refs_indexed)
+    log.info(
+        "audio_queue_started",
+        fallbacks=len(fallback_paths),
+        refs_indexed=refs_indexed,
+        ghosts_removed=ghosts_removed,
+    )
 
     last_refs_scan = time.time()
 
@@ -430,6 +436,7 @@ async def run_audio_queue(
         if result is not None:
             candidate, display_name = result
             await mark_played(conn, candidate)
+            log.info("audio_clip_queued", path=str(candidate), display_name=display_name, source="reused")
             if playback_queue is not None:
                 await playback_queue.put(candidate)
             if display_name:
