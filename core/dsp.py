@@ -120,6 +120,8 @@ async def run_dsp(
 
     if use_x11grab:
         video_input = [
+            # thread_queue_size prevents x11grab queue blocking that silences video stream
+            "-thread_queue_size", "512",
             "-f", "x11grab",
             "-framerate", "15",            # 15fps — réduit charge CPU SwiftShader sur VPS sans GPU
             "-video_size", "1280x720",
