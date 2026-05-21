@@ -94,7 +94,7 @@ class StateUpdater:
     def __init__(self, state: GlobalState, db_conn: aiosqlite.Connection) -> None:
         self.state = state
         self.db = db_conn
-        self.queue: asyncio.Queue[tuple[str, Any]] = asyncio.Queue()
+        self.queue: asyncio.Queue[tuple[str, Any] | dict[str, Any]] = asyncio.Queue()
         self._vec = MusicVector(
             bpm=state.drift_bpm,
             key=state.drift_key,
@@ -118,9 +118,17 @@ class StateUpdater:
 
     async def run(self) -> None:
         while True:
-            signal, value = await self.queue.get()
+            item = await self.queue.get()
             try:
-                self._apply(signal, value)
+                if isinstance(item, dict):
+                    for signal, value in item.items():
+                        self._apply(signal, value)
+                    signals_to_persist = list(item.items())
+                else:
+                    signal, value = item
+                    self._apply(signal, value)
+                    signals_to_persist = [(signal, value)]
+
                 compute_derived(self.state)
                 for sig in ("wonder", "melancholy", "urgency"):
                     update_self_model(self.state, sig, getattr(self.state, sig))
@@ -138,12 +146,13 @@ class StateUpdater:
                 self.state.updated_at = datetime.now(timezone.utc)
                 await persist_snapshot(self.db, self.state)
 
-                annotation = GlobalState.model_fields.get(signal, None)
-                if annotation and annotation.annotation in (float, int):
-                    baseline = self.state.signal_baselines.get(signal, 0.0)
-                    error = self.state.prediction_errors.get(signal, 0.0)
-                    vol = self.state.signal_volatilities.get(signal, 0.1)
-                    await persist_signal(self.db, signal, float(value), baseline, error, vol)
+                for signal, value in signals_to_persist:
+                    annotation = GlobalState.model_fields.get(signal, None)
+                    if annotation and annotation.annotation in (float, int):
+                        baseline = self.state.signal_baselines.get(signal, 0.0)
+                        error = self.state.prediction_errors.get(signal, 0.0)
+                        vol = self.state.signal_volatilities.get(signal, 0.1)
+                        await persist_signal(self.db, signal, float(value), baseline, error, vol)
 
             finally:
                 self.queue.task_done()

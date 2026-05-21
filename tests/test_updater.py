@@ -171,3 +171,55 @@ async def test_wonder_prediction_error_set_after_updater_cycle(db):
         pass
 
     assert s.prediction_errors.get("wonder", 0) != 0
+
+
+async def test_dict_queue_item_single_key_updates_state(state, db):
+    """Dict put directly into the queue (not via enqueue) must update state."""
+    updater = StateUpdater(state, db)
+    task = asyncio.create_task(updater.run())
+
+    await updater.queue.put({"journal_text": "hello"})
+
+    await updater.queue.join()
+    task.cancel()
+    try:
+        await task
+    except asyncio.CancelledError:
+        pass
+
+    assert state.journal_text == "hello"
+
+
+async def test_dict_queue_item_multi_key_updates_all_fields(state, db):
+    """Multi-key dict put into the queue must update every field it contains."""
+    updater = StateUpdater(state, db)
+    task = asyncio.create_task(updater.run())
+
+    await updater.queue.put({"stream_bitrate": 192.0, "dropped_frames": 0.0})
+
+    await updater.queue.join()
+    task.cancel()
+    try:
+        await task
+    except asyncio.CancelledError:
+        pass
+
+    assert state.stream_bitrate == pytest.approx(192.0)
+    assert state.dropped_frames == pytest.approx(0.0)
+
+
+async def test_tuple_queue_item_backward_compat(state, db):
+    """Tuple payloads must still work after the dict-handling fix."""
+    updater = StateUpdater(state, db)
+    task = asyncio.create_task(updater.run())
+
+    await updater.queue.put(("openai_status", 0.5))
+
+    await updater.queue.join()
+    task.cancel()
+    try:
+        await task
+    except asyncio.CancelledError:
+        pass
+
+    assert state.openai_status == pytest.approx(0.5)
