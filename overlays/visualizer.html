@@ -1114,7 +1114,7 @@ function connect() {
 connect();
 
 // ── Render loop ───────────────────────────────────────────────────────────────
-const _FRAME_MS = 1000 / 24;
+const _FRAME_MS = 1000 / 10;  // floor 10fps — réduit SwiftShader CPU sur VPS sans GPU
 let _lastFrameTime = 0;
 
 function animate(now = 0) {

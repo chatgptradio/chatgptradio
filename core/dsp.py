@@ -121,7 +121,7 @@ async def run_dsp(
     if use_x11grab:
         video_input = [
             "-f", "x11grab",
-            "-framerate", "30",
+            "-framerate", "15",            # 15fps — réduit charge CPU SwiftShader sur VPS sans GPU
             "-video_size", "1280x720",
             "-draw_mouse", "0",
             "-i", f"{display}.0",
@@ -129,15 +129,15 @@ async def run_dsp(
     else:
         video_input = [
             "-f", "lavfi",
-            "-i", "color=c=0x0a0a1a:s=1280x720:r=30",
+            "-i", "color=c=0x0a0a1a:s=1280x720:r=15",
         ]
 
     video_encode = [
-        "-c:v", "libx264", "-preset", "veryfast",
+        "-c:v", "libx264", "-preset", "ultrafast",  # ultrafast — libère CPU pour x11grab + Python
         # minrate=maxrate enforces CBR — without it, libx264 drops to 200-300 Kbps on static
         # overlay content, causing YouTube "below recommended bitrate" warnings
         "-b:v", "2500k", "-minrate", "2500k", "-maxrate", "2500k", "-bufsize", "5000k",
-        "-g", "60",                        # keyframe every 2s at 30fps (YouTube requires ≤4s)
+        "-g", "30",                        # keyframe every 2s at 15fps (YouTube requires ≤4s)
         "-pix_fmt", "yuv420p",
     ]
     if not use_x11grab:
