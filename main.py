@@ -100,7 +100,13 @@ async def run() -> None:
     all_tasks = collector_tasks + [ws_server_task, ws_broadcast_task, updater_task, audio_task, dsp_task, journal_task, calendar_task, scene_task, browser_task]
     for task in all_tasks:
         task.cancel()
-    await asyncio.gather(*all_tasks, return_exceptions=True)
+    try:
+        await asyncio.wait_for(
+            asyncio.gather(*all_tasks, return_exceptions=True),
+            timeout=10.0,
+        )
+    except asyncio.TimeoutError:
+        log.warning("shutdown_timeout", note="some tasks did not cancel in 10s")
 
     await overlay_runner.cleanup()
     await db_conn.close()

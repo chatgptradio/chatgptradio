@@ -250,7 +250,11 @@ async def run_dsp(
             })
             playback_queue.task_done()
     finally:
+        if proc.stdin is not None:
+            proc.stdin.close()
         if proc.poll() is None:
-            if proc.stdin is not None:
-                proc.stdin.close()
             proc.terminate()
+        try:
+            proc.wait(timeout=5)
+        except subprocess.TimeoutExpired:
+            proc.kill()
