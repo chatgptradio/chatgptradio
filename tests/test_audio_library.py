@@ -6,7 +6,7 @@ from pathlib import Path
 
 import pytest
 
-from core.audio_library import find_by_display_name, find_reusable, index_clip
+from core.audio_library import cleanup_ghost_paths, find_by_display_name, find_reusable, index_clip
 from core.db import init_db
 from core.state import GlobalState
 
@@ -251,3 +251,74 @@ async def test_find_by_display_name_parameterized_no_injection(tmp_db, real_audi
     async with tmp_db.execute("SELECT COUNT(*) FROM audio_clips") as cur:
         row = await cur.fetchone()
     assert row[0] == 1
+
+
+# ── cleanup_ghost_paths ───────────────────────────────────────────────────────
+
+
+@pytest.mark.asyncio
+async def test_cleanup_ghost_paths_deletes_missing_files(tmp_db, tmp_path):
+    """cleanup_ghost_paths removes rows whose paths no longer exist on disk."""
+    state = GlobalState()
+
+    real_file = tmp_path / "real.mp3"
+    real_file.write_bytes(b"fake")
+    ghost_file = tmp_path / "ghost.mp3"
+    # ghost_file is NOT created on disk
+
+    await index_clip(tmp_db, real_file, state, prompt="real", display_name="Real Track")
+    await index_clip(tmp_db, ghost_file, state, prompt="ghost", display_name="Ghost Track")
+
+    async with tmp_db.execute("SELECT COUNT(*) FROM audio_clips") as cur:
+        row = await cur.fetchone()
+    assert row[0] == 2
+
+    deleted = await cleanup_ghost_paths(tmp_db)
+
+    assert deleted == 1
+    async with tmp_db.execute("SELECT path FROM audio_clips") as cur:
+        remaining = [row[0] async for row in cur]
+    assert str(real_file) in remaining
+    assert str(ghost_file) not in remaining
+
+
+@pytest.mark.asyncio
+async def test_cleanup_ghost_paths_returns_zero_when_all_exist(tmp_db, tmp_path):
+    """cleanup_ghost_paths returns 0 when every indexed path exists on disk."""
+    state = GlobalState()
+
+    real_file = tmp_path / "real.mp3"
+    real_file.write_bytes(b"fake")
+    await index_clip(tmp_db, real_file, state, prompt="real", display_name="Real Track")
+
+    deleted = await cleanup_ghost_paths(tmp_db)
+
+    assert deleted == 0
+    async with tmp_db.execute("SELECT COUNT(*) FROM audio_clips") as cur:
+        row = await cur.fetchone()
+    assert row[0] == 1
+
+
+@pytest.mark.asyncio
+async def test_cleanup_ghost_paths_empty_db_returns_zero(tmp_db):
+    """cleanup_ghost_paths returns 0 on an empty DB without error."""
+    deleted = await cleanup_ghost_paths(tmp_db)
+    assert deleted == 0
+
+
+@pytest.mark.asyncio
+async def test_cleanup_ghost_paths_deletes_all_when_all_missing(tmp_db, tmp_path):
+    """cleanup_ghost_paths deletes all rows when no file exists on disk."""
+    state = GlobalState()
+
+    for i in range(3):
+        ghost = tmp_path / f"ghost_{i}.mp3"
+        # NOT created on disk
+        await index_clip(tmp_db, ghost, state, prompt="ghost", display_name=f"Ghost {i}")
+
+    deleted = await cleanup_ghost_paths(tmp_db)
+
+    assert deleted == 3
+    async with tmp_db.execute("SELECT COUNT(*) FROM audio_clips") as cur:
+        row = await cur.fetchone()
+    assert row[0] == 0

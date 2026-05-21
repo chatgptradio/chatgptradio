@@ -8,8 +8,11 @@ from typing import Literal
 
 import aiosqlite
 import orjson
+import structlog
 
 from core.state import GlobalState
+
+log = structlog.get_logger()
 
 AudioSource = Literal["generated", "uploaded", "external", "reference", "fal_derived"]
 
@@ -60,6 +63,24 @@ async def index_clip(
         ),
     )
     await conn.commit()
+
+
+async def cleanup_ghost_paths(conn: aiosqlite.Connection) -> int:
+    """Delete audio_clips rows whose files no longer exist on disk.
+
+    Returns the number of rows deleted. Call this at startup to prevent
+    DB bloat from accumulated stale references to deleted audio files.
+    """
+    async with conn.execute("SELECT path FROM audio_clips") as cur:
+        all_rows = await cur.fetchall()
+    ghosts = [r[0] for r in all_rows if not Path(r[0]).exists()]
+    if ghosts:
+        await conn.executemany(
+            "DELETE FROM audio_clips WHERE path = ?", [(p,) for p in ghosts]
+        )
+        await conn.commit()
+        log.info("ghost_paths_cleaned", count=len(ghosts))
+    return len(ghosts)
 
 
 async def find_reusable(
