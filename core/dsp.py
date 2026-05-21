@@ -134,9 +134,10 @@ async def run_dsp(
 
     video_encode = [
         "-c:v", "libx264", "-preset", "ultrafast",  # ultrafast — libère CPU pour x11grab + Python
-        # minrate=maxrate enforces CBR — without it, libx264 drops to 200-300 Kbps on static
-        # overlay content, causing YouTube "below recommended bitrate" warnings
+        # nal-hrd=cbr forces filler NAL units so libx264 actually hits 2500k on static content
+        # (without it, skip-heavy frames produce ~200-500 Kbps despite minrate=2500k)
         "-b:v", "2500k", "-minrate", "2500k", "-maxrate", "2500k", "-bufsize", "5000k",
+        "-x264opts", "nal-hrd=cbr:force-cfr=1",
         "-g", "30",                        # keyframe every 2s at 15fps (YouTube requires ≤4s)
         "-pix_fmt", "yuv420p",
     ]
@@ -165,11 +166,20 @@ async def run_dsp(
     def _start_ffmpeg() -> subprocess.Popen[bytes]:
         return subprocess.Popen(
             ffmpeg_cmd, stdin=subprocess.PIPE,
-            stdout=subprocess.DEVNULL, stderr=subprocess.DEVNULL,
+            stdout=subprocess.DEVNULL, stderr=subprocess.PIPE,
         )
 
     proc: subprocess.Popen[bytes] = await loop.run_in_executor(None, _start_ffmpeg)
     log.info("dsp_ffmpeg_started")
+
+    async def _log_stderr(p: subprocess.Popen[bytes]) -> None:
+        assert p.stderr is not None
+        while p.poll() is None:
+            line = await loop.run_in_executor(None, p.stderr.readline)
+            if line:
+                log.info("ffmpeg_stderr", msg=line.decode(errors="replace").rstrip())
+
+    asyncio.create_task(_log_stderr(proc))
 
     try:
         while True:
