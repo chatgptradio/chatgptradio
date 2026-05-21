@@ -17,6 +17,7 @@
     #ws-status { position:absolute; top:38px; left:24px; font-size:10px; color:#334; }
     #chat-status { position:absolute; top:52px; left:24px; font-size:10px; color:#556677; }
     #chat-status.live { color:#cc7733; }
+    #reddit-status { position:absolute; top:66px; left:24px; font-size:10px; color:#556677; }
     #event-banner {
       position: absolute;
       top: 60px; left: 50%; transform: translateX(-50%);
@@ -38,6 +39,7 @@
   <div id="mode-indicator">◆ NEURAL</div>
   <div id="ws-status">◌ connecting…</div>
   <div id="chat-status"></div>
+  <div id="reddit-status"></div>
   <div id="event-banner"></div>
   <div id="drift"></div>
   <div id="sources"></div>
@@ -1133,9 +1135,17 @@ function updateHUD(st) {
     (crisis > 0.2 ? `<div class="crisis">⚠ CRISIS ${Math.round(crisis*100)}%</div>` : '');
   const sh = st.source_health || {};
   document.getElementById('sources').innerHTML =
-    Object.entries(sh).map(([k,v]) =>
+    Object.entries(sh).filter(([k]) => k !== 'reddit').map(([k,v]) =>
       `<span style="color:${v?'#446644':'#663333'}">${v?'●':'○'} ${k}</span>`
     ).join('<br>');
+  const redditEl = document.getElementById('reddit-status');
+  if ('reddit' in sh) {
+    const rv = sh.reddit;
+    redditEl.style.color = rv ? '#cc7733' : '#556677';
+    redditEl.textContent = (rv ? '◉' : '◌') + ' reddit';
+  } else {
+    redditEl.textContent = '';
+  }
   if (st.journal_text) document.getElementById('journal').textContent = st.journal_text;
   const chatEl = document.getElementById('chat-status');
   const chatRate = (st.chat_rate || 0).toFixed(1);
@@ -1154,19 +1164,30 @@ function updateHUD(st) {
 
 // ── WebSocket ─────────────────────────────────────────────────────────────────
 
+// userOverride = true when user manually picked a mode via keyboard.
+// Prevents WebSocket state from overriding the user's choice on every heartbeat.
+// Cleared only when the server explicitly sends a *different* visual_mode value.
+let userOverride = false;
+let wsLastMode = null;
+
 function connect() {
   const ws = new WebSocket('ws://localhost:8765');
   ws.onopen = () => {
     document.getElementById('ws-status').className = 'connected';
     document.getElementById('ws-status').textContent = '● connected';
     updateHUD({});
-    switchMode('neural');
+    // Don't force neural here — wait for first WS message so user keeps current mode on reconnect
   };
   ws.onmessage = e => {
     const msg = JSON.parse(e.data);
     const st = msg.state || {};
     const newMode = st.visual_mode || 'neural';
-    if (newMode !== activeModeName) switchMode(newMode);
+    if (newMode !== wsLastMode) {
+      // Server explicitly changed visual_mode — clear user override and follow
+      wsLastMode = newMode;
+      userOverride = false;
+    }
+    if (!userOverride && newMode !== activeModeName) switchMode(newMode);
     liveState = st;
     if (msg.nodes && msg.nodes.length) liveNodes = msg.nodes;
     updateHUD(st);
@@ -1207,7 +1228,10 @@ animate();
 // Keyboard shortcuts: 1=neural 2=synapse 3=particles 4=chaos 5=globe 6=nebula
 window.addEventListener('keydown', (e) => {
   const map = { '1':'neural', '2':'synapse', '3':'particles', '4':'chaos', '5':'globe', '6':'nebula' };
-  if (map[e.key]) switchMode(map[e.key]);
+  if (map[e.key]) {
+    userOverride = true;  // keep user's choice even when WS heartbeat sends visual_mode:'neural'
+    switchMode(map[e.key]);
+  }
 });
 
 window.addEventListener('resize', () => {

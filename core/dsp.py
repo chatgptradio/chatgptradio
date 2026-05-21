@@ -134,7 +134,9 @@ async def run_dsp(
 
     video_encode = [
         "-c:v", "libx264", "-preset", "veryfast",
-        "-b:v", "2500k", "-maxrate", "2500k", "-bufsize", "5000k",
+        # minrate=maxrate enforces CBR — without it, libx264 drops to 200-300 Kbps on static
+        # overlay content, causing YouTube "below recommended bitrate" warnings
+        "-b:v", "2500k", "-minrate", "2500k", "-maxrate", "2500k", "-bufsize", "5000k",
         "-g", "60",                        # keyframe every 2s at 30fps (YouTube requires ≤4s)
         "-pix_fmt", "yuv420p",
     ]
