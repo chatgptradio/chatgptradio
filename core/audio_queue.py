@@ -19,7 +19,7 @@ log = structlog.get_logger()
 
 _POLL_INTERVAL    = 5.0          # seconds between queue-fill attempts
 _QUEUE_TARGET     = 2            # desired minimum clips in playback_queue
-_RESCAN_INTERVAL  = 60.0         # seconds between references directory rescans
+_RESCAN_INTERVAL  = 10.0         # seconds between references directory rescans
 _CLIPS_DIR        = Path("streams/audio")
 _FALLBACK_DIR     = Path("assets/fallback")
 _REFERENCES_DIR   = Path("streams/references")
@@ -350,7 +350,23 @@ async def _auto_index_references_on_startup(
 
     if new_count:
         log.info("references_auto_indexed", count=new_count)
+        _trigger_librosa_analysis()
     return new_count
+
+
+def _trigger_librosa_analysis() -> None:
+    """Launch scripts/index_references.py in the background for territory/BPM enrichment."""
+    import subprocess
+
+    script = Path(__file__).parent.parent / "scripts" / "index_references.py"
+    if not script.exists():
+        return
+    subprocess.Popen(
+        ["uv", "run", "--group", "scripts", "python", str(script)],
+        start_new_session=True,
+        stdout=subprocess.DEVNULL,
+        stderr=subprocess.DEVNULL,
+    )
 
 
 # ── Music prompt builder ──────────────────────────────────────────────────────

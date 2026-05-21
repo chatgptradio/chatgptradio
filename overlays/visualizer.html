@@ -11,7 +11,7 @@
     #drift { position:absolute; bottom:24px; left:24px; color:#00D4FF; font-size:13px; line-height:1.8; text-shadow:0 0 12px #00D4FF88; }
     #drift .territory { font-size:16px; letter-spacing:2px; text-transform:uppercase; }
     #drift .crisis { color:#FF4444; animation:blink 1s step-end infinite; }
-    #sources { position:absolute; top:24px; right:24px; color:#556677; font-size:11px; line-height:1.7; text-align:right; }
+    #sources { position:absolute; top:24px; right:24px; color:#8899AA; font-size:11px; line-height:1.7; text-align:right; }
     #journal { position:absolute; bottom:24px; right:24px; color:#8899BB; font-size:11px; max-width:380px; line-height:1.6; opacity:0.85; border-left:1px solid #334; padding-left:12px; }
     #mode-indicator { position:absolute; top:24px; left:24px; font-size:10px; color:#334; }
     #ws-status { position:absolute; top:38px; left:24px; font-size:10px; color:#334; }
@@ -26,7 +26,7 @@
       pointer-events: none;
     }
     #ws-status.connected { color:#225522; }
-    #fade { position:fixed; top:0; left:0; width:100%; height:100%; background:#000; pointer-events:none; opacity:0; transition:opacity 0.3s; z-index:10; }
+    #fade { position:fixed; top:0; left:0; width:100%; height:100%; background:#000; pointer-events:none; opacity:0; transition:opacity 1.5s; z-index:10; }
     @keyframes blink { 50% { opacity:0; } }
   </style>
 </head>
@@ -140,7 +140,7 @@ class NeuralMode {
 
   init(sc, cam){
     this._cam=new THREE.PerspectiveCamera(55,innerWidth/innerHeight,0.1,600);
-    this._cam.position.set(0,4,28);
+    this._cam.position.set(0,4,18);
     this._controls=new OrbitControls(this._cam, renderer.domElement);
     Object.assign(this._controls,{enableDamping:true,dampingFactor:0.05,autoRotate:true,autoRotateSpeed:0.5,enablePan:false,enableZoom:false,enableRotate:false});
     // Stars
@@ -189,7 +189,7 @@ class NeuralMode {
     ng.setAttribute('nodeSize',new THREE.Float32BufferAttribute(nSz,1));
     ng.setAttribute('nodeColor',new THREE.Float32BufferAttribute(nCol,3));
     ng.setAttribute('significance',new THREE.Float32BufferAttribute(nSig,1));
-    const nm=new THREE.ShaderMaterial({uniforms:{uTime:{value:0},uBaseSize:{value:0.55}},vertexShader:_NN_NODE_VS,fragmentShader:_NN_NODE_FS,transparent:true,depthWrite:false,blending:THREE.AdditiveBlending});
+    const nm=new THREE.ShaderMaterial({uniforms:{uTime:{value:0},uBaseSize:{value:1.8}},vertexShader:_NN_NODE_VS,fragmentShader:_NN_NODE_FS,transparent:true,depthWrite:false,blending:THREE.AdditiveBlending});
     this._nMesh=new THREE.Points(ng,nm);sc.add(this._nMesh);
 
     // Connection geometry
@@ -246,7 +246,7 @@ class NeuralMode {
     if(now-this._lastSig>400){this._updateSig(state);this._lastSig=now;}
     if(this._bloomPass) this._bloomPass.strength=1.2+crisis*1.5+wt*0.4;
     if(this._controls){this._controls.autoRotate=true;this._controls.autoRotateSpeed=0.5+excit*1.5;}
-    const r=crisis*0.04,b=0.02+(1-crisis)*0.03;
+    const r=crisis*0.04,b=crisis*0.03;
     scene.background=new THREE.Color(r,0,b);
     if(this._composer) this._composer.render();
     return true;
@@ -1083,17 +1083,23 @@ let activeModeName = 'neural';
 let activeMode = null;
 const MODES = { neural: NeuralMode, synapse: SynapseMode, particles: ParticlesMode, chaos: ChaosMode, globe: GlobeMode, nebula: NebulaMode };
 
+let _switchInProgress = false;
 async function switchMode(name) {
   if (!MODES[name]) { console.error('Unknown mode:', name); return; }
+  if (_switchInProgress) return;
+  _switchInProgress = true;
   const fade = document.getElementById('fade');
   fade.style.opacity = '1';
-  await new Promise(r => setTimeout(r, 300));
+  await new Promise(r => setTimeout(r, 1500));
   if (activeMode) activeMode.dispose(scene);
   activeModeName = name;
   activeMode = new MODES[name]();
   activeMode.init(scene, camera);
   document.getElementById('mode-indicator').textContent = '◆ ' + name.toUpperCase();
+  await new Promise(r => setTimeout(r, 100));
   fade.style.opacity = '0';
+  await new Promise(r => setTimeout(r, 1500));
+  _switchInProgress = false;
   console.log('Switched to mode:', name);
 }
 
@@ -1131,15 +1137,17 @@ function connect() {
   ws.onopen = () => {
     document.getElementById('ws-status').className = 'connected';
     document.getElementById('ws-status').textContent = '● connected';
+    updateHUD({});
     switchMode('neural');
   };
   ws.onmessage = e => {
     const msg = JSON.parse(e.data);
-    const newMode = msg.state.visual_mode || 'neural';
+    const st = msg.state || {};
+    const newMode = st.visual_mode || 'neural';
     if (newMode !== activeModeName) switchMode(newMode);
-    liveState = msg.state || {};
+    liveState = st;
     if (msg.nodes && msg.nodes.length) liveNodes = msg.nodes;
-    updateHUD(msg.state);
+    updateHUD(st);
   };
   ws.onclose = () => {
     document.getElementById('ws-status').className = '';

@@ -65,24 +65,28 @@ async def index_clip(
 async def find_reusable(
     conn: aiosqlite.Connection,
     state: GlobalState,
-    max_play_count: int = 3,
+    max_play_count: int = 10,
+    cooldown_s: float = 300.0,
 ) -> tuple[Path, str] | None:
     """Return (path, display_name) of a reusable clip scored by state match, or None.
 
-    A clip is reusable when it exists on disk and has been played fewer than
-    *max_play_count* times. Candidates are ranked by territory, BPM proximity,
-    and mood cosine similarity to the current state.
+    A clip is reusable when it exists on disk, has been played fewer than
+    *max_play_count* times, and was last played more than *cooldown_s* seconds
+    ago (prevents back-to-back replays). Candidates are ranked by territory,
+    BPM proximity, and mood cosine similarity to the current state.
     """
     import json as _json
 
+    min_last_played = time.time() - cooldown_s
     async with conn.execute(
         """
         SELECT path, display_name, territory, mood_snapshot FROM audio_clips
         WHERE play_count < ? AND source != 'reference'
+          AND (last_played_at IS NULL OR last_played_at < ?)
         ORDER BY last_played_at ASC
         LIMIT 20
         """,
-        (max_play_count,),
+        (max_play_count, min_last_played),
     ) as cur:
         rows = [dict(zip(["path", "display_name", "territory", "mood_snapshot"], row)) async for row in cur]
 

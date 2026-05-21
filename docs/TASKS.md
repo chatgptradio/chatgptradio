@@ -163,6 +163,19 @@ Vérifié 2026-05-20 — 353+ tests verts. NO FAKE validé sur tous les overlays
 | FFmpeg stderr DEVNULL (évite deadlock pipe) | `core/dsp.py` | ✅ hotfix | buffer 64KB → plus de stall |
 | FFmpeg CBR 2500k (débit YouTube recommandé) | `core/dsp.py` | ✅ hotfix | `-b:v 2500k -minrate -maxrate -bufsize` |
 
+### Ops & Stabilité (2026-05-21)
+
+| Module | Fichier | État | PR |
+|--------|---------|------|----|
+| fal_derived territory from ref (`_get_ref_territory`) | `core/audio_queue.py` | ✅ mergé | #136 |
+| Tests territory inheritance (4 cas) | `tests/test_audio_queue_territory.py` | ✅ mergé | #136 |
+| systemd user service (Restart=always) | `scripts/install_service.sh` | ✅ mergé | #137 |
+| start.sh / stop.sh convenience wrappers | `scripts/start.sh`, `scripts/stop.sh` | ✅ mergé | #137 |
+| Watchdog cron (every 2min) | `scripts/check_stream.sh`, `scripts/setup_crons.sh` | ✅ mergé | #138 |
+| Audio clip rotation (7j / 2GB) | `scripts/rotate_clips.sh` | ✅ mergé | #138 |
+| Auto-index refs on new file (10s rescan + librosa bg) | `core/audio_queue.py` | ✅ hotfix | — |
+| find_reusable cooldown 5min + max_play_count=10 | `core/audio_library.py` | ✅ hotfix | — |
+
 ---
 
 ## Phase 5 — Unicité Maximale
