@@ -175,6 +175,9 @@ Vérifié 2026-05-20 — 353+ tests verts. NO FAKE validé sur tous les overlays
 | Audio clip rotation (7j / 2GB) | `scripts/rotate_clips.sh` | ✅ mergé | #138 |
 | Auto-index refs on new file (10s rescan + librosa bg) | `core/audio_queue.py` | ✅ hotfix | — |
 | find_reusable cooldown 5min + max_play_count=10 | `core/audio_library.py` | ✅ hotfix | — |
+| setup_crons.sh : fix grep exit 1 sur crontab vide | `scripts/setup_crons.sh` | ✅ hotfix | 8a0822d |
+| loginctl enable-linger (service démarre au boot) | serveur | ✅ déployé | — |
+| Cron watchdog (every 2min) + rotate (3h) | serveur | ✅ déployé | — |
 
 ---
 
