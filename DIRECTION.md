@@ -41,7 +41,7 @@
 
 ### Stack musique — Stable Audio 2.5 API (V1)
 
-**Provider** : fal.ai — clé `FAL_KEY` dans `.env`
+**Provider** : fal.ai — clé `FAL_API_KEY` dans `.env`
 **Coût** : ~$0.20 / génération
 
 #### Endpoints
@@ -514,6 +514,12 @@ class GlobalState:
 
     songs_played_today:   int
     current_song_progress: float  # [0..1] progression dans le morceau courant
+    current_track_name:   str    # "Artist - Title" injecté par track_namer (GPT-4o-mini)
+    journal_text:         str    # dernière ligne du Journal IA (GPT-4o, 45s)
+    visual_mode:          str    # mode Three.js courant ("neural" | "synapse" | "particles" | "chaos" | "globe" | "nebula")
+    active_event:         str    # identifiant événement calendrier actif (ex: "chatgpt_birthday")
+    event_label:          str    # libellé affiché pour l'événement actif
+    event_intensity:      float  # intensité événement [0..1] (pilote overlay + DSP)
     queue_length:         int    # morceaux en queue prêts à jouer
     last_prompt_hash:     str    # hash du dernier prompt musical (pour détecter répétition)
     generation_lag_s:     float  # retard queue génération (0=sain, >60=alerte)
@@ -1103,7 +1109,7 @@ def derive_territory_from_errors(pe: dict, vol: dict) -> str:
 
 ### Phase 0+1 — TERMINÉE ✅ (2026-05-17)
 
-GlobalState (80+ champs), StateUpdater, SQLite WAL, self_model EMA, drift momentum, collector_runner, WebSocket 4fps, collecteur OpenAI Status RSS. 353+ tests verts.
+GlobalState (83 champs), StateUpdater, SQLite WAL, self_model EMA, drift momentum, collector_runner, WebSocket 4fps, collecteur OpenAI Status RSS. 366 tests verts.
 
 ### Phase 2 — TERMINÉE ✅ (2026-05-20)
 
@@ -1136,9 +1142,17 @@ GlobalState (80+ champs), StateUpdater, SQLite WAL, self_model EMA, drift moment
 - Overlay HTTP server (aiohttp, port 8080) · browser_display.py avec auto-restart
 - Three.js 6 modes (neural / synapse / particles / chaos / globe / nebula) · SceneRotator
 
+**Fixes stabilité 2026-05-21 (PRs #150–#156)**
+- StateUpdater : gestion des items `dict` dans la queue (fix crash silencieux) ✅ PR #154
+- WebSocket : frame texte au lieu de binaire (fix JSON.parse côté browser) ✅ PR #150
+- `config.yaml` : 13 collecteurs Phase 3 activés — 15 actifs au total ✅ PR #153
+- Shutdown gracieux : timeout 10s + cleanup FFmpeg ✅ PR #152
+- Ghost paths : nettoyage au démarrage des entrées DB pointant vers fichiers supprimés ✅ PR #156
+- `songs_played_today` / `songs_played_total` incrémentés après chaque clip ✅ PR #155
+- HUD : chat-status, song name, RAF 24fps, SynapseMode crash fix ✅ PR #150
+
 **Prochaine étape**
 - YouTube broadcast auto-lifecycle (`core/youtube.py`) — rotation toutes les 8h
-- Phase 3 collectors à activer dans `config.yaml` (tous implémentés, aucun actif sauf OpenAI Status + YouTube Chat)
 
 ### Phase 5 — À FAIRE ❌
 

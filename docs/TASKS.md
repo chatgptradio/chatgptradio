@@ -28,7 +28,7 @@ Vérifié le 2026-05-20 — smoke test OK : GlobalState 77 champs, WebSocket 4fp
 
 ---
 
-## Phase 2 — Contenu & Mémoire (EN COURS 🔄)
+## Phase 2 — Contenu & Mémoire (TERMINÉE ✅ — 2026-05-20)
 
 ### Implémenté mais non câblé
 
@@ -103,6 +103,7 @@ Vérifié le 2026-05-20 — smoke test OK : GlobalState 77 champs, WebSocket 4fp
 | YouTube Studio → activation live streaming | ✅ actif |
 | Stream Key + RTMP URL dans `.env` | ✅ configuré |
 | `YOUTUBE_CHANNEL_ID` dans `.env` | ✅ configuré |
+| `YOUTUBE_VIDEO_ID` dans `.env` | ✅ configuré (issue #144) |
 | Xvfb + Chromium installés | ✅ installés |
 
 ---
@@ -142,7 +143,7 @@ Vérifié 2026-05-20 — 353+ tests verts. NO FAKE validé sur tous les overlays
 | FFmpeg → RTMP pipe | `core/dsp.py` | ✅ mergé | 2f763f1 |
 | CalendarEngine 15 événements | `core/calendar_engine.py` | ✅ mergé | 2f763f1 |
 | Three.js graph @node | `overlays/graph.html` | ✅ mergé | 2f763f1 |
-| Three.js 4 modes (neural/synapse/particles/chaos) | `overlays/visualizer.html` | ✅ mergé | PR #118 |
+| Three.js 6 modes (neural/synapse/particles/chaos/globe/nebula) | `overlays/visualizer.html` | ✅ mergé | PR #118 + suite |
 | CNN Fear & Greed collecteur | `collectors/cnn_fear_greed.py` | ✅ mergé | 2f763f1 |
 | SceneRotator (rotation 6 modes auto) | `core/scene_rotator.py` | ✅ mergé | 2f763f1 |
 
@@ -193,6 +194,30 @@ PRD : `.claude/prds/fps-optimization.md` | Plan : `.claude/plans/fps-optimizatio
 | #140 | RAF throttle 30fps + bloom demi-résolution + pixelRatio=1 | `overlays/visualizer.html` | #141 | ✅ mergé |
 
 Résultat : Chromium GPU process 156% → 102% CPU (−35%).
+
+---
+
+### Fixes stabilité & visualiseur (2026-05-21)
+
+| Issue | Module | Fichier | PR | État |
+|-------|--------|---------|-----|------|
+| #142 | StateUpdater : gestion items `dict` dans la queue (fix crash silencieux) | `core/updater.py` | #154 | ✅ mergé |
+| #143 | WebSocket : frame texte au lieu de binaire (fix JSON.parse côté browser) | `core/websocket_server.py`, `overlays/visualizer.html` | #150 | ✅ mergé |
+| #145 | `config.yaml` : 13 collecteurs Phase 3 activés | `config.yaml` | #153 | ✅ mergé |
+| #146 | Shutdown gracieux : timeout 10s + cleanup FFmpeg stdin/terminate | `main.py`, `core/dsp.py` | #152 | ✅ mergé |
+| #147 | Ghost paths : cleanup DB au démarrage (fichiers supprimés) | `core/audio_library.py`, `core/audio_queue.py` | #156 | ✅ mergé |
+| #148 | `songs_played_today` / `songs_played_total` incrémentés après chaque clip | `core/dsp.py` | #155 | ✅ mergé |
+| #149 | Log `audio_clip_queued` quand reuse depuis bibliothèque | `core/audio_queue.py` | #151 | ✅ mergé |
+| #144 | YOUTUBE_VIDEO_ID : résolution video_id sans search.list (quota) | `collectors/youtube_chat.py` | — | ✅ HITL résolu (`.env`) |
+
+---
+
+### Overlays — Nouvelles scènes (en cours)
+
+| Issue | Module | Fichier | PR | État |
+|-------|--------|---------|-----|------|
+| #116 | ChaosMode : particle metamorphosis (4 attracteurs mathématiques) | `overlays/visualizer.html` | — | ❌ AFK ready-for-agent |
+| #117 | NO FAKE validation : synapse + chaos modes (test WebSocket coupé) | `overlays/visualizer.html` | — | ❌ HITL (validation manuelle) |
 
 ---
 
