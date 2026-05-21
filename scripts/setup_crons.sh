@@ -9,7 +9,7 @@ WATCHDOG="*/2 * * * * XDG_RUNTIME_DIR=/run/user/${UID_NUM} DBUS_SESSION_BUS_ADDR
 ROTATE="0 3 * * * ${REPO}/scripts/rotate_clips.sh"
 
 # Idempotent: remove old entries, add new ones
-( crontab -l 2>/dev/null | grep -v -E "check_stream|rotate_clips"; echo "$WATCHDOG"; echo "$ROTATE" ) | crontab -
+( crontab -l 2>/dev/null | grep -v -E "check_stream|rotate_clips" || true; echo "$WATCHDOG"; echo "$ROTATE" ) | crontab -
 
 echo "Crons installed:"
 crontab -l | grep -E "check_stream|rotate_clips"
