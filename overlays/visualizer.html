@@ -138,7 +138,7 @@ void main(){
 class NeuralMode {
   constructor(){
     this._nMesh=null; this._cMesh=null; this._starField=null;
-    this._composer=null; this._bloomPass=null; this._controls=null;
+    this._controls=null;
     this._nodeData=[]; this._built=false; this._clock=new THREE.Clock(); this._clock.start();
     this._lastSig=0; this._lastPulse=0; this._sprites=[];
   }
@@ -152,12 +152,6 @@ class NeuralMode {
     const N=4000,pos=[];for(let i=0;i<N;i++){const r=THREE.MathUtils.randFloat(50,150),phi=Math.acos(THREE.MathUtils.randFloatSpread(2)),theta=THREE.MathUtils.randFloat(0,Math.PI*2);pos.push(r*Math.sin(phi)*Math.cos(theta),r*Math.sin(phi)*Math.sin(theta),r*Math.cos(phi));}
     const sg=new THREE.BufferGeometry();sg.setAttribute('position',new THREE.Float32BufferAttribute(pos,3));
     this._starField=new THREE.Points(sg,new THREE.PointsMaterial({color:0xffffff,size:0.12,depthWrite:false,opacity:0.7,transparent:true}));sc.add(this._starField);
-    // Composer with bloom
-    this._composer=new EffectComposer(renderer);
-    this._composer.addPass(new RenderPass(sc,this._cam));
-    this._bloomPass=new UnrealBloomPass(new THREE.Vector2(innerWidth/2,innerHeight/2),1.4,0.4,0.65);
-    this._composer.addPass(this._bloomPass);
-    this._composer.addPass(new OutputPass());
     // Build immediately if nodes already received from WebSocket
     if(liveNodes.length > 0) this._build(sc, liveNodes);
   }
@@ -248,11 +242,10 @@ class NeuralMode {
     const crisis=state.crisis_level||0,excit=state.excitation||0,wt=state.world_temperature||0.5;
     const now=performance.now();
     if(now-this._lastSig>400){this._updateSig(state);this._lastSig=now;}
-    if(this._bloomPass) this._bloomPass.strength=1.2+crisis*1.5+wt*0.4;
     if(this._controls){this._controls.autoRotate=true;this._controls.autoRotateSpeed=0.5+excit*1.5;}
     const r=crisis*0.04,b=crisis*0.03;
     scene.background=new THREE.Color(r,0,b);
-    if(this._composer) this._composer.render();
+    renderer.render(scene, this._cam);
     return true;
   }
 
@@ -262,7 +255,7 @@ class NeuralMode {
     if(this._starField){sc.remove(this._starField);this._starField.geometry.dispose();this._starField=null;}
     this._sprites.forEach(s=>sc.remove(s));this._sprites=[];
     if(this._controls){this._controls.dispose();this._controls=null;}
-    this._composer=null;this._built=false;
+    this._built=false;
     scene.background=new THREE.Color(0x000510);
   }
 }
@@ -437,7 +430,6 @@ const _SYN_PALETTES = [
 class SynapseMode {
   constructor() {
     this._cam = null; this._controls = null;
-    this._composer = null; this._bloomPass = null;
     this._starField = null;
     this._nMesh = null; this._cMesh = null;
     this._nodes = []; this._edges = [];
@@ -606,13 +598,6 @@ class SynapseMode {
     this._starField = new THREE.Points(sg, new THREE.PointsMaterial({ color: 0xffffff, size: 0.12, depthWrite: false, opacity: 0.6, transparent: true }));
     sc.add(this._starField);
 
-    // Composer
-    this._composer = new EffectComposer(renderer);
-    this._composer.addPass(new RenderPass(sc, this._cam));
-    this._bloomPass = new UnrealBloomPass(new THREE.Vector2(innerWidth/2, innerHeight/2), 1.2, 0.4, 0.65);
-    this._composer.addPass(this._bloomPass);
-    this._composer.addPass(new OutputPass());
-
     // Build initial formation (default = 0)
     this._buildNetwork(sc, 0, 0);
     this._clock.start();
@@ -664,18 +649,13 @@ class SynapseMode {
     }
     this._lastBurst = burstSignal;
 
-    // Bloom driven by burstSignal
-    if (this._bloomPass) {
-      this._bloomPass.strength = this._lerp(this._bloomPass.strength, 1.0 + burstSignal * 1.8, 0.06);
-    }
-
     // Background: subtle tint based on territory
     const r = territory * 0.03;
     const b = 0.02 + (1 - territory) * 0.04;
     scene.background = new THREE.Color(r, 0, b);
 
     if (this._controls) this._controls.update();
-    if (this._composer) this._composer.render();
+    renderer.render(scene, this._cam);
     return true;
   }
 
@@ -684,7 +664,7 @@ class SynapseMode {
     if (this._cMesh) { sc.remove(this._cMesh); this._cMesh.geometry.dispose(); this._cMesh.material.dispose(); this._cMesh = null; }
     if (this._starField) { sc.remove(this._starField); this._starField.geometry.dispose(); this._starField = null; }
     if (this._controls) { this._controls.dispose(); this._controls = null; }
-    this._composer = null; this._nodes = []; this._edges = [];
+    this._nodes = []; this._edges = [];
     scene.background = new THREE.Color(0x000510);
   }
 }
@@ -697,7 +677,6 @@ class SynapseMode {
 class ChaosMode {
   constructor() {
     this._cam = null; this._controls = null;
-    this._composer = null; this._bloomPass = null; this._afterPass = null;
     this._particles = null; this._sparkles = null; this._starField = null;
     this._clock = new THREE.Clock();
     this.targetAttractor = 0;
@@ -905,15 +884,6 @@ void main(){
     this._particles = this._makeParticles(15000);
     sc.add(this._particles);
 
-    this._composer = new EffectComposer(renderer);
-    this._composer.addPass(new RenderPass(sc, this._cam));
-    this._bloomPass = new UnrealBloomPass(new THREE.Vector2(innerWidth/2, innerHeight/2), 0.45, 0.5, 0.85);
-    this._composer.addPass(this._bloomPass);
-    this._afterPass = new AfterimagePass();
-    this._afterPass.uniforms.damp.value = 0.88;
-    this._composer.addPass(this._afterPass);
-    this._composer.addPass(new OutputPass());
-
     // Set initial pattern (torusKnot)
     const initPts = this._getPattern(0, 15000);
     this._applyPattern(initPts);
@@ -958,12 +928,9 @@ void main(){
       this._particles.geometry.attributes.position.needsUpdate = true;
     }
 
-    // Bloom intensity from prediction errors
+    // Particle energy from prediction errors
     const predErrors = state.prediction_errors ?? {};
     const maxPredError = Math.max(0, ...Object.values(predErrors).map(Number).filter(isFinite));
-    const targetBloom = 0.35 + maxPredError * 1.2;
-    this._currentBloom += (targetBloom - this._currentBloom) * 0.04;
-    if (this._bloomPass) this._bloomPass.strength = this._currentBloom;
 
     // Update time and signal-gated uniforms
     const t = this._clock.getElapsedTime();
@@ -978,7 +945,7 @@ void main(){
     scene.background = bg;
 
     if (this._controls) this._controls.update();
-    if (this._composer) this._composer.render();
+    renderer.render(scene, this._cam);
     return true;
   }
 
@@ -986,7 +953,7 @@ void main(){
     if (this._particles) { sc.remove(this._particles); this._particles.geometry.dispose(); this._particles.material.dispose(); this._particles = null; }
     if (this._starField) { sc.remove(this._starField); this._starField.geometry.dispose(); this._starField = null; }
     if (this._controls) { this._controls.dispose(); this._controls = null; }
-    this._composer = null; this._fromPts = null; this._toPts = null;
+    this._fromPts = null; this._toPts = null;
     scene.background = new THREE.Color(0x000510);
   }
 }
