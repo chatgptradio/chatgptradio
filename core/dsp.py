@@ -123,6 +123,7 @@ async def run_dsp(
             "-f", "x11grab",
             "-framerate", "30",
             "-video_size", "1280x720",
+            "-draw_mouse", "0",
             "-i", f"{display}.0",
         ]
     else:
@@ -133,10 +134,8 @@ async def run_dsp(
 
     video_encode = [
         "-c:v", "libx264", "-preset", "veryfast",
-        "-b:v", "2500k", "-minrate", "2500k", "-maxrate", "2500k",
-        "-bufsize", "2500k",               # tight buffer = strict CBR
+        "-b:v", "2500k", "-maxrate", "2500k", "-bufsize", "5000k",
         "-g", "60",                        # keyframe every 2s at 30fps (YouTube requires ≤4s)
-        "-x264-params", "nal-hrd=cbr",     # NAL padding to maintain exact bitrate
         "-pix_fmt", "yuv420p",
     ]
     if not use_x11grab:
