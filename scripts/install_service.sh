@@ -12,6 +12,7 @@ After=network-online.target
 [Service]
 Type=simple
 WorkingDirectory=$REPO
+ExecStartPre=-/bin/bash -c 'pkill -x Xvfb || true; pkill -f chromium-browser || true; sleep 1'
 ExecStart=/home/stream/.local/bin/uv run python main.py
 Restart=always
 RestartSec=10

@@ -178,6 +178,9 @@ Vérifié 2026-05-20 — 353+ tests verts. NO FAKE validé sur tous les overlays
 | setup_crons.sh : fix grep exit 1 sur crontab vide | `scripts/setup_crons.sh` | ✅ hotfix | 8a0822d |
 | loginctl enable-linger (service démarre au boot) | serveur | ✅ déployé | — |
 | Cron watchdog (every 2min) + rotate (3h) | serveur | ✅ déployé | — |
+| Swap 2GB `/swapfile` (protection OOM) | serveur | ✅ déployé | — |
+| ExecStartPre : kill Xvfb/Chromium orphelins avant restart | `scripts/install_service.sh` | ✅ hotfix | — |
+| Migration screen → systemd (Restart=always, linger) | serveur | ✅ déployé | — |
 
 ---
 
