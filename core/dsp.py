@@ -247,6 +247,8 @@ async def run_dsp(
                 "current_song_progress": min(frames / (_SR * 45), 1.0),
                 "stream_bitrate": 192.0,
                 "dropped_frames": 0.0,
+                "songs_played_today": state.songs_played_today + 1,
+                "songs_played_total": state.songs_played_total + 1,
             })
             playback_queue.task_done()
     finally:
