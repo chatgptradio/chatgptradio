@@ -184,6 +184,18 @@ Vérifié 2026-05-20 — 353+ tests verts. NO FAKE validé sur tous les overlays
 
 ---
 
+### FPS Optimization (2026-05-21)
+
+PRD : `.claude/prds/fps-optimization.md` | Plan : `.claude/plans/fps-optimization.md`
+
+| Issue | Module | Fichier | PR | État |
+|-------|--------|---------|-----|------|
+| #140 | RAF throttle 30fps + bloom demi-résolution + pixelRatio=1 | `overlays/visualizer.html` | #141 | ✅ mergé |
+
+Résultat : Chromium GPU process 156% → 102% CPU (−35%).
+
+---
+
 ## Phase 5 — Unicité Maximale
 
 - [ ] Spectrogram ARG : messages cachés dans l'audio
