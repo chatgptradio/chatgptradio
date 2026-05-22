@@ -87,10 +87,42 @@ def build_music_prompt(state: GlobalState, prev_prompt: str | None = None) -> st
     if pe.get("source_divergence", 0.0) > vol.get("source_divergence", 0.05):
         divergence_mod = ", ambiguous tonality, conflicting signals"
 
+    # Bloc 12-P2 — source_divergence → tonal ambiguity (data-driven, NO FAKE)
+    tonal_mod = ""
+    if state.source_divergence > 0.8:
+        tonal_mod = ", atonal, no key center, free improvisation"
+    elif state.source_divergence > 0.6:
+        tonal_mod = ", polytonality, two conflicting keys, dissonant counterpoint"
+
+    # Bloc 12-P1 — time_in_territory texture (only when territory is mature, NO FAKE)
+    territory_age_mod = ""
+    if state.time_in_territory_h > 4.0:
+        territory_age_mod = ", late-night depth, worn-in quality"
+    elif state.time_in_territory_h > 2.0:
+        territory_age_mod = ", evolved, advanced stage, mature texture"
+
+    # Bloc 12-I — event_label in prompt (only if event_intensity > 0.3, NO FAKE)
+    event_mod = ""
+    if state.event_label and state.event_intensity > 0.3:
+        event_mod = f", {state.event_label.replace('_', ' ')}, euphoric celebratory feel"
+
     return (
         f"{genre}, {int(state.drift_bpm)} BPM, Key of {state.drift_key}, "
         f"{instruments}, {state.drift_timbre} texture, "
         f"{emotional_color}"
-        f"{audience_mod}{divergence_mod}, "
-        f"{prod_kw}, no vocals, 47 seconds"
+        f"{audience_mod}{divergence_mod}{tonal_mod}{territory_age_mod}{event_mod}, "
+        f"high quality, no vocals, AI ambient electronic music"
     )
+
+
+def get_inference_steps(state: GlobalState) -> int:
+    """Adaptive inference steps: fast when queue empty, quality when healthy."""
+    if state.queue_length == 0:
+        # Queue empty → urgent generation, prefer speed
+        return 6
+    elif state.cpu_percent < 70.0:
+        # Queue healthy, CPU available → prefer quality
+        return 14
+    else:
+        # Queue healthy but CPU busy → middle ground
+        return 8

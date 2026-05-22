@@ -197,12 +197,12 @@ def test_prompt_contains_drift_timbre():
         assert timbre in result, f"drift_timbre '{timbre}' not found in prompt: {result}"
 
 
-def test_prompt_contains_47_seconds():
+def test_prompt_contains_high_quality_suffix():
     from builders.music_prompt import build_music_prompt as bmp
     state = GlobalState()
     result = bmp(state)
-    assert "47 seconds" in result, f"'47 seconds' not found in prompt: {result}"
-    assert "60 seconds" not in result, f"'60 seconds' still present in prompt: {result}"
+    assert "high quality" in result, f"'high quality' not found in prompt: {result}"
+    assert "AI ambient electronic music" in result, f"suffix not found in prompt: {result}"
 
 
 def test_all_15_territories_no_fallback():
@@ -212,10 +212,14 @@ def test_all_15_territories_no_fallback():
         "experimental", "drone", "lo-fi", "cinematic", "darkwave",
         "techno", "psych", "noise", "minimalist", "blues",
     ]
+    fallback_genre = "ambient electronic"
     for territory in territories:
         state = GlobalState(drift_territory=territory)
         result = bmp(state)
         if territory != "ambient":
-            assert "ambient electronic" not in result, (
+            # The fallback genre only appears at the start of the prompt.
+            # The fixed suffix now contains "AI ambient electronic music" for
+            # all territories, so we check the prompt prefix specifically.
+            assert not result.startswith(fallback_genre), (
                 f"Territory '{territory}' fell back to default 'ambient electronic': {result}"
             )

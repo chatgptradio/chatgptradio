@@ -91,7 +91,7 @@ async def test_request_sets_requested_genre(tmp_path):
 
     genre_after: list[str] = []
 
-    async def _fake_generate_audio(prompt: str) -> bytes:
+    async def _fake_generate_audio(prompt: str, _state) -> bytes:
         genre_after.append(state.requested_genre)
         return b"bytes"
 

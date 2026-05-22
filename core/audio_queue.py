@@ -27,6 +27,66 @@ except ImportError:
 
 _CIRCLE_OF_FIFTHS = ["C", "G", "D", "A", "E", "B", "F#", "Db", "Ab", "Eb", "Bb", "F"]
 
+
+def _clamp(value: float, lo: float, hi: float) -> float:
+    return max(lo, min(hi, value))
+
+
+def _key_distance(key_a: str, key_b: str) -> float:
+    """Circle of fifths distance 0.0–1.0. 0=same key root, 1=tritone (6 steps)."""
+    ka = (key_a or "").split("/")[0].strip().split()[0]
+    kb = (key_b or "").split("/")[0].strip().split()[0]
+    if not ka or not kb:
+        return 0.0
+    try:
+        ia = _CIRCLE_OF_FIFTHS.index(ka)
+        ib = _CIRCLE_OF_FIFTHS.index(kb)
+        dist = min(abs(ia - ib), 12 - abs(ia - ib))
+        return dist / 6.0  # normalize: 0=same, 1=tritone (6 steps)
+    except ValueError:
+        return 0.0
+
+
+async def _prestretch_reference(
+    ref_path: Path,
+    ref_bytes: bytes,
+    target_bpm: float,
+    ref_bpm: float | None,
+) -> bytes:
+    """Time-stretch *ref_bytes* so its tempo matches *target_bpm*.
+
+    Returns the original bytes unchanged when the delta is below 2 BPM
+    (inaudible difference) or when the BPM information is unavailable.
+    """
+    if ref_bpm is None or ref_bpm <= 0 or abs(ref_bpm - target_bpm) < 2.0:
+        return ref_bytes
+
+    ratio = target_bpm / ref_bpm
+    ratio = _clamp(ratio, 0.5, 2.0)  # cap at ±1 octave
+
+    try:
+        import io
+
+        import numpy as np
+        import pyrubberband
+        import soundfile as sf
+
+        loop = asyncio.get_running_loop()
+
+        def _stretch() -> bytes:
+            audio, sr = sf.read(io.BytesIO(ref_bytes))
+            if audio.ndim == 1:
+                audio = audio[:, np.newaxis]
+            stretched = pyrubberband.time_stretch(audio.astype(np.float32), sr, ratio)
+            buf = io.BytesIO()
+            sf.write(buf, stretched, sr, format="WAV")
+            return buf.getvalue()
+
+        return await loop.run_in_executor(None, _stretch)
+    except Exception:
+        log.exception("prestretch_failed", path=str(ref_path))
+        return ref_bytes
+
 _POLL_INTERVAL    = 5.0          # seconds between queue-fill attempts
 _QUEUE_TARGET     = 2            # desired minimum clips in playback_queue
 _RESCAN_INTERVAL  = 10.0         # seconds between references directory rescans
@@ -171,16 +231,19 @@ async def _wav_to_mp3(wav_bytes: bytes) -> bytes:
 # ── Internal audio generation helpers ────────────────────────────────────────
 
 
-async def _generate_audio(prompt: str) -> bytes:
+async def _generate_audio(prompt: str, state: GlobalState) -> bytes:
     """Generate audio bytes via Stable Audio 2.5 / fal.ai text-to-audio endpoint."""
+    from builders.music_prompt import get_inference_steps
+
     import fal_client  # type: ignore[import-untyped]
 
+    steps = get_inference_steps(state)
     result = await fal_client.run_async(
         "fal-ai/stable-audio-25/text-to-audio",
         arguments={
             "prompt": prompt,
             "total_seconds": 47,
-            "num_inference_steps": 8,
+            "num_inference_steps": steps,
         },
     )
     audio_url: str = result["audio"]["url"]
@@ -194,7 +257,12 @@ async def _generate_audio(prompt: str) -> bytes:
     return await _wav_to_mp3(wav_bytes)
 
 
-async def _generate_from_reference(ref_path: Path, prompt: str, state: GlobalState) -> bytes:
+async def _generate_from_reference(
+    ref_path: Path,
+    prompt: str,
+    state: GlobalState,
+    conn: aiosqlite.Connection,
+) -> bytes:
     """Derive a new clip from *ref_path* using the fal.ai audio-to-audio endpoint."""
     import base64
 
@@ -203,20 +271,38 @@ async def _generate_from_reference(ref_path: Path, prompt: str, state: GlobalSta
     with ref_path.open("rb") as fh:
         ref_bytes = fh.read()
 
+    # ── R1: Pre-stretch reference to drift_bpm ────────────────────────────────
+    async with conn.execute(
+        "SELECT mood_snapshot FROM audio_clips WHERE path = ?", (str(ref_path),)
+    ) as cur:
+        snap_row = await cur.fetchone()
+    ref_snap: dict = orjson.loads(snap_row[0] or "{}") if snap_row else {}
+    ref_bpm: float | None = ref_snap.get("detected_bpm") or ref_snap.get("drift_bpm")
+    ref_bytes = await _prestretch_reference(ref_path, ref_bytes, state.drift_bpm, ref_bpm)
+
     mime = "audio/wav" if ref_path.suffix.lower() == ".wav" else "audio/mpeg"
     data_uri = f"data:{mime};base64,{base64.b64encode(ref_bytes).decode()}"
 
-    strength = max(0.3, min(0.9,
-        0.3 + state.drift_velocity * 0.4 + state.crisis_level * 0.3
-    ))
-    guidance_scale = max(1.0, min(1.2,
-        1.0 + state.source_divergence * 0.2
-    ))
+    # ── R3: Strength data-driven with key distance ────────────────────────────
+    async with conn.execute(
+        "SELECT audio_key FROM audio_clips WHERE path = ?", (str(ref_path),)
+    ) as cur:
+        key_row = await cur.fetchone()
+    ref_key: str = (key_row[0] or "") if key_row else ""
+    key_dist = _key_distance(ref_key, state.drift_key)
+    strength = _clamp(
+        0.3 + state.drift_velocity * 0.3 + state.crisis_level * 0.2 + key_dist * 0.2,
+        0.3, 0.9,
+    )
+    guidance_scale = _clamp(1.0 + state.source_divergence * 0.2, 1.0, 1.2)
 
     # Use reference file's actual duration (no arbitrary cap) — max 190s (Stable Audio limit)
     ref_secs = await _get_ref_duration(ref_path)
     total_seconds = min(max(ref_secs, 30), 190) if ref_secs else 90
 
+    from builders.music_prompt import get_inference_steps
+
+    steps = get_inference_steps(state)
     result = await fal_client.run_async(
         "fal-ai/stable-audio-25/audio-to-audio",
         arguments={
@@ -224,7 +310,7 @@ async def _generate_from_reference(ref_path: Path, prompt: str, state: GlobalSta
             "audio_url": data_uri,
             "strength": strength,
             "guidance_scale": guidance_scale,
-            "num_inference_steps": 8,
+            "num_inference_steps": steps,
             "total_seconds": total_seconds,
         },
     )
@@ -271,6 +357,10 @@ async def find_reference(
             norm = (ref_exc**2 + ref_anx**2) ** 0.5 * (state.excitement**2 + state.anxiety**2) ** 0.5
             if norm > 0:
                 s += dot / norm
+            # R4: deprioritise low fill_ratio clips (thin/mostly-silent content)
+            fill_ratio = snap.get("fill_ratio", 1.0)  # default 1.0 = don't penalise if unknown
+            if fill_ratio < 0.7:
+                s -= 2.0
         except Exception:
             pass
         return s
@@ -318,7 +408,7 @@ async def _build_crisis_cache(
     for i in range(count):
         try:
             name_task = asyncio.create_task(generate_track_name(crisis_state))
-            audio_bytes = await _generate_audio(prompt)
+            audio_bytes = await _generate_audio(prompt, crisis_state)
             display_name = await name_task
 
             path = _CLIPS_DIR / f"crisis_{i:03d}.mp3"
@@ -580,13 +670,37 @@ async def run_audio_queue(
         ref_path = await find_reference(conn, state)
         ref_territory = await _get_ref_territory(conn, ref_path) if ref_path else ""
 
+        # ── R5: Fall back to text-only when reference is too divergent ────────
+        if ref_path is not None:
+            async with conn.execute(
+                "SELECT mood_snapshot FROM audio_clips WHERE path = ?", (str(ref_path),)
+            ) as _cur:
+                _snap_row = await _cur.fetchone()
+            _ref_snap: dict = orjson.loads(_snap_row[0] or "{}") if _snap_row else {}
+            _ref_mfcc = _ref_snap.get("mfcc_fingerprint")
+            _mfcc_dist = 1.0  # assume max distance if no MFCC
+            if _ref_mfcc and state.mfcc_fingerprint:
+                import numpy as _np_r5
+                rv = _np_r5.array(_ref_mfcc, dtype=_np_r5.float32)
+                sv = _np_r5.array(state.mfcc_fingerprint, dtype=_np_r5.float32)
+                norm = float(_np_r5.linalg.norm(rv) * _np_r5.linalg.norm(sv))
+                if norm > 0:
+                    _mfcc_dist = 1.0 - float(_np_r5.dot(rv, sv) / norm)
+            if state.source_divergence > 0.7 and _mfcc_dist > 0.6:
+                log.info(
+                    "a2a_skipped_divergence",
+                    source_divergence=state.source_divergence,
+                    mfcc_dist=round(_mfcc_dist, 3),
+                )
+                ref_path = None  # fall through to text-only generation
+
         try:
             name_task = asyncio.create_task(generate_track_name(state))
 
             if ref_path is not None:
-                audio_bytes = await _generate_from_reference(ref_path, prompt, state)
+                audio_bytes = await _generate_from_reference(ref_path, prompt, state, conn)
             else:
-                audio_bytes = await _generate_audio(prompt)
+                audio_bytes = await _generate_audio(prompt, state)
 
             display_name = await name_task
 
