@@ -1172,6 +1172,16 @@ GlobalState (83 champs), StateUpdater, SQLite WAL, self_model EMA, drift momentu
 - #176 Analyse librosa post-génération (BPM, key, MFCC, trim, energy) ✅ PR #194
 - #177 Boucle feedback audio → self_model (`audio_bpm_delta`, `audio_key_match`, `audio_energy_level`) ✅ PR #195
 
+**Sprint 3 — 2026-05-22 ✅ (PRs #196–#200 — 474 tests)**
+- #196 Transitions DJ T1+T2+T3 : EQ 3-bandes, LadderFilter sweep, reverb throw ✅
+- #197 Rhythmic_entropy réel, journal enrichi (event_label/urgency/burst), track_namer valeurs détectées ✅
+- #198 Audio-to-audio : pre-stretch BPM, strength data-driven (key distance), quality gating fill_ratio, décision a2a/text ✅
+- #199 Prompt musical : event_intensity, inference steps adaptatif, territory age, polytonalité/atonalité ✅
+- #200 Effects chain : hiérarchie crisis 4 niveaux (GSMFullRate/MP3/Bitcrush), LadderFilter sweep, Delay/Phaser territoires psych/experimental ✅
+
+**Sprint 4 — en cours (#178 AFK)**
+- #178 Automation DSP intra-clip + reverb throw world_event_burst + BPM rate limit (Blocs 10-RT1+RT2+RT3)
+
 **Prochaine étape structurelle**
 - YouTube broadcast auto-lifecycle (`core/youtube.py`) — rotation toutes les 8h
 

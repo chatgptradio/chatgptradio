@@ -265,16 +265,23 @@ ADR : [ADR-0007](adr/0007-emotion-synthesis.md)
 
 **Résumé Sprint 2 :** crossfade sans écho, crisis cache opérationnel, clé harmonique en DB + scoring cercle des quintes, analyse librosa post-génération en background, boucle feedback audio → self_model via state_queue. 419 tests.
 
-### Sprint 3 — DJ transitions (après Sprint 2)
+### Sprint 3 — DJ transitions + enrichissements ✅ TERMINÉ (PRs #196–#200 — 2026-05-22 — 474 tests)
+
+| Issue | Titre | Fichier(s) | PR | État |
+|-------|-------|------------|-----|------|
+| #179 | Effects chain enrichie — 4 niveaux crisis + LadderFilter + Delay + Phaser (Bloc 13-DSP) | `core/dsp.py` | #200 | ✅ |
+| #180 | Transitions DJ — EQ crossfade 3-bandes + filter sweep + reverb throw (Blocs 9-T1+T2+T3) | `core/dsp.py` | #196 | ✅ |
+| #181 | Workflow audio-to-audio amélioré — pre-stretch + strength data-driven + quality gating (Bloc 7) | `core/audio_queue.py` | #198 | ✅ |
+| #182 | `rhythmic_entropy` réel + journal enrichi + track_namer valeurs audio réelles (Bloc 6) | `core/updater.py`, `core/journal.py`, `core/track_namer.py` | #197 | ✅ |
+| #183 | Enrichissement prompt musical — event_intensity + inference steps adaptatif + polytonalité (Bloc 12) | `builders/music_prompt.py`, `core/audio_queue.py` | #199 | ✅ |
+
+**Résumé Sprint 3 :** hiérarchie crisis DSP 4 niveaux (GSM → Bitcrush), LadderFilter sweep, Delay/Phaser conditionnels territoire, transitions DJ T1+T2+T3 au crossfade, audio-to-audio pre-stretch + strength data-driven + quality gating, rhythmic_entropy réel, journal enrichi (event_label, urgency, burst), inference steps adaptatif. 474 tests.
+
+### Sprint 4 — Automation intra-clip + suite (issue #178)
 
 | Issue | Titre | Fichier(s) | État |
 |-------|-------|------------|------|
-| #178 | Automation DSP intra-clip + reverb throw + BPM rate limit (Blocs 10-RT1+RT2+RT3) | `core/dsp.py`, `core/drift.py` | ❌ AFK ready-for-agent |
-| #179 | Effects chain enrichie — 4 niveaux crisis + LadderFilter + Delay + Phaser (Bloc 13-DSP) | `core/dsp.py` | ❌ AFK ready-for-agent |
-| #180 | Transitions DJ — EQ crossfade 3-bandes + filter sweep + reverb throw (Blocs 9-T1+T2+T3) | `core/dsp.py` | ❌ AFK ready-for-agent |
-| #181 | Workflow audio-to-audio amélioré — pre-stretch + strength data-driven (Bloc 7) | `core/audio_queue.py` | ❌ AFK ready-for-agent |
-| #182 | `rhythmic_entropy` réel + enrichir journal prompt + track_namer valeurs réelles (Bloc 6) | `core/updater.py`, `core/journal.py`, `core/track_namer.py` | ❌ AFK ready-for-agent |
-| #183 | Enrichissement prompt musical — event_intensity + inference steps adaptatif (Bloc 12) | `builders/music_prompt.py` | ❌ AFK ready-for-agent |
+| #178 | Automation DSP intra-clip + reverb throw world_event_burst + BPM rate limit (Blocs 10-RT1+RT2+RT3) | `core/dsp.py`, `core/drift.py` | ❌ AFK ready-for-agent |
 
 ---
 
