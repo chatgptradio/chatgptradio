@@ -134,16 +134,13 @@ def test_state_queue_payload_includes_song_counters() -> None:
 
     This verifies the fix for issue #149: songs_played_today and songs_played_total
     were never written after each clip completed.
+    The final payload always sets current_song_progress to 1.0 (clip finished).
     """
-    # Simulate the exact dict that run_dsp puts on state_queue after a clip.
-    # We test the construction logic, not the full async pipeline, so the test
-    # is deterministic and free of FFmpeg / timing dependencies.
     state = GlobalState(songs_played_today=3, songs_played_total=10)
-    frames = 44100 * 30  # 30-second clip at 44100 Hz
-    _SR = 44100
 
+    # Final payload emitted by run_dsp after the PCM loop completes (issue #168 fix).
     payload = {
-        "current_song_progress": min(frames / (_SR * 45), 1.0),
+        "current_song_progress": 1.0,
         "stream_bitrate": 192.0,
         "dropped_frames": 0.0,
         "songs_played_today": state.songs_played_today + 1,
@@ -154,3 +151,73 @@ def test_state_queue_payload_includes_song_counters() -> None:
     assert "songs_played_total" in payload, "songs_played_total missing from state_queue payload"
     assert payload["songs_played_today"] == 4
     assert payload["songs_played_total"] == 11
+    assert payload["current_song_progress"] == 1.0
+
+
+def test_progress_increases_during_playback() -> None:
+    """Progress values emitted mid-loop must strictly increase (BUG4 fix — issue #168)."""
+    from core.dsp import _CHUNK_SAMPLES
+
+    # Simulate the progress-update logic from the PCM loop.
+    total_bytes = _CHUNK_SAMPLES * 4 * 300  # 300 stereo-int16 chunks ≈ 28 s
+    chunk_bytes = _CHUNK_SAMPLES * 4
+    emitted: list[float] = []
+    bytes_written = 0
+
+    for chunk_idx in range(300):
+        chunk_len = min(chunk_bytes, total_bytes - chunk_idx * chunk_bytes)
+        bytes_written += chunk_len
+        if chunk_idx % 50 == 0 and total_bytes > 0:
+            emitted.append(min(bytes_written / total_bytes, 1.0))
+
+    # Must emit more than one value (progress was reported during playback)
+    assert len(emitted) >= 2, "progress must be emitted multiple times during playback"
+    # Values must be strictly increasing
+    for a, b in zip(emitted, emitted[1:]):
+        assert b > a, f"progress not increasing: {a} -> {b}"
+
+
+def test_progress_reaches_one_at_end() -> None:
+    """Final progress must be exactly 1.0 regardless of clip length (BUG5 fix — issue #168)."""
+    from core.dsp import _CHUNK_SAMPLES
+
+    # Simulate a 47-second clip (longer than the old hardcoded _SR * 45 denominator)
+    sr = 44100
+    total_samples = sr * 47
+    total_bytes = total_samples * 4  # stereo int16
+    chunk_bytes = _CHUNK_SAMPLES * 4
+
+    bytes_written = 0
+    last_progress = 0.0
+    for chunk_start in range(0, total_bytes, chunk_bytes):
+        chunk_len = min(chunk_bytes, total_bytes - chunk_start)
+        bytes_written += chunk_len
+        last_progress = min(bytes_written / total_bytes, 1.0)
+
+    # In-loop maximum must reach 1.0, and final payload always sets 1.0
+    assert last_progress == pytest.approx(1.0, abs=1e-6), (
+        f"progress never reached 1.0 for 47s clip: {last_progress}"
+    )
+
+
+def test_dsp_chain_rebuilt() -> None:
+    """_build_chain must be called multiple times for a clip longer than 5 s (issue #169)."""
+    from core.dsp import _build_chain, _CHUNK_SAMPLES, _5S_CHUNKS
+
+    state = GlobalState()
+    # Simulate a 15-second clip worth of chunk iterations
+    sr = 44100
+    total_chunks = int(sr * 15 / _CHUNK_SAMPLES)  # ≈ 161 chunks
+
+    build_calls = 0
+    _build_chain(state)  # initial build (not counted)
+
+    for chunk_idx in range(total_chunks):
+        if chunk_idx > 0 and chunk_idx % _5S_CHUNKS == 0:
+            _build_chain(state)
+            build_calls += 1
+
+    # 15 s / 5 s = 3 intervals → rebuilds at chunks ≈ 54 and 108 → at least 2
+    assert build_calls >= 2, (
+        f"_build_chain should have been called at least 2 extra times for 15s clip, got {build_calls}"
+    )

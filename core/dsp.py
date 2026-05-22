@@ -24,6 +24,7 @@ _FFMPEG_RESTART_MAX_S = 60
 _TARGET_LUFS = -14.0
 _MAX_GAIN_DB = 18.0
 _CHUNK_SAMPLES = 4096  # ~93 ms at 44100 Hz — throttles pipe writes to real-time
+_5S_CHUNKS = int(5 * _SR / _CHUNK_SAMPLES)  # ≈ 54 chunks — DSP chain rebuild interval
 
 
 def _clamp(v: float, lo: float, hi: float) -> float:
@@ -210,17 +211,17 @@ async def run_dsp(
 
             # Process clip in a background task so we can keep writing silence
             # to FFmpeg stdin during CPU-intensive operations (prevents A/V stall).
+            # Returns raw (stretched + normalised) audio — DSP is applied chunk-by-chunk
+            # in the PCM write loop below so the chain can be rebuilt every 5 s.
             async def _process_clip() -> np.ndarray:
                 try:
                     a = await loop.run_in_executor(
                         None, _read_and_stretch, clip_path, state.drift_bpm
                     )
-                    a = await loop.run_in_executor(None, _normalize_lufs, a, _SR)
+                    return await loop.run_in_executor(None, _normalize_lufs, a, _SR)
                 except Exception:
                     log.exception("dsp_read_error", path=str(clip_path))
                     return np.array([], dtype=np.float32)
-                ch = _build_chain(state)
-                return await loop.run_in_executor(None, _process_audio, a, ch)
 
             process_task = asyncio.create_task(_process_clip())
 
@@ -237,33 +238,48 @@ async def run_dsp(
                         pipe_ok = False
                 await asyncio.sleep(_CHUNK_SAMPLES / _SR)
 
-            processed = await process_task
-            if not pipe_ok or len(processed) == 0:
+            raw = await process_task
+            if not pipe_ok or len(raw) == 0:
                 playback_queue.task_done()
                 continue
 
             if prev_audio is not None:
-                tail_len = min(_CROSSFADE_SAMPLES, len(prev_audio), len(processed))
-                xfade = _crossfade_arrays(prev_audio[-tail_len:], processed[:tail_len], _SR)
-                processed = np.concatenate([xfade, processed[tail_len:]])
+                tail_len = min(_CROSSFADE_SAMPLES, len(prev_audio), len(raw))
+                xfade = _crossfade_arrays(prev_audio[-tail_len:], raw[:tail_len], _SR)
+                raw = np.concatenate([xfade, raw[tail_len:]])
 
-            prev_audio = processed
-            pcm_s16 = (processed * 32767).astype(np.int16).tobytes()
+            total_frames = len(raw)
+            bytes_written = 0
+            total_bytes = total_frames * 4  # stereo int16 = 4 bytes/sample frame
 
             try:
                 if proc.stdin is not None:
-                    chunk_bytes = _CHUNK_SAMPLES * 4  # stereo int16 = 4 bytes/sample
-                    for i in range(0, len(pcm_s16), chunk_bytes):
-                        chunk = pcm_s16[i : i + chunk_bytes]
-                        await loop.run_in_executor(None, proc.stdin.write, chunk)
-                        await asyncio.sleep(len(chunk) / 4 / _SR)
+                    chunk_idx = 0
+                    board = _build_chain(state)  # initial chain for this clip
+                    for frame_start in range(0, total_frames, _CHUNK_SAMPLES):
+                        # Rebuild DSP chain every 5 s — no audio gap, affects next chunks only
+                        if chunk_idx > 0 and chunk_idx % _5S_CHUNKS == 0:
+                            board = _build_chain(state)
+                        chunk_frames = raw[frame_start : frame_start + _CHUNK_SAMPLES]
+                        # Apply DSP to this chunk (reset=False keeps Reverb tail across chunks)
+                        dsp_chunk = board(chunk_frames.T, _SR, reset=False).T
+                        pcm_chunk = (dsp_chunk * 32767).astype(np.int16).tobytes()
+                        await loop.run_in_executor(None, proc.stdin.write, pcm_chunk)
+                        bytes_written += len(pcm_chunk)
+                        # Emit progress ~every 1 s (50 chunks × 4096 / 44100 ≈ 4.6 s → use 50)
+                        if chunk_idx % 50 == 0 and total_bytes > 0:
+                            await state_queue.put({
+                                "current_song_progress": min(bytes_written / total_bytes, 1.0),
+                            })
+                        await asyncio.sleep(len(pcm_chunk) / 4 / _SR)
+                        chunk_idx += 1
+                    prev_audio = raw
             except BrokenPipeError:
                 log.warning("dsp_ffmpeg_pipe_broken")
                 proc = await loop.run_in_executor(None, _start_ffmpeg)
 
-            frames = len(processed)
             await state_queue.put({
-                "current_song_progress": min(frames / (_SR * 45), 1.0),
+                "current_song_progress": 1.0,
                 "stream_bitrate": 192.0,
                 "dropped_frames": 0.0,
                 "songs_played_today": state.songs_played_today + 1,
