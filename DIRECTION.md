@@ -434,6 +434,9 @@ Représentation : forme d'énergie abstraite Three.js (pulse, contracte, couleur
 | 2026-05-22 | Journal enrichi : event_label, event_intensity, world_event_burst, urgency, drift_velocity, detected BPM réel ajoutés à `_build_user_prompt()`. | VALIDÉ |
 | 2026-05-22 | `num_inference_steps` adaptatif : 6 (queue vide — vitesse), 14 (queue saine + CPU < 70% — qualité), 8 (CPU chargé — équilibre). Exporté depuis `builders/music_prompt.py`. | VALIDÉ |
 | 2026-05-22 | Prompt musical enrichi (Bloc 12) : event_label si event_intensity > 0.3, territory age après 2h/4h, polytonalité/atonalité selon source_divergence > 0.6/0.8. Tous conditionnels (NO FAKE). | VALIDÉ |
+| 2026-05-22 | Automation DSP intra-clip (RT1) : conditionée excitement > 0.3 OU urgency > 0.4. LadderFilter cutoff ramp 300Hz→20kHz sur progress 0→0.5 (build-up), reverb wet fade sur 0.8→1.0 (release). | VALIDÉ |
+| 2026-05-22 | Reverb throw world_event_burst (RT2) : when world_event_burst True, prochain rebuild DSP force wet=1.0 room=0.95 pour ~5s. Réaction sonore à un burst d'actualité mondiale réelle. | VALIDÉ |
+| 2026-05-22 | BPM rate limit ±8 BPM/clip (RT3) : clamp dans update_drift() après calcul momentum. Empêche les sauts brusques de tempo qui briseraient la cohérence musicale. | VALIDÉ |
 
 ---
 
@@ -1194,8 +1197,8 @@ GlobalState (83 champs), StateUpdater, SQLite WAL, self_model EMA, drift momentu
 - #199 Prompt musical : event_intensity, inference steps adaptatif, territory age, polytonalité/atonalité ✅
 - #200 Effects chain : hiérarchie crisis 4 niveaux (GSMFullRate/MP3/Bitcrush), LadderFilter sweep, Delay/Phaser territoires psych/experimental ✅
 
-**Sprint 4 — en cours (#178 AFK)**
-- #178 Automation DSP intra-clip + reverb throw world_event_burst + BPM rate limit (Blocs 10-RT1+RT2+RT3)
+**Sprint 4 — 2026-05-22 ✅ (PR #201 — 482 tests)**
+- #178 Automation DSP intra-clip + reverb throw world_event_burst + BPM rate limit ✅ PR #201
 
 **Prochaine étape structurelle**
 - YouTube broadcast auto-lifecycle (`core/youtube.py`) — rotation toutes les 8h

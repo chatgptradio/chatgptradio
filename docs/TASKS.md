@@ -277,11 +277,13 @@ ADR : [ADR-0007](adr/0007-emotion-synthesis.md)
 
 **Résumé Sprint 3 :** hiérarchie crisis DSP 4 niveaux (GSM → Bitcrush), LadderFilter sweep, Delay/Phaser conditionnels territoire, transitions DJ T1+T2+T3 au crossfade, audio-to-audio pre-stretch + strength data-driven + quality gating, rhythmic_entropy réel, journal enrichi (event_label, urgency, burst), inference steps adaptatif. 474 tests.
 
-### Sprint 4 — Automation intra-clip + suite (issue #178)
+### Sprint 4 — Automation intra-clip ✅ TERMINÉ (PR #201 — 2026-05-22 — 482 tests)
 
-| Issue | Titre | Fichier(s) | État |
-|-------|-------|------------|------|
-| #178 | Automation DSP intra-clip + reverb throw world_event_burst + BPM rate limit (Blocs 10-RT1+RT2+RT3) | `core/dsp.py`, `core/drift.py` | ❌ AFK ready-for-agent |
+| Issue | Titre | Fichier(s) | PR | État |
+|-------|-------|------------|-----|------|
+| #178 | Automation DSP intra-clip + reverb throw world_event_burst + BPM rate limit (Blocs 10-RT1+RT2+RT3) | `core/dsp.py`, `core/drift.py` | #201 | ✅ |
+
+**Résumé Sprint 4 :** automation RT1 conditionnelle (excitement/urgency), LadderFilter cutoff ramp 300Hz→20kHz build-up, reverb release 0.8→1.0, reverb throw world_event_burst, BPM rate limit ±8 BPM/clip dans update_drift(). 482 tests.
 
 ---
 
