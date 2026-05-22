@@ -9,6 +9,7 @@ import time
 from pathlib import Path
 
 import aiosqlite
+import orjson
 import structlog
 
 from core.audio_library import cleanup_ghost_paths, find_reusable, index_clip
@@ -16,6 +17,15 @@ from core.state import GlobalState
 from core.track_namer import generate_track_name
 
 log = structlog.get_logger()
+
+try:
+    import librosa as _librosa  # type: ignore[import-untyped]
+    import numpy as _np  # type: ignore[import-untyped]
+    _HAS_LIBROSA = True
+except ImportError:
+    _HAS_LIBROSA = False
+
+_CIRCLE_OF_FIFTHS = ["C", "G", "D", "A", "E", "B", "F#", "Db", "Ab", "Eb", "Bb", "F"]
 
 _POLL_INTERVAL    = 5.0          # seconds between queue-fill attempts
 _QUEUE_TARGET     = 2            # desired minimum clips in playback_queue
@@ -36,6 +46,93 @@ async def _get_ref_territory(conn: aiosqlite.Connection, path: Path) -> str:
     ) as cur:
         row = await cur.fetchone()
     return row[0] if row and row[0] else ""
+
+
+async def _analyze_clip_async(conn: aiosqlite.Connection, path: Path) -> None:
+    """Run librosa analysis on a generated clip and persist the results to the DB.
+
+    Computes BPM, musical key, MFCC fingerprint, duration, trim boundaries and
+    energy RMS. Results are merged into the existing mood_snapshot JSON and the
+    audio_key / duration_s columns are updated in-place. Fire-and-forget; any
+    exception is caught and logged.
+    """
+    if not _HAS_LIBROSA:
+        return
+
+    try:
+        loop = asyncio.get_running_loop()
+
+        def _load_and_analyze() -> dict:  # type: ignore[return]
+            y, sr = _librosa.load(str(path), sr=44100, mono=True)  # type: ignore[possibly-unbound]
+
+            tempo, _ = _librosa.beat.beat_track(y=y, sr=sr)  # type: ignore[possibly-unbound]
+            detected_bpm = float(tempo)
+
+            chroma = _librosa.feature.chroma_cqt(y=y, sr=sr)  # type: ignore[possibly-unbound]
+            pcp_mean = chroma.mean(axis=1)
+            key_idx = int(_np.argmax(pcp_mean))  # type: ignore[possibly-unbound]
+            detected_key = _CIRCLE_OF_FIFTHS[key_idx % 12]
+
+            mfcc = _librosa.feature.mfcc(y=y, sr=sr, n_mfcc=20)  # type: ignore[possibly-unbound]
+            mfcc_fingerprint: list[float] = mfcc.mean(axis=1).tolist()
+
+            duration_s = float(_librosa.get_duration(y=y, sr=sr))  # type: ignore[possibly-unbound]
+
+            _, (trim_start_samp, trim_end_samp) = _librosa.effects.trim(y)  # type: ignore[possibly-unbound]
+            trim_start_s = float(trim_start_samp) / sr
+            trim_end_s = float(trim_end_samp) / sr
+
+            rms = float(_np.sqrt(_np.mean(y ** 2)))  # type: ignore[possibly-unbound]
+            energy_rms = min(rms / 0.5, 1.0)
+
+            return {
+                "detected_bpm": detected_bpm,
+                "detected_key": detected_key,
+                "mfcc_fingerprint": mfcc_fingerprint,
+                "duration_s": duration_s,
+                "trim_start_s": trim_start_s,
+                "trim_end_s": trim_end_s,
+                "energy_rms": energy_rms,
+            }
+
+        results = await loop.run_in_executor(None, _load_and_analyze)
+
+        detected_bpm = results["detected_bpm"]
+        detected_key = results["detected_key"]
+        mfcc_fingerprint = results["mfcc_fingerprint"]
+        duration_s = results["duration_s"]
+        trim_start_s = results["trim_start_s"]
+        trim_end_s = results["trim_end_s"]
+        energy_rms = results["energy_rms"]
+
+        async with conn.execute(
+            "SELECT mood_snapshot FROM audio_clips WHERE path=?", (str(path),)
+        ) as cur:
+            row = await cur.fetchone()
+        existing = orjson.loads(row[0] or "{}") if row else {}
+        existing.update({
+            "mfcc_fingerprint": mfcc_fingerprint,
+            "trim_start_s": trim_start_s,
+            "trim_end_s": trim_end_s,
+            "energy_rms": energy_rms,
+        })
+
+        await conn.execute(
+            "UPDATE audio_clips SET audio_key=?, duration_s=?, mood_snapshot=? WHERE path=?",
+            (detected_key, duration_s, orjson.dumps(existing).decode(), str(path)),
+        )
+        await conn.commit()
+
+        log.info(
+            "clip_analyzed",
+            path=str(path),
+            bpm=detected_bpm,
+            key=detected_key,
+            duration_s=round(duration_s, 2),
+        )
+
+    except Exception:
+        log.exception("clip_analyze_error", path=str(path))
 
 
 async def _get_ref_duration(path: Path) -> int:
@@ -509,6 +606,7 @@ async def run_audio_queue(
                 display_name=display_name,
                 territory=ref_territory or state.drift_territory if ref_path else state.drift_territory,
             )
+            asyncio.create_task(_analyze_clip_async(conn, outpath))
 
             if ref_path and ref_territory:
                 log.info("fal_derived_territory_inherited", ref=str(ref_path), territory=ref_territory)
