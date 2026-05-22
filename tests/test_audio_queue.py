@@ -575,9 +575,11 @@ async def test_audio_queue_skips_generation_when_queue_full(tmp_path):
     with (
         patch("core.audio_queue._generate_audio", new_callable=AsyncMock) as mock_gen,
         patch("core.audio_queue._generate_from_reference", new_callable=AsyncMock) as mock_ref_gen,
+        patch("core.audio_queue._build_crisis_cache", new_callable=AsyncMock, return_value=[]),
         patch("core.audio_queue.find_reusable", new_callable=AsyncMock, return_value=None),
         patch("core.audio_queue._index_fallback_clips", new_callable=AsyncMock, return_value=[]),
         patch("core.audio_queue._auto_index_references_on_startup", new_callable=AsyncMock, return_value=0),
+        patch("core.audio_queue.cleanup_ghost_paths", new_callable=AsyncMock, return_value=0),
         patch("core.audio_queue._POLL_INTERVAL", 9999),
         patch.dict("os.environ", {"FAL_API_KEY": "test-key"}),
     ):
@@ -726,4 +728,146 @@ async def test_mark_played_called_on_reference_after_generation(tmp_path):
     assert mock_a2a.called
     mark_calls = [call.args[1] for call in mock_mark.call_args_list]
     assert ref_file in mark_calls
+    await conn.close()
+
+
+# ── Crisis cache startup trigger ─────────────────────────────────────────────
+
+
+@pytest.mark.asyncio
+async def test_crisis_cache_triggered_at_startup(tmp_path):
+    """_build_crisis_cache is launched as a task immediately after startup."""
+    from core.audio_queue import run_audio_queue
+
+    state = GlobalState()
+    state_queue: asyncio.Queue = asyncio.Queue()
+    playback_queue: asyncio.Queue = asyncio.Queue(maxsize=4)
+
+    conn = await _make_conn(tmp_path)
+
+    with (
+        patch("core.audio_queue._build_crisis_cache", new_callable=AsyncMock) as mock_cache,
+        patch("core.audio_queue.find_reusable", new_callable=AsyncMock, return_value=None),
+        patch("core.audio_queue._index_fallback_clips", new_callable=AsyncMock, return_value=[]),
+        patch("core.audio_queue._auto_index_references_on_startup", new_callable=AsyncMock, return_value=0),
+        patch("core.audio_queue.cleanup_ghost_paths", new_callable=AsyncMock, return_value=0),
+        patch("core.audio_queue._build_prompt", return_value="crisis test prompt"),
+        patch("core.audio_queue._POLL_INTERVAL", 9999),
+        patch.dict("os.environ", {"FAL_API_KEY": "test-key"}),
+    ):
+        mock_cache.return_value = []
+
+        task = asyncio.create_task(
+            run_audio_queue(state, state_queue, conn, playback_queue)
+        )
+        await asyncio.sleep(0.1)
+        task.cancel()
+        try:
+            await task
+        except asyncio.CancelledError:
+            pass
+
+    mock_cache.assert_called_once()
+    await conn.close()
+
+
+# ── Crisis delta > 0.15 triggers cache rebuild ───────────────────────────────
+
+
+@pytest.mark.asyncio
+async def test_crisis_cache_triggered_on_delta_above_threshold(tmp_path):
+    """When crisis_level rises by more than 0.15 in one loop, _build_crisis_cache is called again."""
+    from core.audio_queue import run_audio_queue
+
+    state = GlobalState(crisis_level=0.1)
+    state_queue: asyncio.Queue = asyncio.Queue()
+    playback_queue: asyncio.Queue = asyncio.Queue(maxsize=4)
+
+    conn = await _make_conn(tmp_path)
+
+    call_count: list[int] = [0]
+
+    async def _fake_cache(*args, **kwargs):
+        call_count[0] += 1
+        # After startup call, simulate a crisis spike on next iteration
+        if call_count[0] == 1:
+            state.crisis_level = 0.8  # delta = 0.8 - 0.1 = 0.70 > 0.15
+        return []
+
+    with (
+        patch("core.audio_queue._build_crisis_cache", side_effect=_fake_cache) as mock_cache,
+        patch("core.audio_queue.find_reusable", new_callable=AsyncMock, return_value=None),
+        patch("core.audio_queue._index_fallback_clips", new_callable=AsyncMock, return_value=[]),
+        patch("core.audio_queue._auto_index_references_on_startup", new_callable=AsyncMock, return_value=0),
+        patch("core.audio_queue.cleanup_ghost_paths", new_callable=AsyncMock, return_value=0),
+        patch("core.audio_queue._build_prompt", return_value="crisis prompt"),
+        patch("core.audio_queue._generate_audio", new_callable=AsyncMock, return_value=b"bytes"),
+        patch("core.audio_queue.generate_track_name", new_callable=AsyncMock, return_value=""),
+        patch("core.audio_queue.find_reference", new_callable=AsyncMock, return_value=None),
+        patch("core.audio_queue._CLIPS_DIR", tmp_path),
+        patch("core.audio_queue._POLL_INTERVAL", 0),
+        patch.dict("os.environ", {"FAL_API_KEY": "test-key"}),
+    ):
+        task = asyncio.create_task(
+            run_audio_queue(state, state_queue, conn, playback_queue)
+        )
+        # Allow enough time for startup task + at least one main-loop iteration
+        await asyncio.sleep(0.2)
+        task.cancel()
+        try:
+            await task
+        except asyncio.CancelledError:
+            pass
+
+    # At minimum: startup call (1) + delta-triggered call (≥1)
+    assert mock_cache.call_count >= 2
+    await conn.close()
+
+
+# ── Crisis bypass of prompt-hash stability guard ─────────────────────────────
+
+
+@pytest.mark.asyncio
+async def test_crisis_bypasses_prompt_hash_stability_guard(tmp_path):
+    """When crisis_level > 0.6 and queue is empty, generation is forced even with duplicate prompt hash."""
+    from core.audio_queue import run_audio_queue
+
+    state = GlobalState(crisis_level=0.8)
+    state_queue: asyncio.Queue = asyncio.Queue()
+    playback_queue: asyncio.Queue = asyncio.Queue(maxsize=4)
+
+    conn = await _make_conn(tmp_path)
+
+    with (
+        patch("core.audio_queue._build_crisis_cache", new_callable=AsyncMock, return_value=[]),
+        patch("core.audio_queue._generate_audio", new_callable=AsyncMock) as mock_gen,
+        patch("core.audio_queue.generate_track_name", new_callable=AsyncMock, return_value="Crisis Track"),
+        patch("core.audio_queue.find_reusable", new_callable=AsyncMock, return_value=None),
+        patch("core.audio_queue.find_reference", new_callable=AsyncMock, return_value=None),
+        patch("core.audio_queue._index_fallback_clips", new_callable=AsyncMock, return_value=[]),
+        patch("core.audio_queue._auto_index_references_on_startup", new_callable=AsyncMock, return_value=0),
+        patch("core.audio_queue.cleanup_ghost_paths", new_callable=AsyncMock, return_value=0),
+        patch("core.audio_queue._build_prompt", return_value="crisis prompt"),
+        patch("core.audio_queue._CLIPS_DIR", tmp_path),
+        patch("core.audio_queue._POLL_INTERVAL", 9999),
+        patch.dict("os.environ", {"FAL_API_KEY": "test-key"}),
+    ):
+        mock_gen.return_value = b"crisis_audio"
+        # Pre-set last_prompt_hash to the same hash that _build_prompt will return,
+        # so the stability guard would normally block generation
+        import hashlib
+        state.last_prompt_hash = hashlib.md5(b"crisis prompt").hexdigest()[:8]
+
+        task = asyncio.create_task(
+            run_audio_queue(state, state_queue, conn, playback_queue)
+        )
+        await asyncio.sleep(0.1)
+        task.cancel()
+        try:
+            await task
+        except asyncio.CancelledError:
+            pass
+
+    # Generation must have been called despite duplicate hash, because crisis_level > 0.6
+    mock_gen.assert_called()
     await conn.close()

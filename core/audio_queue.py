@@ -417,6 +417,10 @@ async def run_audio_queue(
     )
 
     last_refs_scan = time.time()
+    _prev_crisis: float = state.crisis_level
+
+    # Pre-generate crisis clips in the background right after startup
+    asyncio.create_task(_build_crisis_cache(conn, state, _build_prompt(state)))
 
     while True:
         # ── Drain CommandEngine — apply chat commands ──────────────────────────
@@ -438,6 +442,13 @@ async def run_audio_queue(
         if now - last_refs_scan >= _RESCAN_INTERVAL:
             await _auto_index_references_on_startup(conn, state)
             last_refs_scan = now
+
+        # ── Crisis delta — trigger cache rebuild on rapid escalation ──────────
+        crisis_delta = state.crisis_level - _prev_crisis
+        if crisis_delta > 0.15:
+            log.info("crisis_escalation_detected", delta=crisis_delta, crisis_level=state.crisis_level)
+            asyncio.create_task(_build_crisis_cache(conn, state, _build_prompt(state)))
+        _prev_crisis = state.crisis_level
 
         # ── Only fill queue when below target ─────────────────────────────────
         qsize = playback_queue.qsize() if playback_queue is not None else 0
@@ -463,7 +474,9 @@ async def run_audio_queue(
         # ── Generate a new clip ───────────────────────────────────────────────
         prompt = _build_prompt(state)
         prompt_hash = hashlib.md5(prompt.encode()).hexdigest()[:8]
-        if prompt_hash == state.last_prompt_hash and qsize > 0:
+        # Skip stability guard during active crisis: queue low + crisis high → generate immediately
+        in_crisis = state.crisis_level > 0.6 and qsize < _QUEUE_TARGET
+        if prompt_hash == state.last_prompt_hash and qsize > 0 and not in_crisis:
             await asyncio.sleep(_POLL_INTERVAL)
             continue
 

@@ -413,6 +413,12 @@ Représentation : forme d'énergie abstraite Three.js (pulse, contracte, couleur
 | 2026-05-20 | FFmpeg stderr=DEVNULL : pipe DEVNULL au lieu de PIPE — évite deadlock quand buffer 64KB se remplit (FFmpeg bloque sur stderr → stdin stalle → BrokenPipeError) | VALIDÉ |
 | 2026-05-20 | YouTube API quota backoff : 2 min si pas de live trouvé, 1h si 403 quotaExceeded. `search.list` = 100 unités/appel, quota épuisé en 17 min sans backoff. | VALIDÉ |
 | 2026-05-20 | YouTube broadcast lifecycle (`core/youtube.py`) : activation manuelle YouTube Studio pour l'instant. Implémentation auto-start à faire en Phase 4. | EN DISCUSSION |
+| 2026-05-22 | ADR-0007 : couche de synthèse émotionnelle `_synthesize_emotions()` dans `compute_derived()` — pondérations provisoires, z-scores PEs, NO FAKE respecté | VALIDÉ |
+| 2026-05-22 | _SOURCE_SIGNAL_FIELDS : étendu 5→10 signaux pour `source_divergence` (ajout openai_status, reddit_volume, fear_greed_index, github_ai_stars, arxiv_papers_today) | VALIDÉ |
+| 2026-05-22 | journal.py : `gpt-4o` → `gpt-4o-mini` (alignement branding, coût inférieur, qualité suffisante pour journal court) | VALIDÉ |
+| 2026-05-22 | DSP rebuild toutes les 5s dans la boucle PCM : `_build_chain(state)` toutes les `_5S_CHUNKS` itérations — réactivité crisis_level mid-clip sans redémarrage | VALIDÉ |
+| 2026-05-22 | `current_song_progress` calculé depuis bytes écrits réels (pas durée estimée) — dénominateur = `len(raw) * 4` bytes | VALIDÉ |
+| 2026-05-22 | Collecteur `system_metrics` (psutil) : hour_utc, day_of_week, cpu_percent, memory_percent, uptime_h — signaux contexte système dans le self-model | VALIDÉ |
 
 ---
 
@@ -1151,7 +1157,22 @@ GlobalState (83 champs), StateUpdater, SQLite WAL, self_model EMA, drift momentu
 - `songs_played_today` / `songs_played_total` incrémentés après chaque clip ✅ PR #155
 - HUD : chat-status, song name, RAF 24fps, SynapseMode crash fix ✅ PR #150
 
-**Prochaine étape**
+**Sprint 1 — 2026-05-22 (ADR-0007, PRs #187 ✅ #189 #190 ⏳ — 406 tests)**
+- `_synthesize_emotions()` : 5 émotions actives depuis z-scores PEs → `world_temperature`, `musical_tension`, `harmonic_complexity` non-nuls en production (ADR-0007)
+- `drift_velocity` + `drift_energy` calculés dans `update_drift()` ✅ PR #187
+- 15 territoires tous atteignables (electronic, industrial, jazz, neoclassical, noise)
+- 13 bugs corrigés : CommandEngine wiring, VALID_VIBES, mark_played, purge, prompt timbre/durée, orjson migration (7 fichiers), openai_latency_ms, collecteur system_metrics
+- Corrections métriques librosa : chroma_cqt, entropie harmonique, densité d'onsets, timbre MFCC, anxiety IOI
+- DSP : `current_song_progress` en boucle PCM + DSP rebuild toutes les 5s
+
+**Sprint 2 — en cours (issues #170, #171, #175–#177)**
+- #170 Crossfade sans écho (`_pending_tail`)
+- #171 Crisis cache au démarrage + génération urgente sur delta > 0.15
+- #175 DB `audio_key` + key scoring + MFCC distance dans `find_reusable()`
+- #176 Analyse librosa post-génération
+- #177 Boucle feedback audio → self_model
+
+**Prochaine étape structurelle**
 - YouTube broadcast auto-lifecycle (`core/youtube.py`) — rotation toutes les 8h
 
 ### Phase 5 — À FAIRE ❌
