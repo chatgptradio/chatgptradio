@@ -14,6 +14,10 @@ from core.state import GlobalState, MusicVector
 
 log = structlog.get_logger()
 
+# Tracks the last time crisis_level exceeded 0.6 (epoch seconds).
+# Initialised to 0.0; days_since_crisis stays 0 until the first crisis is observed.
+_last_crisis_ts: float = 0.0
+
 _DICT_FIELDS = {
     "source_health",
     "signal_baselines",
@@ -36,10 +40,58 @@ _SOURCE_SIGNAL_FIELDS = [
     "gdelt_global_tone",
     "newsapi_sentiment",
     "hedonometer_happiness",
+    "openai_status",
+    "reddit_volume",
+    "fear_greed_index",
+    "github_ai_stars",
+    "arxiv_papers_today",
 ]
 
 
+def _clamp(v: float, lo: float, hi: float) -> float:
+    return max(lo, min(hi, v))
+
+
+def _synthesize_emotions(state: GlobalState) -> None:
+    pe = state.prediction_errors
+    vol = state.signal_volatilities
+
+    def _z(s: str) -> float:
+        return pe.get(s, 0.0) / max(vol.get(s, 0.1), 0.001)
+
+    state.excitement = _clamp(
+        0.25 * _z("reddit_volume") + 0.25 * _z("twitter_volume")
+        + 0.2 * _z("hn_ai_score") + 0.15 * _z("hedonometer_happiness")
+        + 0.15 * _z("google_trends_chatgpt"), -1.0, 1.0
+    )
+    state.anxiety = _clamp(
+        0.4 * _z("gdelt_conflict_intensity") + 0.3 * (1.0 - state.openai_status)
+        + 0.2 * _z("newsapi_volume") + 0.1 * _z("fear_greed_index"), -1.0, 1.0
+    )
+    state.frustration = _clamp(
+        -0.4 * _z("reddit_sentiment") - 0.3 * _z("twitter_sentiment")
+        - 0.2 * _z("newsapi_sentiment") - 0.1 * _z("hedonometer_happiness"), -1.0, 1.0
+    )
+    state.curiosity = _clamp(
+        0.4 * _z("arxiv_papers_today") + 0.3 * _z("github_ai_stars")
+        + 0.2 * _z("wikipedia_views_ai") + 0.1 * _z("hn_ai_score"), -1.0, 1.0
+    )
+    state.creativity = _clamp(
+        0.4 * _z("media_cloud_ai_volume") + 0.3 * state.source_divergence
+        + 0.3 * _z("github_ai_stars"), -1.0, 1.0
+    )
+
+
 def compute_derived(state: GlobalState) -> None:
+    global _last_crisis_ts
+
+    _synthesize_emotions(state)
+
+    today = datetime.now(timezone.utc).date().isoformat()
+    if state.songs_played_today_date != today:
+        state.songs_played_today = 0
+        state.songs_played_today_date = today
+
     state.world_temperature = (
         state.excitement + state.anxiety + state.frustration + state.curiosity + state.creativity
     ) / 5.0
@@ -49,6 +101,12 @@ def compute_derived(state: GlobalState) -> None:
     state.crisis_level = min(
         openai_crisis * 0.5 + latency_crisis * 0.2 + state.gdelt_conflict_intensity * 0.3, 1.0
     )
+
+    # Track days since last crisis (crisis_level > 0.6)
+    if state.crisis_level > 0.6:
+        _last_crisis_ts = time.time()
+    if _last_crisis_ts > 0.0:
+        state.days_since_crisis = (time.time() - _last_crisis_ts) / 86400.0
 
     viewers_norm = state.viewers / max(state.viewers_peak_today, 1)
     chat_rate_norm = min(state.chat_rate / 100.0, 1.0)
@@ -61,16 +119,21 @@ def compute_derived(state: GlobalState) -> None:
     active = [getattr(state, s) for s in _SOURCE_SIGNAL_FIELDS if getattr(state, s) != 0.0]
     state.source_divergence = statistics.stdev(active) if len(active) >= 2 else 0.0
 
-    divergence_vol = state.signal_volatilities.get("gdelt_conflict_intensity", 0.05)
-    divergence_err = state.prediction_errors.get("gdelt_conflict_intensity", 0.0)
-    state.world_event_burst = abs(divergence_err) > divergence_vol * 2
+    pe = state.prediction_errors
+    vol = state.signal_volatilities
+
+    divergence_vol = vol.get("gdelt_conflict_intensity", 0.05)
+    divergence_err = pe.get("gdelt_conflict_intensity", 0.0)
+    state.world_event_burst = (
+        abs(divergence_err) > divergence_vol * 2
+        or pe.get("openai_status", 0.0) < -0.3
+        or pe.get("reddit_volume", 0.0) > vol.get("reddit_volume", 0.1) * 3
+        or pe.get("arxiv_papers_today", 0.0) > vol.get("arxiv_papers_today", 0.1) * 2
+    )
 
     state.anomaly_score = (
         max(abs(v) for v in state.prediction_errors.values()) if state.prediction_errors else 0.0
     )
-
-    pe = state.prediction_errors
-    vol = state.signal_volatilities
 
     def _z(signal: str) -> float:
         return pe.get(signal, 0.0) / max(vol.get(signal, 0.1), 0.001)

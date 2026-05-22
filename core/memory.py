@@ -70,10 +70,22 @@ async def restore_self_model(conn: aiosqlite.Connection, state: GlobalState) -> 
         row = await cur.fetchone()
     if row is None:
         return
-    data = orjson.loads(row[0])
+    try:
+        data = orjson.loads(row[0])
+    except Exception:
+        return
     for field_name in ("signal_baselines", "signal_volatilities", "drift_momentum", "drift_weights"):
         if field_name in data:
             setattr(state, field_name, data[field_name])
+    # Restore MusicVector so the entity resumes its previous musical identity on restart.
+    if "drift_bpm" in data:
+        state.drift_bpm = float(data["drift_bpm"])
+    if "drift_key" in data:
+        state.drift_key = str(data["drift_key"])
+    if "drift_timbre" in data:
+        state.drift_timbre = str(data["drift_timbre"])
+    if "drift_territory" in data:
+        state.drift_territory = str(data["drift_territory"])
 
 
 async def upsert_viewer(

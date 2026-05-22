@@ -63,7 +63,11 @@ def build_music_prompt(state: GlobalState, prev_prompt: str | None = None) -> st
     pos_desc, neg_desc = _EMOTION_DESCRIPTORS[dominant]
     emotional_color = pos_desc if error >= 0 else neg_desc
 
-    territory = state.drift_territory.lower()
+    # requested_genre (set by !request command) overrides drift_territory for one generation
+    effective_territory = (
+        state.requested_genre.lower() if state.requested_genre else state.drift_territory.lower()
+    )
+    territory = effective_territory
     genre, instruments, prod_kw = _TERRITORY_PROFILE.get(
         territory,
         ("ambient electronic", "evolving pads, sparse textures", "44.1kHz stereo"),
@@ -85,8 +89,8 @@ def build_music_prompt(state: GlobalState, prev_prompt: str | None = None) -> st
 
     return (
         f"{genre}, {int(state.drift_bpm)} BPM, Key of {state.drift_key}, "
-        f"{instruments}, "
+        f"{instruments}, {state.drift_timbre} texture, "
         f"{emotional_color}"
         f"{audience_mod}{divergence_mod}, "
-        f"{prod_kw}, no vocals, 60 seconds"
+        f"{prod_kw}, no vocals, 47 seconds"
     )

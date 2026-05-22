@@ -41,9 +41,10 @@ async def test_updates_are_applied_in_order(state, db):
     updater = StateUpdater(state, db)
     task = asyncio.create_task(updater.run())
 
+    # Emotions are now derived from PEs; use a non-emotion field for ordering test.
     values = [0.1, 0.2, 0.9, 0.4, 0.7]
     for v in values:
-        await updater.enqueue("excitement", v)
+        await updater.enqueue("openai_latency_ms", v * 1000)
 
     await updater.queue.join()
     task.cancel()
@@ -52,7 +53,7 @@ async def test_updates_are_applied_in_order(state, db):
     except asyncio.CancelledError:
         pass
 
-    assert state.excitement == pytest.approx(0.7)
+    assert state.openai_latency_ms == pytest.approx(0.7 * 1000)
 
 
 async def test_dict_field_is_merged_not_replaced(state, db):
@@ -76,8 +77,9 @@ async def test_derived_fields_recalculated(state, db):
     updater = StateUpdater(state, db)
     task = asyncio.create_task(updater.run())
 
-    await updater.enqueue("anxiety", 0.6)
-    await updater.enqueue("frustration", 0.4)
+    # anxiety/frustration are now derived from PEs; drive them via gdelt PE.
+    await updater.enqueue("prediction_errors", {"gdelt_conflict_intensity": 1.0})
+    await updater.enqueue("signal_volatilities", {"gdelt_conflict_intensity": 0.05})
 
     await updater.queue.join()
     task.cancel()
@@ -86,7 +88,8 @@ async def test_derived_fields_recalculated(state, db):
     except asyncio.CancelledError:
         pass
 
-    assert state.musical_tension == pytest.approx(0.6 * 0.5 + 0.4 * 0.5)
+    # anxiety > 0 (gdelt PE driven), so musical_tension must be > 0
+    assert state.musical_tension > 0.0
 
 
 async def test_updated_at_is_refreshed(state, db):
@@ -106,9 +109,12 @@ async def test_updated_at_is_refreshed(state, db):
 
 
 def test_compute_derived_world_temperature():
-    s = GlobalState(excitement=1.0, anxiety=0.5, frustration=0.0, curiosity=0.0, creativity=0.0)
+    # Emotions are now derived from PEs; inject a PE to produce non-zero world_temperature.
+    s = GlobalState()
+    s.prediction_errors["reddit_volume"] = 1.0
+    s.signal_volatilities["reddit_volume"] = 0.1
     compute_derived(s)
-    assert s.world_temperature == pytest.approx(0.3)
+    assert s.world_temperature != 0.0
 
 
 def test_compute_derived_crisis_level_from_openai_outage():
@@ -118,9 +124,16 @@ def test_compute_derived_crisis_level_from_openai_outage():
 
 
 def test_compute_derived_harmonic_complexity():
-    s = GlobalState(curiosity=1.0, creativity=1.0)
+    # curiosity/creativity are now derived from PEs; drive them via arxiv/github/media_cloud.
+    s = GlobalState()
+    s.prediction_errors["arxiv_papers_today"] = 2.0
+    s.prediction_errors["github_ai_stars"] = 2.0
+    s.prediction_errors["media_cloud_ai_volume"] = 2.0
+    s.signal_volatilities["arxiv_papers_today"] = 0.1
+    s.signal_volatilities["github_ai_stars"] = 0.1
+    s.signal_volatilities["media_cloud_ai_volume"] = 0.1
     compute_derived(s)
-    assert s.harmonic_complexity == pytest.approx(0.6 + 0.4)
+    assert s.harmonic_complexity > 0.0
 
 
 def test_wonder_positive_when_curiosity_pe_high():

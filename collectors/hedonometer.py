@@ -5,8 +5,9 @@ and normalises from [5.0, 7.0] → [0, 1].  The historical average is ~6.0,
 so neutral maps to 0.5.
 """
 
-import json
 from typing import Any
+
+import orjson
 
 from collectors.utils import fetch_text, normalize
 from core.node import node
@@ -20,7 +21,7 @@ _SCORE_HIGH = 7.0
 
 
 def _parse_happiness(text: str) -> float:
-    data = json.loads(text)
+    data = orjson.loads(text)
     objects = data.get("objects", [])
     if not objects:
         return 0.5  # neutral default when no data

@@ -147,7 +147,7 @@ async def find_reference(
     state: GlobalState,
 ) -> Path | None:
     """Return a reference clip path to derive from, scored by state match."""
-    import json as _json
+    import orjson as _json
 
     async with conn.execute(
         """
@@ -387,6 +387,7 @@ async def run_audio_queue(
     state_queue: asyncio.Queue,  # type: ignore[type-arg]
     conn: aiosqlite.Connection,
     playback_queue: asyncio.Queue | None,  # type: ignore[type-arg]
+    cmd_engine: object | None = None,
 ) -> None:
     """Main audio queue coroutine.
 
@@ -418,6 +419,20 @@ async def run_audio_queue(
     last_refs_scan = time.time()
 
     while True:
+        # ── Drain CommandEngine — apply chat commands ──────────────────────────
+        if cmd_engine is not None:
+            for kind, value in cmd_engine.pop_all():  # type: ignore[union-attr]
+                if kind == "replay":
+                    try:
+                        await playback_queue.put(Path(value))  # type: ignore[union-attr]
+                    except asyncio.QueueFull:
+                        pass
+                elif kind == "request":
+                    state.requested_genre = value
+                elif kind == "vibe":
+                    pe_key = f"territory_{value}"
+                    state.prediction_errors[pe_key] = 2.0
+
         # ── Periodic rescan of streams/references/ for newly deposited files ──
         now = time.time()
         if now - last_refs_scan >= _RESCAN_INTERVAL:
@@ -460,8 +475,6 @@ async def run_audio_queue(
 
             if ref_path is not None:
                 audio_bytes = await _generate_from_reference(ref_path, prompt, state)
-                # Rotate references: update last_played_at so next generation favours others
-                await mark_played(conn, ref_path)
             else:
                 audio_bytes = await _generate_audio(prompt)
 
@@ -469,6 +482,10 @@ async def run_audio_queue(
 
             outpath = _CLIPS_DIR / f"clip_{int(time.time() * 1000)}.mp3"
             outpath.write_bytes(audio_bytes)
+
+            # Rotate references: mark played only after successful generation
+            if ref_path is not None and audio_bytes:
+                await mark_played(conn, ref_path)
 
             await index_clip(
                 conn,
@@ -482,6 +499,9 @@ async def run_audio_queue(
 
             if ref_path and ref_territory:
                 log.info("fal_derived_territory_inherited", ref=str(ref_path), territory=ref_territory)
+
+            # Consume requested_genre after generating for it
+            state.requested_genre = ""
 
             if display_name:
                 await state_queue.put({"current_track_name": display_name})

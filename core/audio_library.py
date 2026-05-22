@@ -26,16 +26,27 @@ async def index_clip(
     source: AudioSource = "generated",
     display_name: str = "",
     territory: str = "",
+    extra_mood: dict[str, object] | None = None,
 ) -> None:
-    """Insert or replace an audio clip record in the library."""
-    mood_snapshot = orjson.dumps(
-        {
-            "excitement": state.excitement,
-            "anxiety": state.anxiety,
-            "drift_bpm": state.drift_bpm,
-        }
-    ).decode()
+    """Insert or replace an audio clip record in the library.
+
+    *extra_mood* is merged into the mood_snapshot JSON alongside the core state
+    fields.  Use it to store supplemental analysis values (e.g. trim_start_s,
+    mfcc_fingerprint) that are not part of GlobalState.
+    """
+    mood_data: dict[str, object] = {
+        "excitement": state.excitement,
+        "anxiety": state.anxiety,
+        "drift_bpm": state.drift_bpm,
+        "harmonic_complexity": state.harmonic_complexity,
+        "musical_tension": state.musical_tension,
+        "drift_timbre": state.drift_timbre,
+    }
+    if extra_mood:
+        mood_data.update(extra_mood)
+    mood_snapshot = orjson.dumps(mood_data).decode()
     clip_territory = territory or state.drift_territory
+    duration_s = float(extra_mood["duration_s"]) if extra_mood and "duration_s" in extra_mood else 0.0  # type: ignore[arg-type]
     await conn.execute(
         """
         INSERT INTO audio_clips
@@ -57,7 +68,7 @@ async def index_clip(
             time.time(),
             0.0,
             0,
-            0.0,
+            duration_s,
             mood_snapshot,
             clip_territory,
         ),
@@ -96,7 +107,7 @@ async def find_reusable(
     ago (prevents back-to-back replays). Candidates are ranked by territory,
     BPM proximity, and mood cosine similarity to the current state.
     """
-    import json as _json
+    import orjson as _json
 
     min_last_played = time.time() - cooldown_s
     async with conn.execute(

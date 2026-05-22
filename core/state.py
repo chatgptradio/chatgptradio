@@ -81,6 +81,7 @@ class GlobalState(BaseModel):
     # ── CATEGORY 5: Content State ────────────────────────────────────────────
 
     songs_played_today: int = 0
+    songs_played_today_date: str = ""
     current_song_progress: float = 0.0
     current_track_name: str = ""
     journal_text: str = ""
@@ -91,6 +92,7 @@ class GlobalState(BaseModel):
     queue_length: int = 0
     last_prompt_hash: str = ""
     generation_lag_s: float = 0.0
+    requested_genre: str = ""
 
     # ── CATEGORY 6: System ───────────────────────────────────────────────────
 

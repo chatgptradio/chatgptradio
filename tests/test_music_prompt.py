@@ -189,6 +189,22 @@ def test_territory_blues():
     assert "blues" in result
 
 
+def test_prompt_contains_drift_timbre():
+    from builders.music_prompt import build_music_prompt as bmp
+    for timbre in ("warm", "organic", "digital", "cold", "metallic"):
+        state = GlobalState(drift_timbre=timbre)
+        result = bmp(state)
+        assert timbre in result, f"drift_timbre '{timbre}' not found in prompt: {result}"
+
+
+def test_prompt_contains_47_seconds():
+    from builders.music_prompt import build_music_prompt as bmp
+    state = GlobalState()
+    result = bmp(state)
+    assert "47 seconds" in result, f"'47 seconds' not found in prompt: {result}"
+    assert "60 seconds" not in result, f"'60 seconds' still present in prompt: {result}"
+
+
 def test_all_15_territories_no_fallback():
     from builders.music_prompt import build_music_prompt as bmp
     territories = [

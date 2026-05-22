@@ -4,8 +4,9 @@ Uses the MediaWiki pageviews API to sum the most recent daily view counts
 for the three pages, then normalises to [0, 1] over 0–50 000 views.
 """
 
-import json
 from typing import Any
+
+import orjson
 
 from collectors.utils import fetch_text, normalize
 from core.node import node
@@ -22,7 +23,7 @@ _VIEWS_HIGH = 50_000.0
 
 
 def _parse_views(text: str) -> float:
-    data = json.loads(text)
+    data = orjson.loads(text)
     pages = data.get("query", {}).get("pages", {})
     total = 0
     for page in pages.values():

@@ -1,13 +1,24 @@
 """Track name generator — GPT-4o-mini produces 'Artist - Track Title' per clip."""
-import json
 import os
 
+import orjson
 import openai
 import structlog
 
 from core.state import GlobalState
 
 log = structlog.get_logger()
+
+_client: openai.AsyncOpenAI | None = None
+
+
+def _get_client() -> openai.AsyncOpenAI:
+    """Return the module-level singleton AsyncOpenAI client, creating it on first use."""
+    global _client
+    if _client is None:
+        _client = openai.AsyncOpenAI()
+    return _client
+
 
 _SYSTEM = """\
 You name AI-generated music tracks for a 24/7 AI radio stream.
@@ -17,9 +28,16 @@ Return JSON only: {"artist": "...", "title": "..."}.
 """
 
 _EMOTION_ORDER = [
-    "excitement", "anxiety", "frustration", "curiosity", "creativity",
-    "wonder", "melancholy", "urgency",
+    "excitement",
+    "anxiety",
+    "frustration",
+    "curiosity",
+    "creativity",
+    "wonder",
+    "melancholy",
+    "urgency",
 ]
+
 
 async def generate_track_name(state: GlobalState) -> str:
     """Return 'Artist - Track Title' via GPT-4o-mini. Empty string on any error."""
@@ -42,8 +60,7 @@ async def generate_track_name(state: GlobalState) -> str:
     )
 
     try:
-        client = openai.AsyncOpenAI(api_key=api_key)
-        resp = await client.chat.completions.create(
+        resp = await _get_client().chat.completions.create(
             model="gpt-4o-mini",
             max_tokens=20,
             response_format={"type": "json_object"},
@@ -55,7 +72,7 @@ async def generate_track_name(state: GlobalState) -> str:
         content = resp.choices[0].message.content
         if not content:
             return ""
-        data = json.loads(content)
+        data = orjson.loads(content)
         return f"{data['artist']} - {data['title']}"
     except Exception:
         log.warning("track_namer_error", territory=state.drift_territory)

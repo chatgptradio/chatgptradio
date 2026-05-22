@@ -84,7 +84,9 @@ async def test_collect_returns_correct_keys_on_success():
 
     assert "openai_status" in result
     assert "openai_incident_age_h" in result
+    assert "openai_latency_ms" in result
     assert result["openai_status"] == 1.0
+    assert result["openai_latency_ms"] >= 0.0
 
 
 async def test_collect_outage_returns_zero():
@@ -106,3 +108,26 @@ async def test_collect_outage_returns_zero():
         result = await collect(GlobalState())
 
     assert result["openai_status"] == 0.0
+    assert "openai_latency_ms" in result
+    assert result["openai_latency_ms"] >= 0.0
+
+
+async def test_collect_latency_ms_is_positive():
+    from collectors.openai_status import collect
+    from core.state import GlobalState
+
+    mock_resp = AsyncMock()
+    mock_resp.raise_for_status = MagicMock()
+    mock_resp.text = AsyncMock(return_value=_OK_RSS)
+    mock_resp.__aenter__ = AsyncMock(return_value=mock_resp)
+    mock_resp.__aexit__ = AsyncMock(return_value=False)
+
+    mock_session = AsyncMock()
+    mock_session.get = MagicMock(return_value=mock_resp)
+    mock_session.__aenter__ = AsyncMock(return_value=mock_session)
+    mock_session.__aexit__ = AsyncMock(return_value=False)
+
+    with patch("collectors.openai_status.aiohttp.ClientSession", return_value=mock_session):
+        result = await collect(GlobalState())
+
+    assert result["openai_latency_ms"] > 0.0

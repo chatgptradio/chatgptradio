@@ -5,11 +5,11 @@ mentioning "ChatGPT" (English, up to 50 per call).  Volume is normalised
 against a 200-article ceiling; sentiment is averaged VADER on article titles.
 """
 
-import json
 import os
 from typing import Any
 from urllib.parse import urlencode
 
+import orjson
 import structlog
 
 from collectors.utils import fetch_text, normalize, vader_sentiment
@@ -31,8 +31,8 @@ def _parse_response(text: str) -> tuple[float, float]:
     Handles missing / malformed responses defensively.
     """
     try:
-        data = json.loads(text)
-    except (json.JSONDecodeError, ValueError):
+        data = orjson.loads(text)
+    except (orjson.JSONDecodeError, ValueError):
         return 0.0, 0.0
 
     # EventRegistry envelope: {"articles": {"results": [...], "totalResults": N}}

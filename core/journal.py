@@ -121,7 +121,7 @@ async def run_journal(
                 ctx = await load_memory_context(conn, state)
                 prompt = _build_user_prompt(state, ctx)
                 resp = await client.chat.completions.create(
-                    model="gpt-4o",
+                    model="gpt-4o-mini",
                     max_tokens=120,
                     messages=[
                         {"role": "system", "content": _SYSTEM},

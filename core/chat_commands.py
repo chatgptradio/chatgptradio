@@ -10,7 +10,7 @@ import asyncio
 import aiosqlite
 
 from core.audio_library import find_by_display_name
-from core.command_engine import CommandEngine, VALID_GENRES, VALID_VIBES
+from core.command_engine import CommandEngine, VALID_GENRES
 from core.scene_rotator import SCENE_CYCLE
 from core.state import GlobalState
 
@@ -47,14 +47,14 @@ async def handle_command(
 
     # ── !vibe ─────────────────────────────────────────────────────────────────
     if cmd == "!vibe":
-        valid = ", ".join(VALID_VIBES)
-        if not arg or arg not in VALID_VIBES:
+        valid = ", ".join(VALID_GENRES)
+        if not arg or arg not in VALID_GENRES:
             return f"unknown mode. available: {valid}"
         remaining = cmd_engine.cooldown_remaining("vibe", arg)
         if remaining > 0:
             return f"vibe +1 for {arg} (cooldown {remaining:.0f}s)"
-        idx = VALID_VIBES.index(arg)
-        next_mode = VALID_VIBES[(idx + 1) % len(VALID_VIBES)]
+        idx = VALID_GENRES.index(arg)
+        next_mode = VALID_GENRES[(idx + 1) % len(VALID_GENRES)]
         cmd_engine.try_vibe(arg)
         cmd_engine.push("vibe", arg)
         return f"vibe +1 → {next_mode}"

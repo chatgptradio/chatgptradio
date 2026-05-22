@@ -4,8 +4,9 @@ Fetches the top 30 HN stories matching AI/ChatGPT, computes the average
 points, and normalises to [0, 1] over the range 0–500 points.
 """
 
-import json
 from typing import Any
+
+import orjson
 
 from collectors.utils import fetch_text, normalize
 from core.node import node
@@ -19,7 +20,7 @@ _POINTS_HIGH = 500.0
 
 
 def _parse_hn(text: str) -> float:
-    data = json.loads(text)
+    data = orjson.loads(text)
     hits = data.get("hits", [])
     if not hits:
         return 0.0

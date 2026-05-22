@@ -73,7 +73,7 @@ async def run() -> None:
     browser_task = asyncio.create_task(run_browser_display(browser_ready))
 
     playback_queue: asyncio.Queue[_PathType] = asyncio.Queue(maxsize=4)
-    audio_task = asyncio.create_task(run_audio_queue(state, updater.queue, db_conn, playback_queue))
+    audio_task = asyncio.create_task(run_audio_queue(state, updater.queue, db_conn, playback_queue, cmd_engine=cmd_engine))
     dsp_task = asyncio.create_task(run_dsp(state, playback_queue, updater.queue, browser_ready=browser_ready))
     journal_task = asyncio.create_task(run_journal(state, updater.queue, db_conn))
     events = build_event_list(config.calendar)

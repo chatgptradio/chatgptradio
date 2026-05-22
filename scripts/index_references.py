@@ -29,6 +29,7 @@ if _env_path.exists():
             os.environ.setdefault(_k.strip(), _v.strip())
 
 import numpy as np  # noqa: E402
+import scipy.stats  # noqa: E402
 
 sys.path.insert(0, str(Path(__file__).parent.parent))
 import librosa  # noqa: E402
@@ -91,9 +92,10 @@ def _detect_territory(filename: str, bpm: float) -> str:
 
 
 _CHROMATIC_NOTES = ["C", "C#", "D", "D#", "E", "F", "F#", "G", "G#", "A", "A#", "B"]
+_TIMBRE_SEQUENCE = ["warm", "organic", "digital", "cold", "metallic"]
 
 def _detect_key(y: np.ndarray, sr: int) -> str:
-    chroma = librosa.feature.chroma_stft(y=y, sr=sr)
+    chroma = librosa.feature.chroma_cqt(y=y, sr=sr)
     mean_chroma = chroma.mean(axis=1)
     root = int(np.argmax(mean_chroma))
     # Rough major/minor heuristic: compare 3rd vs minor 3rd energy
@@ -108,6 +110,9 @@ def _analyse(path: Path) -> dict:
     print(f"  Analysing {path.name}…", end=" ", flush=True)
     y, sr = librosa.load(str(path), sr=22050, mono=True, duration=120.0)
 
+    # 2f. Real duration (must be before musical_tension which uses it)
+    duration_s = float(librosa.get_duration(y=y, sr=sr))
+
     tempo, _ = librosa.beat.beat_track(y=y, sr=sr)
     bpm = float(np.atleast_1d(tempo)[0])
 
@@ -118,38 +123,82 @@ def _analyse(path: Path) -> dict:
     # Normalise RMS → excitement [0, 1] (typical RMS range for music: 0.02 – 0.25)
     excitement = float(np.clip(rms / 0.15, 0.0, 1.0))
 
-    spectral_centroid = float(librosa.feature.spectral_centroid(y=y, sr=sr).mean())
-    # Normalise centroid → harmonic_complexity [0, 1] (typical range: 500 – 4000 Hz)
-    harmonic_complexity = float(np.clip((spectral_centroid - 500) / 3500, 0.0, 1.0))
+    # 2a. chroma_cqt already used in _detect_key; compute here for harmonic_complexity
+    chroma = librosa.feature.chroma_cqt(y=y, sr=sr)
 
-    spectral_rolloff = float(librosa.feature.spectral_rolloff(y=y, sr=sr).mean())
-    # Normalise rolloff → musical_tension [0, 1]
-    musical_tension = float(np.clip((spectral_rolloff - 1000) / 7000, 0.0, 1.0))
+    # 2b. harmonic_complexity via chroma entropy (normalised to [0, 1])
+    entropy = scipy.stats.entropy(chroma.mean(axis=1) + 1e-10)
+    harmonic_complexity = float(entropy / np.log(12))
 
-    zcr = float(librosa.feature.zero_crossing_rate(y).mean())
-    # High ZCR → anxious/tense texture
-    anxiety = float(np.clip(zcr / 0.15, 0.0, 1.0))
+    # 2c. musical_tension via onset density (onset density 0–10 onsets/s → [0, 1])
+    onsets = librosa.onset.onset_detect(y=y, sr=sr)
+    musical_tension = min(float(len(onsets) / max(duration_s, 1.0)) / 10.0, 1.0)
+
+    # 2d. drift_timbre via MFCC[1] centroid
+    mfcc = librosa.feature.mfcc(y=y, sr=sr, n_mfcc=13)
+    mfcc_centroid = float(mfcc[1].mean())
+    if mfcc_centroid < -20:
+        drift_timbre = "warm"
+    elif mfcc_centroid < -5:
+        drift_timbre = "organic"
+    elif mfcc_centroid < 10:
+        drift_timbre = "digital"
+    elif mfcc_centroid < 25:
+        drift_timbre = "cold"
+    else:
+        drift_timbre = "metallic"
+
+    # 2e. Trim silence boundaries
+    _, trim_indices = librosa.effects.trim(y, top_db=30)
+    trim_start_s = float(trim_indices[0] / sr)
+    trim_end_s = float(trim_indices[1] / sr)
+
+    # 2g. MFCC fingerprint — 20 coefficients
+    mfcc_full = librosa.feature.mfcc(y=y, sr=sr, n_mfcc=20)
+    mfcc_fingerprint = mfcc_full.mean(axis=1).tolist()
+
+    # BUG15. anxiety via IOI (inter-onset interval) entropy
+    onset_times = librosa.frames_to_time(
+        librosa.onset.onset_detect(y=y, sr=sr), sr=sr
+    )
+    if len(onset_times) > 2:
+        ioi = np.diff(onset_times)
+        anxiety = float(min(scipy.stats.entropy(np.histogram(ioi, bins=10)[0] + 1e-10) / np.log(10), 1.0))
+    else:
+        anxiety = 0.0
 
     print(f"BPM={bpm:.0f} key={key} territory={territory}")
     return {
         "drift_bpm": bpm,
         "drift_key": key,
         "drift_territory": territory,
-        "drift_timbre": "warm",   # default — librosa doesn't distinguish timbre well
+        "drift_timbre": drift_timbre,
         "excitement": excitement,
         "harmonic_complexity": harmonic_complexity,
         "musical_tension": musical_tension,
         "anxiety": anxiety,
         "world_temperature": 0.5,
         "crisis_level": 0.0,
+        # Extra fields stored in mood_snapshot (not GlobalState fields)
+        "_trim_start_s": trim_start_s,
+        "_trim_end_s": trim_end_s,
+        "_mfcc_fingerprint": mfcc_fingerprint,
+        "_duration_s": duration_s,
     }
 
 
-def _make_state(fields: dict) -> GlobalState:
+def _make_state(fields: dict) -> tuple[GlobalState, dict[str, object]]:
+    """Return (state, extra_mood) — state contains GlobalState fields, extra_mood contains
+    supplemental analysis values (prefixed with '_') to be merged into mood_snapshot."""
     state = GlobalState()
+    extra_mood: dict[str, object] = {}
     for k, v in fields.items():
-        setattr(state, k, v)
-    return state
+        if k.startswith("_"):
+            # Strip leading underscore for storage key
+            extra_mood[k[1:]] = v
+        else:
+            setattr(state, k, v)
+    return state, extra_mood
 
 
 async def index_references(force: bool = False) -> None:
@@ -197,9 +246,12 @@ async def index_references(force: bool = False) -> None:
 
         try:
             fields = await asyncio.to_thread(_analyse, path)
-            state  = _make_state(fields)
+            state, extra_mood = _make_state(fields)
             prompt = f"reference track: {path.stem}"
-            await index_clip(conn, path, state, prompt, source="reference", display_name=display_name)
+            await index_clip(
+                conn, path, state, prompt,
+                source="reference", display_name=display_name, extra_mood=extra_mood,
+            )
             print(f"  Indexed: {path.name}")
             new_count += 1
         except Exception as e:

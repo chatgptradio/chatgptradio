@@ -1,7 +1,6 @@
 """Tests for CommandEngine — cooldowns, push/pop, vibe/request routing."""
 from core.command_engine import (
     VALID_GENRES,
-    VALID_VIBES,
     CommandEngine,
     _REQUEST_COOLDOWN_S,
     _SWITCH_COOLDOWN_S,
@@ -87,9 +86,9 @@ def test_cooldown_remaining_request_fresh_is_zero():
     assert CommandEngine().cooldown_remaining("request", "jazz") == 0.0
 
 
-def test_valid_vibes_non_empty_strings():
-    assert len(VALID_VIBES) > 0
-    assert all(isinstance(v, str) for v in VALID_VIBES)
+def test_valid_genres_is_non_empty_strings():
+    assert len(VALID_GENRES) > 0
+    assert all(isinstance(v, str) for v in VALID_GENRES)
 
 
 def test_valid_genres_non_empty_strings():

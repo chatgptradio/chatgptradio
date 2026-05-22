@@ -11,16 +11,6 @@ import time
 
 _SWITCH_COOLDOWN_S: float = 300.0
 
-VALID_VIBES: tuple[str, ...] = (
-    "ambient",
-    "electronic",
-    "jazz",
-    "industrial",
-    "neoclassical",
-    "experimental",
-    "drone",
-)
-
 VALID_GENRES: tuple[str, ...] = (
     "ambient",
     "electronic",

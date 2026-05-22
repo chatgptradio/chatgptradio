@@ -1,3 +1,4 @@
+import time
 import xml.etree.ElementTree as ET
 from datetime import datetime, timezone
 from typing import Any
@@ -50,10 +51,16 @@ def _parse_status(xml_text: str) -> tuple[float, float]:
     reads=["openai_latency_ms", "openai_incident_age_h"],
 )
 async def collect(state: GlobalState) -> dict[str, Any]:
+    t0 = time.perf_counter()
     async with aiohttp.ClientSession() as session:
         async with session.get(_RSS_URL, timeout=aiohttp.ClientTimeout(total=_TIMEOUT_S)) as resp:
             resp.raise_for_status()
             text = await resp.text()
+    latency_ms = (time.perf_counter() - t0) * 1000.0
 
     status, incident_age_h = _parse_status(text)
-    return {"openai_status": status, "openai_incident_age_h": incident_age_h}
+    return {
+        "openai_status": status,
+        "openai_incident_age_h": incident_age_h,
+        "openai_latency_ms": latency_ms,
+    }
