@@ -221,11 +221,11 @@ Résultat : Chromium GPU process 156% → 102% CPU (−35%).
 
 ---
 
-## Audio Transitions & Librosa — Sprint 1+2 (2026-05-22)
+## Audio Transitions & Librosa — Sprints 1–4 (2026-05-22)
 
 PRD : `.claude/prds/audio-transitions-librosa.md` | Plan : `.claude/plans/quizzical-tinkering-feather.md`
 ADR : [ADR-0007](adr/0007-emotion-synthesis.md)
-410 tests verts après Sprint 1+2 (partiel).
+**474 tests verts** (Sprint 3 terminé).
 
 ### Sprint 1 — Fondations ✅ TERMINÉ (PRs #187 #189 #190 mergés — 2026-05-22)
 

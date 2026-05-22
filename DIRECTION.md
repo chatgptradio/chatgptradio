@@ -419,6 +419,21 @@ Représentation : forme d'énergie abstraite Three.js (pulse, contracte, couleur
 | 2026-05-22 | DSP rebuild toutes les 5s dans la boucle PCM : `_build_chain(state)` toutes les `_5S_CHUNKS` itérations — réactivité crisis_level mid-clip sans redémarrage | VALIDÉ |
 | 2026-05-22 | `current_song_progress` calculé depuis bytes écrits réels (pas durée estimée) — dénominateur = `len(raw) * 4` bytes | VALIDÉ |
 | 2026-05-22 | Collecteur `system_metrics` (psutil) : hour_utc, day_of_week, cpu_percent, memory_percent, uptime_h — signaux contexte système dans le self-model | VALIDÉ |
+| 2026-05-22 | Crossfade sans écho — `_pending_tail` : stocker les derniers `_CROSSFADE_SAMPLES` frames AVANT écriture FFmpeg, blender au prochain clip. Chaque frame écrit exactement une fois. | VALIDÉ |
+| 2026-05-22 | Crisis cache : `_build_crisis_cache()` au démarrage + rebuild sur delta `crisis_level > 0.15`. Bypass `last_prompt_hash` en crise active (urgence prime sur la déduplication). | VALIDÉ |
+| 2026-05-22 | DB `audio_key` : colonne idempotente via `PRAGMA table_info`. `_key_score()` cercle des quintes (+2.0/+1.0/0.0). MFCC cosine distance dans `find_reusable()`. `mfcc_fingerprint: list[float]` dans GlobalState. | VALIDÉ |
+| 2026-05-22 | Analyse librosa post-génération en background (`_analyze_clip_async`) : BPM, key via chroma_cqt, MFCC 20 coeff, trim, energy_rms. Guard `_HAS_LIBROSA` pour runtime sans librosa. | VALIDÉ |
+| 2026-05-22 | Boucle feedback audio → self_model via `state_queue` : `audio_bpm_delta`, `audio_key_match`, `audio_energy_level` après lecture complète. ADR-0001 respecté (pas d'écriture directe). | VALIDÉ |
+| 2026-05-22 | Effects chain crisis 4 niveaux : tier1 HighShelf (cr>0.3), tier2 Reverb wet (existant), tier3 GSMFullRateCompressor (cr>0.71), tier4 MP3Compressor+Bitcrush (cr>0.91). Dégradation sonore proportionnelle à la panne infrastructure. | VALIDÉ |
+| 2026-05-22 | LadderFilter toujours actif dans la chaîne DSP : cutoff ∝ drift_velocity (200Hz→20kHz), résonance ∝ harmonic_complexity. Delay+Phaser conditionnels territoires psych/experimental uniquement (NO FAKE). | VALIDÉ |
+| 2026-05-22 | Transitions DJ au crossfade : T1 EQ 3-bandes (LowShelf -12dB basses jamais doublées), T2 LadderFilter sweep 20kHz→200Hz (vitesse ∝ drift_velocity), T3 reverb throw last 0.5s. | VALIDÉ |
+| 2026-05-22 | Audio-to-audio pre-stretch : time-stretch référence au drift_bpm cible avant encodage base64. Skip si delta < 2 BPM. Ratio clamped [0.5, 2.0]. | VALIDÉ |
+| 2026-05-22 | Strength a2a data-driven : `clamp(0.3 + drift_velocity*0.3 + crisis_level*0.2 + key_distance*0.2, 0.3, 0.9)` où key_distance = cercle des quintes normalisé [0,1]. | VALIDÉ |
+| 2026-05-22 | Quality gating références : fill_ratio < 0.7 → score -2.0 dans find_reference(). Décision a2a vs texte-seul : source_divergence > 0.7 ET MFCC distance > 0.6 → génération texte-seul. | VALIDÉ |
+| 2026-05-22 | rhythmic_entropy réel si `signal_baselines["audio_ioi_variance"]` disponible, sinon proxy (frustration*0.5 + crisis_level*0.5). Bascule automatique sans régression. | VALIDÉ |
+| 2026-05-22 | Journal enrichi : event_label, event_intensity, world_event_burst, urgency, drift_velocity, detected BPM réel ajoutés à `_build_user_prompt()`. | VALIDÉ |
+| 2026-05-22 | `num_inference_steps` adaptatif : 6 (queue vide — vitesse), 14 (queue saine + CPU < 70% — qualité), 8 (CPU chargé — équilibre). Exporté depuis `builders/music_prompt.py`. | VALIDÉ |
+| 2026-05-22 | Prompt musical enrichi (Bloc 12) : event_label si event_intensity > 0.3, territory age après 2h/4h, polytonalité/atonalité selon source_divergence > 0.6/0.8. Tous conditionnels (NO FAKE). | VALIDÉ |
 
 ---
 
