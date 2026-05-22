@@ -125,7 +125,20 @@ async def init_db(path: str) -> aiosqlite.Connection:
     except Exception:
         pass
 
+    await _migrate_audio_key(conn)
+
     return conn
+
+
+async def _migrate_audio_key(conn: aiosqlite.Connection) -> None:
+    """Idempotent migration: add audio_key column to audio_clips if missing."""
+    async with conn.execute("PRAGMA table_info(audio_clips)") as cur:
+        cols = [row[1] async for row in cur]
+    if "audio_key" not in cols:
+        await conn.execute(
+            "ALTER TABLE audio_clips ADD COLUMN audio_key TEXT DEFAULT ''"
+        )
+        await conn.commit()
 
 
 async def persist_snapshot(conn: aiosqlite.Connection, state: GlobalState) -> None:

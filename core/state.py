@@ -132,4 +132,6 @@ class GlobalState(BaseModel):
     melancholy: float = 0.0  # quiet contemplation, low engagement
     urgency: float = 0.0     # rate-of-change + crisis pressure
 
+    mfcc_fingerprint: list[float] = Field(default_factory=list)
+
     updated_at: datetime = Field(default_factory=lambda: datetime.now(timezone.utc))

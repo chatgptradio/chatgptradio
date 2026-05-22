@@ -6,7 +6,13 @@ from pathlib import Path
 
 import pytest
 
-from core.audio_library import cleanup_ghost_paths, find_by_display_name, find_reusable, index_clip
+from core.audio_library import (
+    _key_score,
+    cleanup_ghost_paths,
+    find_by_display_name,
+    find_reusable,
+    index_clip,
+)
 from core.db import init_db
 from core.state import GlobalState
 
@@ -322,3 +328,67 @@ async def test_cleanup_ghost_paths_deletes_all_when_all_missing(tmp_db, tmp_path
     async with tmp_db.execute("SELECT COUNT(*) FROM audio_clips") as cur:
         row = await cur.fetchone()
     assert row[0] == 0
+
+
+# ── _key_score ────────────────────────────────────────────────────────────────
+
+
+def test_key_score_same_key():
+    assert _key_score("C", "C") == 2.0
+
+
+def test_key_score_adjacent_circle():
+    # C and G are adjacent in the circle of fifths
+    assert _key_score("C", "G") == 1.0
+    assert _key_score("G", "C") == 1.0
+
+
+def test_key_score_distant():
+    # C and F# are diametrically opposite (distance 6) — score 0
+    assert _key_score("C", "F#") == 0.0
+
+
+def test_key_score_empty():
+    assert _key_score("", "C") == 0.0
+    assert _key_score("C", "") == 0.0
+    assert _key_score("", "") == 0.0
+
+
+# ── find_reusable key matching ─────────────────────────────────────────────────
+
+
+@pytest.mark.asyncio
+async def test_find_reusable_prefers_key_match(tmp_db, tmp_path):
+    """find_reusable returns the clip whose tonality is compatible with state.drift_key."""
+    state = GlobalState(drift_territory="ambient", drift_key="C")
+
+    clip_c = tmp_path / "clip_c.mp3"
+    clip_c.write_bytes(b"fake")
+    clip_fsharp = tmp_path / "clip_fsharp.mp3"
+    clip_fsharp.write_bytes(b"fake")
+
+    # Both clips share the same territory; only key differs
+    await index_clip(
+        tmp_db,
+        clip_c,
+        state,
+        prompt="clip in C",
+        display_name="Track C",
+        territory="ambient",
+        extra_mood={"drift_key": "C"},
+    )
+    await index_clip(
+        tmp_db,
+        clip_fsharp,
+        state,
+        prompt="clip in F#",
+        display_name="Track F#",
+        territory="ambient",
+        extra_mood={"drift_key": "F#"},
+    )
+
+    result = await find_reusable(tmp_db, state)
+    assert result is not None
+    path, display_name = result
+    assert path == clip_c
+    assert display_name == "Track C"

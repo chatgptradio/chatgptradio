@@ -7,6 +7,7 @@ from pathlib import Path
 from typing import Literal
 
 import aiosqlite
+import numpy as np
 import orjson
 import structlog
 
@@ -15,6 +16,26 @@ from core.state import GlobalState
 log = structlog.get_logger()
 
 AudioSource = Literal["generated", "uploaded", "external", "reference", "fal_derived"]
+
+_CIRCLE = ["C", "G", "D", "A", "E", "B", "F#", "Db", "Ab", "Eb", "Bb", "F"]
+
+
+def _key_score(key_a: str, key_b: str) -> float:
+    """+2.0 same key, +1.0 adjacent in circle of fifths, 0.0 otherwise."""
+    if not key_a or not key_b:
+        return 0.0
+    ka = key_a.split("/")[0].strip()
+    kb = key_b.split("/")[0].strip()
+    if ka == kb:
+        return 2.0
+    try:
+        ia = _CIRCLE.index(ka)
+        ib = _CIRCLE.index(kb)
+        if min(abs(ia - ib), 12 - abs(ia - ib)) == 1:
+            return 1.0
+    except ValueError:
+        pass
+    return 0.0
 
 
 async def index_clip(
@@ -47,18 +68,23 @@ async def index_clip(
     mood_snapshot = orjson.dumps(mood_data).decode()
     clip_territory = territory or state.drift_territory
     duration_s = float(extra_mood["duration_s"]) if extra_mood and "duration_s" in extra_mood else 0.0  # type: ignore[arg-type]
+    if extra_mood and "drift_key" in extra_mood:
+        audio_key = str(extra_mood["drift_key"])
+    else:
+        audio_key = state.drift_key
     await conn.execute(
         """
         INSERT INTO audio_clips
             (path, prompt, source, display_name, created_at, last_played_at,
-             play_count, duration_s, mood_snapshot, territory)
-        VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+             play_count, duration_s, mood_snapshot, territory, audio_key)
+        VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
         ON CONFLICT(path) DO UPDATE SET
             prompt        = excluded.prompt,
             source        = excluded.source,
             display_name  = excluded.display_name,
             mood_snapshot = excluded.mood_snapshot,
-            territory     = excluded.territory
+            territory     = excluded.territory,
+            audio_key     = excluded.audio_key
         """,
         (
             str(path),
@@ -71,6 +97,7 @@ async def index_clip(
             duration_s,
             mood_snapshot,
             clip_territory,
+            audio_key,
         ),
     )
     await conn.commit()
@@ -112,7 +139,7 @@ async def find_reusable(
     min_last_played = time.time() - cooldown_s
     async with conn.execute(
         """
-        SELECT path, display_name, territory, mood_snapshot FROM audio_clips
+        SELECT path, display_name, territory, mood_snapshot, audio_key FROM audio_clips
         WHERE play_count < ? AND source != 'reference'
           AND (last_played_at IS NULL OR last_played_at < ?)
         ORDER BY last_played_at ASC
@@ -120,7 +147,10 @@ async def find_reusable(
         """,
         (max_play_count, min_last_played),
     ) as cur:
-        rows = [dict(zip(["path", "display_name", "territory", "mood_snapshot"], row)) async for row in cur]
+        rows = [
+            dict(zip(["path", "display_name", "territory", "mood_snapshot", "audio_key"], row))
+            async for row in cur
+        ]
 
     def _score(row: dict) -> float:
         s = 0.0
@@ -136,6 +166,17 @@ async def find_reusable(
             norm = (ref_exc**2 + ref_anx**2) ** 0.5 * (state.excitement**2 + state.anxiety**2) ** 0.5
             if norm > 0:
                 s += dot / norm
+            # Key compatibility scoring via circle of fifths
+            audio_key = snap.get("audio_key") or row.get("audio_key") or ""
+            s += _key_score(audio_key, state.drift_key)
+            # MFCC cosine similarity
+            ref_mfcc = snap.get("mfcc_fingerprint")
+            if ref_mfcc and state.mfcc_fingerprint:
+                ref_vec = np.array(ref_mfcc, dtype=np.float32)
+                cur_vec = np.array(state.mfcc_fingerprint, dtype=np.float32)
+                norm_mfcc = np.linalg.norm(ref_vec) * np.linalg.norm(cur_vec)
+                if norm_mfcc > 0:
+                    s += float(np.dot(ref_vec, cur_vec) / norm_mfcc)
         except Exception:
             pass
         return s
