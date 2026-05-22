@@ -1157,20 +1157,20 @@ GlobalState (83 champs), StateUpdater, SQLite WAL, self_model EMA, drift momentu
 - `songs_played_today` / `songs_played_total` incrémentés après chaque clip ✅ PR #155
 - HUD : chat-status, song name, RAF 24fps, SynapseMode crash fix ✅ PR #150
 
-**Sprint 1 — 2026-05-22 (ADR-0007, PRs #187 ✅ #189 #190 ⏳ — 406 tests)**
-- `_synthesize_emotions()` : 5 émotions actives depuis z-scores PEs → `world_temperature`, `musical_tension`, `harmonic_complexity` non-nuls en production (ADR-0007)
+**Sprint 1 — 2026-05-22 ✅ (ADR-0007, PRs #187 #189 #190 — 410 tests)**
+- `_synthesize_emotions()` : 5 émotions actives depuis z-scores PEs → `world_temperature`, `musical_tension`, `harmonic_complexity` non-nuls en production (ADR-0007) ✅ PR #189
 - `drift_velocity` + `drift_energy` calculés dans `update_drift()` ✅ PR #187
 - 15 territoires tous atteignables (electronic, industrial, jazz, neoclassical, noise)
-- 13 bugs corrigés : CommandEngine wiring, VALID_VIBES, mark_played, purge, prompt timbre/durée, orjson migration (7 fichiers), openai_latency_ms, collecteur system_metrics
-- Corrections métriques librosa : chroma_cqt, entropie harmonique, densité d'onsets, timbre MFCC, anxiety IOI
-- DSP : `current_song_progress` en boucle PCM + DSP rebuild toutes les 5s
+- 13 bugs corrigés : CommandEngine wiring, VALID_VIBES, mark_played, purge, prompt timbre/durée, orjson migration (7 fichiers), openai_latency_ms, collecteur system_metrics ✅ PR #189
+- Corrections métriques librosa : chroma_cqt, entropie harmonique, densité d'onsets, timbre MFCC, anxiety IOI ✅ PR #189
+- DSP : `current_song_progress` en boucle PCM + DSP rebuild toutes les 5s ✅ PR #190
 
-**Sprint 2 — en cours (issues #170, #171, #175–#177)**
-- #170 Crossfade sans écho (`_pending_tail`)
-- #171 Crisis cache au démarrage + génération urgente sur delta > 0.15
-- #175 DB `audio_key` + key scoring + MFCC distance dans `find_reusable()`
-- #176 Analyse librosa post-génération
-- #177 Boucle feedback audio → self_model
+**Sprint 2 — en cours (issues #170 ✅ #171 ✅ #175 ⏳ #176 #177)**
+- #170 Crossfade sans écho (`_pending_tail`) ✅ PR #191
+- #171 Crisis cache au démarrage + génération urgente sur delta > 0.15 ✅ PR #192
+- #175 DB `audio_key` + key scoring + MFCC distance dans `find_reusable()` ⏳ PR #193
+- #176 Analyse librosa post-génération ❌ (attend #175)
+- #177 Boucle feedback audio → self_model ❌ (attend #175)
 
 **Prochaine étape structurelle**
 - YouTube broadcast auto-lifecycle (`core/youtube.py`) — rotation toutes les 8h

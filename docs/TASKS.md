@@ -221,47 +221,47 @@ Résultat : Chromium GPU process 156% → 102% CPU (−35%).
 
 ---
 
-## Audio Transitions & Librosa — Sprint 1 (2026-05-22)
+## Audio Transitions & Librosa — Sprint 1+2 (2026-05-22)
 
 PRD : `.claude/prds/audio-transitions-librosa.md` | Plan : `.claude/plans/quizzical-tinkering-feather.md`
 ADR : [ADR-0007](adr/0007-emotion-synthesis.md)
-406 tests verts après Sprint 1.
+410 tests verts après Sprint 1+2 (partiel).
 
-### Sprint 1 — Fondations (PRs ouverts — en attente de merge)
+### Sprint 1 — Fondations ✅ TERMINÉ (PRs #187 #189 #190 mergés — 2026-05-22)
 
 | Issue | Titre | Fichier(s) | PR | État |
 |-------|-------|------------|-----|------|
-| #157 | ADR-0007 : couche de synthèse émotionnelle | `docs/adr/0007-emotion-synthesis.md` | #157 commit 7e0a390 | ✅ mergé |
-| #158 | `_synthesize_emotions()` — activation couche émotionnelle | `core/updater.py` | #189 | ⏳ PR ouvert |
-| #159 | `mark_played()` après succès génération (BUG7) | `core/audio_queue.py` | #189 | ⏳ PR ouvert |
-| #160 | Fusionner VALID_VIBES/VALID_GENRES (BUG3) | `core/command_engine.py`, `core/chat_commands.py` | #189 | ⏳ PR ouvert |
-| #161 | `songs_played_today` reset UTC minuit (BUG6) | `core/updater.py`, `core/state.py` | #189 | ⏳ PR ouvert |
-| #162 | `drift_timbre` dans prompt + "47 seconds" (BUG9+BUG10) | `builders/music_prompt.py` | #189 | ⏳ PR ouvert |
-| #163 | `json` → `orjson` dans 7 fichiers (BUG11) | `core/audio_queue.py`, `collectors/newsapi.py`, et 5 autres | #189 | ⏳ PR ouvert |
-| #164 | `purge_old_data()` au démarrage (BUG8) | `main.py` | #189 | ⏳ PR ouvert |
-| #165 | Journal `gpt-4o` → `gpt-4o-mini` + client OpenAI singleton (Bloc 6) | `core/journal.py`, `core/track_namer.py` | #189 | ⏳ PR ouvert |
-| #166 | Restaurer MusicVector au redémarrage (Bloc 8-F) | `core/memory.py` | #189 | ⏳ PR ouvert |
-| #167 | `openai_latency_ms` mesuré (BUG12) | `collectors/openai_status.py` | #189 | ⏳ PR ouvert |
-| #168 | `current_song_progress` mis à jour en boucle PCM (BUG4+BUG5) | `core/dsp.py` | #190 | ⏳ PR ouvert |
-| #169 | DSP rebuild toutes les 5s (Bloc 8-A) | `core/dsp.py` | #190 | ⏳ PR ouvert |
-| #173 | CommandEngine wiring dans audio_queue (BUG1) | `core/audio_queue.py`, `main.py` | #189 | ⏳ PR ouvert |
-| #174 | Corrections métriques librosa (Blocs 2a-g + BUG15) | `scripts/index_references.py` | #189 | ⏳ PR ouvert |
-| #184 | Collecteur système (hour_utc, cpu_percent, memory_percent, uptime_h) | `collectors/system_metrics.py` | #189 | ⏳ PR ouvert |
-| BUG13/C5 | `drift_velocity` + `drift_energy` dans `update_drift()` | `core/drift.py` | #187 | ✅ mergé |
+| #157 | ADR-0007 : couche de synthèse émotionnelle | `docs/adr/0007-emotion-synthesis.md` | commit 7e0a390 | ✅ |
+| #158 | `_synthesize_emotions()` — activation couche émotionnelle | `core/updater.py` | #189 | ✅ |
+| #159 | `mark_played()` après succès génération (BUG7) | `core/audio_queue.py` | #189 | ✅ |
+| #160 | Fusionner VALID_VIBES/VALID_GENRES (BUG3) | `core/command_engine.py`, `core/chat_commands.py` | #189 | ✅ |
+| #161 | `songs_played_today` reset UTC minuit (BUG6) | `core/updater.py`, `core/state.py` | #189 | ✅ |
+| #162 | `drift_timbre` dans prompt + "47 seconds" (BUG9+BUG10) | `builders/music_prompt.py` | #189 | ✅ |
+| #163 | `json` → `orjson` dans 7 fichiers (BUG11) | `core/audio_queue.py`, `collectors/newsapi.py`, et 5 autres | #189 | ✅ |
+| #164 | `purge_old_data()` au démarrage (BUG8) | `main.py` | #189 | ✅ |
+| #165 | Journal `gpt-4o` → `gpt-4o-mini` + client OpenAI singleton (Bloc 6) | `core/journal.py`, `core/track_namer.py` | #189 | ✅ |
+| #166 | Restaurer MusicVector au redémarrage (Bloc 8-F) | `core/memory.py` | #189 | ✅ |
+| #167 | `openai_latency_ms` mesuré (BUG12) | `collectors/openai_status.py` | #189 | ✅ |
+| #168 | `current_song_progress` mis à jour en boucle PCM (BUG4+BUG5) | `core/dsp.py` | #190 | ✅ |
+| #169 | DSP rebuild toutes les 5s (Bloc 8-A) | `core/dsp.py` | #190 | ✅ |
+| #173 | CommandEngine wiring dans audio_queue (BUG1) | `core/audio_queue.py`, `main.py` | #189 | ✅ |
+| #174 | Corrections métriques librosa (Blocs 2a-g + BUG15) | `scripts/index_references.py` | #189 | ✅ |
+| #184 | Collecteur système (hour_utc, cpu_percent, memory_percent, uptime_h) | `collectors/system_metrics.py` | #189 | ✅ |
+| BUG13/C5 | `drift_velocity` + `drift_energy` dans `update_drift()` | `core/drift.py` | #187 | ✅ |
 
-**Résumé Sprint 1 :** couche émotionnelle active (world_temperature/musical_tension/harmonic_complexity non-nulles), 15 territoires atteignables, 13 bugs corrigés, métriques librosa correctes, 406 tests.
+**Résumé Sprint 1 :** couche émotionnelle active (world_temperature/musical_tension/harmonic_complexity non-nulles), 15 territoires atteignables, 13 bugs corrigés, métriques librosa correctes, 410 tests.
 
 ---
 
-### Sprint 2 — Audio quality (après merge Sprint 1)
+### Sprint 2 — Audio quality (EN COURS 🔄 — 2026-05-22)
 
-| Issue | Titre | Fichier(s) | État |
-|-------|-------|------------|------|
-| #170 | Crossfade sans écho (BUG4) — `_pending_tail` entre clips | `core/dsp.py` | ❌ AFK ready-for-agent |
-| #171 | Crisis cache au démarrage + génération urgente sur delta > 0.15 (Bloc 8-B+C) | `core/audio_queue.py` | ❌ AFK ready-for-agent |
-| #175 | DB schema `audio_key` + key scoring + MFCC distance dans `find_reusable()` (Blocs 3a-e) | `core/db.py`, `core/audio_library.py` | ❌ AFK ready-for-agent |
-| #176 | Analyse librosa des clips générés en post-génération (Bloc 4a) | `core/audio_queue.py`, `scripts/index_references.py` | ❌ AFK ready-for-agent |
-| #177 | Boucle feedback audio → self_model (audio_bpm_delta, audio_key_match) (Bloc 5a+5b) | `core/dsp.py`, `core/audio_queue.py` | ❌ AFK ready-for-agent |
+| Issue | Titre | Fichier(s) | PR | État |
+|-------|-------|------------|-----|------|
+| #170 | Crossfade sans écho — `_pending_tail` entre clips | `core/dsp.py` | #191 | ✅ mergé |
+| #171 | Crisis cache au démarrage + delta trigger + bypass prompt-hash (Bloc 8-B+C) | `core/audio_queue.py` | #192 | ✅ mergé |
+| #175 | DB `audio_key` + cercle des quintes scoring + MFCC cosine dans `find_reusable()` (Blocs 3a-e) | `core/db.py`, `core/audio_library.py`, `core/state.py` | #193 | ⏳ PR ouvert |
+| #176 | Analyse librosa des clips générés en post-génération (Bloc 4a) | `core/audio_queue.py`, `scripts/index_references.py` | — | ❌ AFK (attend #175) |
+| #177 | Boucle feedback audio → self_model (audio_bpm_delta, audio_key_match) (Bloc 5a+5b) | `core/dsp.py`, `core/audio_queue.py` | — | ❌ AFK (attend #175) |
 
 ### Sprint 3 — DJ transitions (après Sprint 2)
 

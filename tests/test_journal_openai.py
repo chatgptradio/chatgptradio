@@ -15,9 +15,9 @@ def test_uses_openai_not_anthropic() -> None:
 
 @pytest.mark.asyncio
 async def test_journal_uses_gpt4o() -> None:
-    """Journal must use gpt-4o model and contain no legacy provider references."""
+    """Journal must use gpt-4o-mini model and contain no legacy provider references."""
     source = open(jmod.__file__).read()
-    assert "gpt-4o" in source, "gpt-4o model must be referenced in journal.py"
+    assert "gpt-4o-mini" in source, "gpt-4o-mini model must be referenced in journal.py"
     assert "claude" not in source.lower(), "no legacy model references allowed"
     assert "anthropic" not in source.lower(), "anthropic must not appear in journal.py"
 
@@ -91,4 +91,4 @@ async def test_run_journal_uses_openai_client() -> None:
                     mock_openai_cls.assert_called_once_with(api_key="test-key")
                     mock_client.chat.completions.create.assert_called_once()
                     call_kwargs = mock_client.chat.completions.create.call_args
-                    assert call_kwargs.kwargs.get("model") == "gpt-4o"
+                    assert call_kwargs.kwargs.get("model") == "gpt-4o-mini"
