@@ -385,10 +385,20 @@ async def run_dsp(
     _pending_tail: np.ndarray | None = None  # unwritten tail — blended into next clip's head
 
     def _start_ffmpeg() -> subprocess.Popen[bytes]:
-        return subprocess.Popen(
+        import fcntl
+        p = subprocess.Popen(
             ffmpeg_cmd, stdin=subprocess.PIPE,
             stdout=subprocess.DEVNULL, stderr=subprocess.PIPE,
         )
+        # Increase audio pipe buffer to 1MB (default 64KB = 0.36s).
+        # asyncio jitter can cause 200-500ms gaps in PCM writes; 1MB = 5.7s of headroom
+        # so FFmpeg's A/V sync never starves waiting for audio.
+        if p.stdin is not None:
+            try:
+                fcntl.fcntl(p.stdin.fileno(), 1031, 1024 * 1024)  # F_SETPIPE_SZ = 1031
+            except OSError:
+                pass
+        return p
 
     proc: subprocess.Popen[bytes] = await loop.run_in_executor(None, _start_ffmpeg)
     log.info("dsp_ffmpeg_started")
@@ -401,6 +411,11 @@ async def run_dsp(
                 log.info("ffmpeg_stderr", msg=line.decode(errors="replace").rstrip())
 
     asyncio.create_task(_log_stderr(proc))
+
+    # Pre-fill audio pipe with 2s of silence so FFmpeg A/V sync never starves at startup
+    if proc.stdin is not None:
+        pre_silence = bytes(_SR * 4 * 2)  # 2s stereo int16 silence
+        await loop.run_in_executor(None, proc.stdin.write, pre_silence)
 
     try:
         while True:
