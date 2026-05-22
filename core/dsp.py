@@ -52,7 +52,11 @@ def _stretch_ratio(drift_bpm: float) -> float:
     return drift_bpm / 90.0
 
 
-def _build_chain(state: GlobalState) -> Pedalboard:
+def _build_chain(
+    state: GlobalState,
+    progress: float = 0.0,
+    burst_reverb: bool = False,
+) -> Pedalboard:
     wt = state.world_temperature
     cr = state.crisis_level
     mt = state.musical_tension
@@ -62,15 +66,48 @@ def _build_chain(state: GlobalState) -> Pedalboard:
     ur = state.excitement
     hc = state.harmonic_complexity
 
+    # RT1 — Intra-clip DSP automation (NO FAKE: only active when excitement > 0.3 OR urgency > 0.4)
+    active = state.excitement > 0.3 or state.urgency > 0.4
+
+    # Build-up phase: progress 0→0.5 — LadderFilter opens progressively
+    if active:
+        if progress <= 0.5:
+            auto_cutoff = 300.0 + (progress / 0.5) * 19700.0  # 300→20000 Hz
+        else:
+            auto_cutoff = 20000.0  # fully open after drop
+    else:
+        auto_cutoff = 0.0  # unused when inactive
+
+    # Release phase: progress 0.8→1.0 — Reverb wet level decreases
+    if active and progress >= 0.8:
+        release_t = (progress - 0.8) / 0.2  # 0→1 over [0.8, 1.0]
+        auto_reverb_factor = 1.0 - release_t
+    else:
+        auto_reverb_factor = 1.0
+
     # DSP+2 — LadderFilter: cutoff tracks drift_velocity (always active)
     # Low cutoff when stable, opens as drift accelerates
     ladder_cutoff = _clamp(200.0 + state.drift_velocity * 19800.0, 200.0, 20000.0)
+    # RT1 override: if automation is active, use progress-driven cutoff
+    if active:
+        ladder_cutoff = _clamp(auto_cutoff, 200.0, 20000.0)
     ladder_resonance = _clamp(hc * 0.8, 0.0, 1.0)
+
+    # Reverb wet level: state-driven, then scaled by release factor
+    wet = _clamp(0.1 + cr * 0.5 + me * 0.2, 0.0, 1.0)
+    wet = _clamp(wet * auto_reverb_factor, 0.0, 1.0)
+
+    # RT2 — world_event_burst: force wet=1.0 and room=0.95 for this rebuild window
+    if burst_reverb:
+        wet = 1.0
+        room = 0.95
+    else:
+        room = _clamp(0.2 + wt * 0.4 + cr * 0.25, 0.0, 1.0)
 
     effects: list = [
         Reverb(
-            room_size=_clamp(0.2 + wt * 0.4 + cr * 0.25, 0.0, 1.0),
-            wet_level=_clamp(0.1 + cr * 0.5 + me * 0.2, 0.0, 1.0),
+            room_size=room,
+            wet_level=wet,
         ),
         HighShelfFilter(
             cutoff_frequency_hz=8000.0,
@@ -451,11 +488,15 @@ async def run_dsp(
             try:
                 if proc.stdin is not None:
                     chunk_idx = 0
-                    board = _build_chain(state)  # initial chain for this clip
+                    board = _build_chain(state, progress=0.0)  # initial chain for this clip
                     for frame_start in range(0, total_frames, _CHUNK_SAMPLES):
                         # Rebuild DSP chain every 5 s — no audio gap, affects next chunks only
                         if chunk_idx > 0 and chunk_idx % _5S_CHUNKS == 0:
-                            board = _build_chain(state)
+                            progress = min(bytes_written / total_bytes, 1.0) if total_bytes > 0 else 0.0
+                            if state.world_event_burst:
+                                board = _build_chain(state, progress=progress, burst_reverb=True)
+                            else:
+                                board = _build_chain(state, progress=progress)
                         chunk_frames = raw_to_write[frame_start : frame_start + _CHUNK_SAMPLES]
                         # Apply DSP to this chunk (reset=False keeps Reverb tail across chunks)
                         dsp_chunk = board(chunk_frames.T, _SR, reset=False).T

@@ -70,6 +70,8 @@ def update_drift(current: MusicVector, state: GlobalState, dt_h: float) -> Music
     new_bpm_momentum = state.drift_momentum.get("bpm", 0.0) * damping + bpm_force * dt_h
     state.drift_momentum["bpm"] = new_bpm_momentum
     new_bpm = _clamp(current.bpm + new_bpm_momentum * 40, 60.0, 140.0)
+    # RT3 — Rate limit: max ±8 BPM per call (prevents abrupt jumps from large PE spikes)
+    new_bpm = _clamp(new_bpm, current.bpm - 8.0, current.bpm + 8.0)
 
     # ── KEY ──────────────────────────────────────────────────────────────────
     tension_error = pe.get("anxiety", 0.0) + pe.get("frustration", 0.0)
