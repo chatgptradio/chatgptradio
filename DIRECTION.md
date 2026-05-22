@@ -1165,12 +1165,12 @@ GlobalState (83 champs), StateUpdater, SQLite WAL, self_model EMA, drift momentu
 - Corrections métriques librosa : chroma_cqt, entropie harmonique, densité d'onsets, timbre MFCC, anxiety IOI ✅ PR #189
 - DSP : `current_song_progress` en boucle PCM + DSP rebuild toutes les 5s ✅ PR #190
 
-**Sprint 2 — en cours (issues #170 ✅ #171 ✅ #175 ⏳ #176 #177)**
+**Sprint 2 — 2026-05-22 ✅ (PRs #191 #192 #193 #194 #195 — 419 tests)**
 - #170 Crossfade sans écho (`_pending_tail`) ✅ PR #191
 - #171 Crisis cache au démarrage + génération urgente sur delta > 0.15 ✅ PR #192
-- #175 DB `audio_key` + key scoring + MFCC distance dans `find_reusable()` ⏳ PR #193
-- #176 Analyse librosa post-génération ❌ (attend #175)
-- #177 Boucle feedback audio → self_model ❌ (attend #175)
+- #175 DB `audio_key` + key scoring + MFCC distance dans `find_reusable()` ✅ PR #193
+- #176 Analyse librosa post-génération (BPM, key, MFCC, trim, energy) ✅ PR #194
+- #177 Boucle feedback audio → self_model (`audio_bpm_delta`, `audio_key_match`, `audio_energy_level`) ✅ PR #195
 
 **Prochaine étape structurelle**
 - YouTube broadcast auto-lifecycle (`core/youtube.py`) — rotation toutes les 8h

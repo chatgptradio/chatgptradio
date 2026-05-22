@@ -253,15 +253,17 @@ ADR : [ADR-0007](adr/0007-emotion-synthesis.md)
 
 ---
 
-### Sprint 2 — Audio quality (EN COURS 🔄 — 2026-05-22)
+### Sprint 2 — Audio quality ✅ TERMINÉ (PRs #191 #192 #193 #194 #195 — 2026-05-22 — 419 tests)
 
 | Issue | Titre | Fichier(s) | PR | État |
 |-------|-------|------------|-----|------|
-| #170 | Crossfade sans écho — `_pending_tail` entre clips | `core/dsp.py` | #191 | ✅ mergé |
-| #171 | Crisis cache au démarrage + delta trigger + bypass prompt-hash (Bloc 8-B+C) | `core/audio_queue.py` | #192 | ✅ mergé |
-| #175 | DB `audio_key` + cercle des quintes scoring + MFCC cosine dans `find_reusable()` (Blocs 3a-e) | `core/db.py`, `core/audio_library.py`, `core/state.py` | #193 | ⏳ PR ouvert |
-| #176 | Analyse librosa des clips générés en post-génération (Bloc 4a) | `core/audio_queue.py`, `scripts/index_references.py` | — | ❌ AFK (attend #175) |
-| #177 | Boucle feedback audio → self_model (audio_bpm_delta, audio_key_match) (Bloc 5a+5b) | `core/dsp.py`, `core/audio_queue.py` | — | ❌ AFK (attend #175) |
+| #170 | Crossfade sans écho — `_pending_tail` entre clips | `core/dsp.py` | #191 | ✅ |
+| #171 | Crisis cache au démarrage + delta trigger + bypass prompt-hash (Bloc 8-B+C) | `core/audio_queue.py` | #192 | ✅ |
+| #175 | DB `audio_key` + cercle des quintes scoring + MFCC cosine dans `find_reusable()` (Blocs 3a-e) | `core/db.py`, `core/audio_library.py`, `core/state.py` | #193 | ✅ |
+| #176 | Analyse librosa des clips générés en post-génération (Bloc 4a) | `core/audio_queue.py` | #194 | ✅ |
+| #177 | Boucle feedback audio → self_model (audio_bpm_delta, audio_key_match) (Bloc 5a+5b) | `core/dsp.py`, `main.py` | #195 | ✅ |
+
+**Résumé Sprint 2 :** crossfade sans écho, crisis cache opérationnel, clé harmonique en DB + scoring cercle des quintes, analyse librosa post-génération en background, boucle feedback audio → self_model via state_queue. 419 tests.
 
 ### Sprint 3 — DJ transitions (après Sprint 2)
 
