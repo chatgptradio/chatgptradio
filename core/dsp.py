@@ -331,11 +331,14 @@ async def run_dsp(
 
     if use_x11grab:
         video_input = [
-            # thread_queue_size prevents x11grab queue blocking that silences video stream.
-            # 32 = 2s buffer at 15fps. 512 would pre-alloc 512×3.5MB=1.8GB of X11 shared mem.
-            "-thread_queue_size", "32",
+            # thread_queue_size: 4 = 4s buffer at 1fps capture.
+            # Capture at 1fps but output at 10fps (9 duplicate P-frames per second) —
+            # duplicate P-frames are trivial to encode; CBR filler pads to 2500k.
+            # At 5fps, x11grab/SwiftShader lock contention caused speed=0.6x (queue stall).
+            # At 1fps, speed=0.987x in testing — stable encoding with headroom for Python+Chrome.
+            "-thread_queue_size", "4",
             "-f", "x11grab",
-            "-framerate", "15",            # 15fps — réduit charge CPU SwiftShader sur VPS sans GPU
+            "-framerate", "1",             # 1fps capture → 10fps output via fps= filter below
             "-video_size", "1280x720",
             "-draw_mouse", "0",
             "-i", f"{display}.0",
@@ -343,7 +346,7 @@ async def run_dsp(
     else:
         video_input = [
             "-f", "lavfi",
-            "-i", "color=c=0x0a0a1a:s=1280x720:r=15",
+            "-i", "color=c=0x0a0a1a:s=1280x720:r=10",
         ]
 
     video_encode = [
@@ -351,8 +354,12 @@ async def run_dsp(
         # nal-hrd=cbr forces filler NAL units so libx264 actually hits 2500k on static content
         # (without it, skip-heavy frames produce ~200-500 Kbps despite minrate=2500k)
         "-b:v", "2500k", "-minrate", "2500k", "-maxrate", "2500k", "-bufsize", "5000k",
-        "-x264opts", "nal-hrd=cbr:force-cfr=1",
-        "-g", "30",                        # keyframe every 2s at 15fps (YouTube requires ≤4s)
+        # threads=2: match CPU core count (default=3 causes contention on 2-core VPS)
+        # threads=2: match CPU core count. vsync=cfr+fps_mode ensures 10fps output
+        # from 5fps x11grab by duplicating frames (tiny P-frames + CBR filler).
+        "-vf", "fps=10",                   # duplicate 5fps capture → 10fps declared output
+        "-x264opts", "nal-hrd=cbr:force-cfr=1:threads=2",
+        "-g", "20",                        # keyframe every 2s at 10fps (YouTube requires ≤4s)
         "-pix_fmt", "yuv420p",
     ]
     if not use_x11grab:

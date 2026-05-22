@@ -68,9 +68,9 @@ const scene = new THREE.Scene();
 scene.background = new THREE.Color(0x000510);
 const camera = new THREE.PerspectiveCamera(55, innerWidth/innerHeight, 0.1, 500);
 camera.position.set(0, 0, 22);
-const renderer = new THREE.WebGLRenderer({antialias:true});
+const renderer = new THREE.WebGLRenderer({antialias:false, powerPreference:'low-power'});
 renderer.setSize(innerWidth, innerHeight);
-renderer.setPixelRatio(1);
+renderer.setPixelRatio(0.5);  // render at 640x360 internally — 4× less SwiftShader work
 document.body.prepend(renderer.domElement);
 scene.add(new THREE.AmbientLight(0x112233, 2));
 const fill = new THREE.PointLight(0x00D4FF, 3, 60);
@@ -1081,7 +1081,7 @@ function connect() {
 connect();
 
 // ── Render loop ───────────────────────────────────────────────────────────────
-const _FRAME_MS = 1000 / 10;  // floor 10fps — réduit SwiftShader CPU sur VPS sans GPU
+const _FRAME_MS = 1000 / 8;  // 8fps — reduces SwiftShader CPU on VPS (no GPU)
 let _lastFrameTime = 0;
 
 function animate(now = 0) {

@@ -48,6 +48,7 @@ async def run_browser_display(
 
     async def _start_chromium() -> asyncio.subprocess.Process:
         return await asyncio.create_subprocess_exec(
+            "nice", "-n", "10",              # lower priority: yield CPU to FFmpeg encoder
             chromium_bin,
             "--no-sandbox",
             "--disable-gpu",
