@@ -11,7 +11,22 @@ import orjson
 import pyloudnorm as pyln
 import pyrubberband
 import structlog
-from pedalboard import Chorus, Compressor, Gain, HighShelfFilter, Limiter, PitchShift, Reverb  # type: ignore[attr-defined]
+from pedalboard import (  # type: ignore[attr-defined]
+    Bitcrush,
+    Chorus,
+    Compressor,
+    Delay,
+    Gain,
+    GSMFullRateCompressor,
+    HighShelfFilter,
+    LadderFilter,
+    Limiter,
+    LowShelfFilter,
+    MP3Compressor,
+    Phaser,
+    PitchShift,
+    Reverb,
+)
 from pedalboard._pedalboard import Pedalboard
 from pedalboard.io import AudioFile
 
@@ -47,7 +62,12 @@ def _build_chain(state: GlobalState) -> Pedalboard:
     ur = state.excitement
     hc = state.harmonic_complexity
 
-    return Pedalboard([
+    # DSP+2 — LadderFilter: cutoff tracks drift_velocity (always active)
+    # Low cutoff when stable, opens as drift accelerates
+    ladder_cutoff = _clamp(200.0 + state.drift_velocity * 19800.0, 200.0, 20000.0)
+    ladder_resonance = _clamp(hc * 0.8, 0.0, 1.0)
+
+    effects: list = [
         Reverb(
             room_size=_clamp(0.2 + wt * 0.4 + cr * 0.25, 0.0, 1.0),
             wet_level=_clamp(0.1 + cr * 0.5 + me * 0.2, 0.0, 1.0),
@@ -63,14 +83,126 @@ def _build_chain(state: GlobalState) -> Pedalboard:
         Gain(gain_db=_clamp(ae * 3 + em * 2, -12.0, 12.0)),
         PitchShift(semitones=_clamp(ur * 0.5 - me * 0.3, -12.0, 12.0)),
         Chorus(depth=_clamp(hc * 0.8, 0.0, 1.0)),
-        Limiter(threshold_db=-1.0),
-    ])
+        # DSP+2 — LadderFilter: resonant sweep driven by drift_velocity and harmonic_complexity
+        LadderFilter(
+            mode=LadderFilter.LPF12,
+            cutoff_hz=ladder_cutoff,
+            resonance=ladder_resonance,
+            drive=1.0,
+        ),
+    ]
+
+    # DSP+3 — Delay: territory-conditional (psych/experimental only — NO FAKE)
+    # Only active when drift carries the signal into psychedelic or experimental space
+    if state.drift_territory in ("psych", "experimental"):
+        delay_feedback = _clamp(state.source_divergence * 0.4, 0.0, 0.6)
+        delay_mix = _clamp(state.source_divergence * 0.3, 0.0, 0.4)
+        effects.append(Delay(delay_seconds=0.375, feedback=delay_feedback, mix=delay_mix))
+
+        # DSP+4 — Phaser: territory-conditional (psych/experimental only — NO FAKE)
+        # Rate and depth driven by drift_velocity and harmonic_complexity respectively
+        phaser_depth = _clamp(hc * 0.8, 0.0, 1.0)
+        phaser_rate = _clamp(0.5 + state.drift_velocity * 2.0, 0.1, 3.0)
+        effects.append(Phaser(rate_hz=phaser_rate, depth=phaser_depth, mix=0.5))
+
+    # DSP+1 — Crisis hierarchy tier 3: telephony artefacts (cr > 0.71, proportional)
+    # gsm_mix is 0 at cr=0.7, 1 at cr=0.9 — only included when contribution is non-zero
+    if cr > 0.71:
+        effects.append(GSMFullRateCompressor())
+
+    # DSP+1 — Crisis hierarchy tier 4: system falling apart (cr > 0.91)
+    # bitcrush_depth degrades from 8 bits down to 2 bits as crisis peaks
+    if cr > 0.91:
+        mp3_mix = _clamp((cr - 0.9) / 0.1, 0.0, 1.0)
+        bitcrush_depth = int(_clamp(8.0 - mp3_mix * 6.0, 2.0, 8.0))
+        effects.extend([
+            MP3Compressor(vbr_quality=9.0),
+            Bitcrush(bit_depth=bitcrush_depth),
+        ])
+
+    effects.append(Limiter(threshold_db=-1.0))
+    return Pedalboard(effects)
 
 
 def _crossfade_arrays(a: np.ndarray, b: np.ndarray, sr: int) -> np.ndarray:
     n = len(a)
     t = np.linspace(0.0, 1.0, n, dtype=np.float32)[:, np.newaxis]
     return a * (1.0 - t) + b * t
+
+
+def _apply_transition_eq(
+    outgoing_tail: np.ndarray,
+    incoming_head: np.ndarray,
+    state: GlobalState,
+    sr: int,
+) -> tuple[np.ndarray, np.ndarray]:
+    """T1 — EQ crossfade 3-band: cut bass from outgoing, cut bass from incoming head.
+
+    Basses never double at transition — outgoing low-end fades before incoming
+    low-end is restored by the normal DSP chain.
+    """
+    out_board = Pedalboard([LowShelfFilter(cutoff_frequency_hz=200.0, gain_db=-12.0)])
+    in_board = Pedalboard([LowShelfFilter(cutoff_frequency_hz=200.0, gain_db=-12.0)])
+    processed_out = out_board(outgoing_tail.T, sr).T.astype(np.float32)
+    processed_in = in_board(incoming_head.T, sr).T.astype(np.float32)
+    return processed_out, processed_in
+
+
+def _apply_filter_sweep(
+    audio: np.ndarray,
+    state: GlobalState,
+    sr: int,
+    direction: str = "close",
+) -> np.ndarray:
+    """T2 — LadderFilter sweep driven by drift_velocity.
+
+    direction="close": outgoing tail sweeps 20kHz → cutoff (filter closes).
+    direction="open":  incoming head sweeps cutoff → 20kHz (filter opens).
+    sweep_speed is proportional to drift_velocity so faster drift = more dramatic sweep.
+    """
+    n = len(audio)
+    if n == 0:
+        return audio
+    sweep_speed = _clamp(0.3 + state.drift_velocity * 0.7, 0.3, 1.0)
+    if direction == "close":
+        start_hz = 20000.0
+        end_hz = max(200.0, 20000.0 * (1.0 - sweep_speed))
+    else:
+        start_hz = max(200.0, 20000.0 * (1.0 - sweep_speed))
+        end_hz = 20000.0
+    chunk = max(1, n // 10)
+    out = np.empty_like(audio)
+    for i in range(10):
+        t = i / 9.0
+        cutoff = start_hz + (end_hz - start_hz) * t
+        board = Pedalboard([LadderFilter(cutoff_hz=cutoff, resonance=0.3)])
+        s = i * chunk
+        e = s + chunk if i < 9 else n
+        if s >= n:
+            break
+        seg = audio[s:e]
+        out[s:e] = board(seg.T, sr, reset=False).T.astype(np.float32)
+    return out
+
+
+def _apply_reverb_throw(
+    audio: np.ndarray,
+    sr: int,
+) -> np.ndarray:
+    """T3 — Reverb throw on last beat of outgoing clip.
+
+    Applies wet=1.0 reverb to the last half of the window (last ~0.5 s of a 1 s window),
+    creating a hard DJ-style throw effect at the transition point.
+    """
+    n = len(audio)
+    if n == 0:
+        return audio
+    half = n // 2
+    board = Pedalboard([Reverb(room_size=0.9, wet_level=1.0, dry_level=0.0)])
+    result = audio.copy()
+    if half > 0:
+        result[half:] = board(audio[half:].T, sr).T.astype(np.float32)
+    return result
 
 
 def _read_and_stretch(path: Path, drift_bpm: float) -> np.ndarray:
@@ -288,7 +420,22 @@ async def run_dsp(
             # Blend pending tail from previous clip (never written) with head of this clip.
             if _pending_tail is not None:
                 blend_len = min(len(_pending_tail), len(raw))
-                xfade = _crossfade_arrays(_pending_tail[:blend_len], raw[:blend_len], _SR)
+                tail = _pending_tail[:blend_len].copy()
+                head = raw[:blend_len].copy()
+
+                # T1: EQ crossfade — cut bass on both sides (basses never double)
+                tail, head = _apply_transition_eq(tail, head, state, _SR)
+
+                # T2: filter sweep — outgoing closes, incoming opens (speed = drift_velocity)
+                tail = _apply_filter_sweep(tail, state, _SR, direction="close")
+                head = _apply_filter_sweep(head, state, _SR, direction="open")
+
+                # T3: reverb throw on last ~1 s of outgoing tail
+                last_s = min(_SR, len(tail))
+                if last_s > 0:
+                    tail[-last_s:] = _apply_reverb_throw(tail[-last_s:], _SR)
+
+                xfade = _crossfade_arrays(tail, head, _SR)
                 raw = np.concatenate([xfade, raw[blend_len:]])
                 _pending_tail = None
 
