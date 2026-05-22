@@ -114,7 +114,14 @@ def compute_derived(state: GlobalState) -> None:
 
     state.musical_tension = state.anxiety * 0.5 + state.frustration * 0.5
     state.harmonic_complexity = state.curiosity * 0.6 + state.creativity * 0.4
-    state.rhythmic_entropy = state.frustration * 0.5 + state.crisis_level * 0.5
+
+    # Use real IOI variance from audio analysis if available, else proxy fallback
+    real_re = state.signal_baselines.get("audio_ioi_variance")
+    if real_re is not None and real_re > 0:
+        rhythmic_entropy = _clamp(real_re, 0.0, 1.0)
+    else:
+        rhythmic_entropy = _clamp(state.frustration * 0.5 + state.crisis_level * 0.5, 0.0, 1.0)
+    state.rhythmic_entropy = rhythmic_entropy
 
     active = [getattr(state, s) for s in _SOURCE_SIGNAL_FIELDS if getattr(state, s) != 0.0]
     state.source_divergence = statistics.stdev(active) if len(active) >= 2 else 0.0

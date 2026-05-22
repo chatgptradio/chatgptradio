@@ -53,7 +53,14 @@ def _build_user_prompt(state: GlobalState, ctx: MemoryContext | None = None) -> 
         f"Top prediction errors: {', '.join(f'{k}={v:+.3f}' for k, v in top_errors)}",
         f"Time in territory: {state.time_in_territory_h:.1f}h",
         f"Anomaly score: {state.anomaly_score:.3f}",
+        f"Event: {state.event_label} (intensity {state.event_intensity:.2f})" if state.event_label else "Event: none",
+        f"World event burst: {'YES' if state.world_event_burst else 'no'}",
+        f"Urgency: {state.urgency:.2f}",
+        f"Drift velocity: {state.drift_velocity:.2f}",
     ]
+    detected_bpm = state.signal_baselines.get("audio_detected_bpm")
+    if detected_bpm:
+        lines.append(f"Detected audio BPM: {detected_bpm:.0f} (target: {state.drift_bpm:.0f})")
     if state.viewers > 0:
         lines.append(f"Viewers: {state.viewers}")
 

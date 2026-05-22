@@ -53,8 +53,12 @@ async def generate_track_name(state: GlobalState) -> str:
 
     top2 = sorted(_EMOTION_ORDER, key=sig, reverse=True)[:2]
 
+    detected_bpm = state.signal_baselines.get("audio_detected_bpm")
+    bpm_to_use = f"{detected_bpm:.0f} BPM (detected)" if detected_bpm else f"{state.drift_bpm:.0f} BPM (target)"
+    event_hint = f", event: {state.event_label}" if state.event_label and state.event_intensity > 0.3 else ""
+
     user_msg = (
-        f"territory: {state.drift_territory}, BPM: {state.drift_bpm:.0f}, key: {state.drift_key}\n"
+        f"territory: {state.drift_territory}, {bpm_to_use}, key: {state.drift_key}{event_hint}\n"
         f"dominant emotions: {', '.join(top2)}\n"
         f"crisis: {state.crisis_level:.2f}, world_temperature: {state.world_temperature:.2f}"
     )
