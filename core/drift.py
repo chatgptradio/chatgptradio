@@ -100,4 +100,14 @@ def update_drift(current: MusicVector, state: GlobalState, dt_h: float) -> Music
     else:
         new_territory = current.territory
 
-    return MusicVector(bpm=new_bpm, key=new_key, timbre=new_timbre, territory=new_territory)
+    new_vector = MusicVector(bpm=new_bpm, key=new_key, timbre=new_timbre, territory=new_territory)
+
+    # drift_velocity = vitesse de changement normalisée [0, 1]
+    bpm_momentum = state.drift_momentum.get("bpm", 0.0)
+    territory_changed = float(new_vector.territory != current.territory)
+    state.drift_velocity = float(min(abs(bpm_momentum) * 3.0 + territory_changed * 0.5, 1.0))
+
+    # drift_energy = magnitude du momentum BPM
+    state.drift_energy = float(abs(bpm_momentum))
+
+    return new_vector

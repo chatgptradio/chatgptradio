@@ -148,6 +148,50 @@ def test_derive_territory_darkwave():
     assert result == "darkwave"
 
 
+def test_drift_velocity_nonzero_with_bpm_momentum():
+    """drift_velocity doit être > 0 quand drift_momentum["bpm"] est non nul."""
+    state = make_state()
+    state.drift_momentum = {"bpm": 0.5}
+    state.prediction_errors = {"excitement": 1.0}
+    state.signal_volatilities = {"excitement": 0.1}
+    current = MusicVector()
+    update_drift(current, state, 1.0)
+    assert state.drift_velocity > 0.0
+
+
+def test_drift_energy_nonzero_with_bpm_momentum():
+    """drift_energy doit être > 0 quand drift_momentum["bpm"] est non nul après update."""
+    state = make_state()
+    state.drift_momentum = {"bpm": 0.3}
+    state.prediction_errors = {"excitement": 1.0}
+    state.signal_volatilities = {"excitement": 0.1}
+    current = MusicVector()
+    update_drift(current, state, 1.0)
+    assert state.drift_energy > 0.0
+
+
+def test_drift_velocity_zero_with_zero_momentum_and_same_territory():
+    """drift_velocity doit être 0 si momentum BPM est nul et le territoire ne change pas."""
+    state = make_state()
+    state.drift_momentum = {"bpm": 0.0}
+    state.prediction_errors = {}
+    current = MusicVector(territory="ambient")
+    update_drift(current, state, 0.01)
+    assert state.drift_velocity == pytest.approx(0.0)
+    assert state.drift_energy == pytest.approx(0.0)
+
+
+def test_drift_velocity_capped_at_one():
+    """drift_velocity ne doit jamais dépasser 1.0."""
+    state = make_state()
+    state.drift_momentum = {"bpm": 100.0}
+    state.prediction_errors = {"excitement": 10.0}
+    state.signal_volatilities = {"excitement": 0.01}
+    current = MusicVector()
+    update_drift(current, state, 1.0)
+    assert state.drift_velocity <= 1.0
+
+
 def test_all_15_territories_reachable():
     """Each of the 15 territories must be reachable by derive_territory_from_errors."""
     pe_configs: dict[str, tuple[dict[str, float], dict[str, float]]] = {
