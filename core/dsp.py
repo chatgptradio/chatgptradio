@@ -5,7 +5,9 @@ import shutil
 import subprocess
 from pathlib import Path
 
+import aiosqlite
 import numpy as np
+import orjson
 import pyloudnorm as pyln
 import pyrubberband
 import structlog
@@ -96,10 +98,49 @@ def _normalize_lufs(audio: np.ndarray, sr: int) -> np.ndarray:
     return (audio * 10.0 ** (gain_db / 20.0)).astype(np.float32)
 
 
+async def _maybe_emit_audio_feedback(
+    conn: aiosqlite.Connection,
+    clip_path: Path,
+    state: GlobalState,
+    state_queue: asyncio.Queue,
+) -> None:
+    """Read librosa analysis from DB and emit audio feedback signals to self_model."""
+    try:
+        async with conn.execute(
+            "SELECT audio_key, duration_s, mood_snapshot FROM audio_clips WHERE path=?",
+            (str(clip_path),),
+        ) as cur:
+            row = await cur.fetchone()
+        if row is None:
+            return
+        audio_key, duration_s, mood_snapshot_raw = row
+        snap = orjson.loads(mood_snapshot_raw or "{}") if mood_snapshot_raw else {}
+        detected_bpm = snap.get("drift_bpm") or snap.get("audio_bpm")
+        energy_rms = snap.get("energy_rms")
+
+        payload: dict[str, float] = {}
+
+        if detected_bpm is not None:
+            payload["audio_bpm_delta"] = min(abs(float(detected_bpm) - state.drift_bpm) / 80.0, 1.0)
+
+        if audio_key:
+            payload["audio_key_match"] = 1.0 if audio_key.split()[0] == state.drift_key.split()[0] else 0.0
+
+        if energy_rms is not None:
+            payload["audio_energy_level"] = float(min(energy_rms, 1.0))
+
+        if payload:
+            await state_queue.put(payload)
+            log.info("audio_feedback_emitted", **payload)
+    except Exception:
+        log.exception("audio_feedback_error", path=str(clip_path))
+
+
 async def run_dsp(
     state: GlobalState,
     playback_queue: asyncio.Queue,
     state_queue: asyncio.Queue,
+    conn: aiosqlite.Connection | None = None,
     browser_ready: asyncio.Event | None = None,
 ) -> None:
     rtmp_url = os.environ.get("RTMP_URL", "")
@@ -293,6 +334,8 @@ async def run_dsp(
                 "songs_played_total": state.songs_played_total + 1,
             })
             playback_queue.task_done()
+            if conn is not None:
+                await _maybe_emit_audio_feedback(conn, clip_path, state, state_queue)
     finally:
         if proc.stdin is not None:
             proc.stdin.close()
