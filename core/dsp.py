@@ -3,6 +3,7 @@ import asyncio
 import os
 import shutil
 import subprocess
+import time as _time
 from pathlib import Path
 
 import aiosqlite
@@ -388,34 +389,38 @@ async def run_dsp(
         import fcntl
         p = subprocess.Popen(
             ffmpeg_cmd, stdin=subprocess.PIPE,
-            stdout=subprocess.DEVNULL, stderr=subprocess.PIPE,
+            stdout=subprocess.DEVNULL, stderr=subprocess.DEVNULL,
         )
-        # Increase audio pipe buffer to 1MB (default 64KB = 0.36s).
-        # asyncio jitter can cause 200-500ms gaps in PCM writes; 1MB = 5.7s of headroom
-        # so FFmpeg's A/V sync never starves waiting for audio.
         if p.stdin is not None:
+            fd = p.stdin.fileno()
+            # Set pipe = batch size (8 chunks × 4096 × 4 bytes = 131,072 bytes ≈ 742ms).
+            # With pipe == batch: every write after the first blocks for exactly one batch
+            # duration while FFmpeg drains it. The blocking os.write() IS the real-time
+            # throttle — no time.sleep() needed, GIL released during entire write.
+            _batch_bytes = _CHUNK_SAMPLES * 8 * 4  # 131,072 bytes
             try:
-                fcntl.fcntl(p.stdin.fileno(), 1031, 1024 * 1024)  # F_SETPIPE_SZ = 1031
+                fcntl.fcntl(fd, 1031, _batch_bytes)  # F_SETPIPE_SZ
             except OSError:
                 pass
+            # Keep pipe in BLOCKING mode — the PCM write thread uses blocking writes
         return p
+
+    async def _pipe_write_async(p: subprocess.Popen[bytes], data: bytes) -> None:
+        """Async write to FFmpeg stdin via executor (non-blocking for event loop)."""
+        if p.stdin is None:
+            return
+        try:
+            await loop.run_in_executor(None, p.stdin.write, data)
+        except OSError:
+            raise BrokenPipeError
 
     proc: subprocess.Popen[bytes] = await loop.run_in_executor(None, _start_ffmpeg)
     log.info("dsp_ffmpeg_started")
 
-    async def _log_stderr(p: subprocess.Popen[bytes]) -> None:
-        assert p.stderr is not None
-        while p.poll() is None:
-            line = await loop.run_in_executor(None, p.stderr.readline)
-            if line:
-                log.info("ffmpeg_stderr", msg=line.decode(errors="replace").rstrip())
-
-    asyncio.create_task(_log_stderr(proc))
-
-    # Pre-fill audio pipe with 2s of silence so FFmpeg A/V sync never starves at startup
+    # Pre-fill with half a batch of silence so FFmpeg has audio before the first write.
     if proc.stdin is not None:
-        pre_silence = bytes(_SR * 4 * 2)  # 2s stereo int16 silence
-        await loop.run_in_executor(None, proc.stdin.write, pre_silence)
+        pre_silence = bytes(_CHUNK_SAMPLES * 4 * 4)  # 4 chunks = 370ms of silence
+        await _pipe_write_async(proc, pre_silence)
 
     try:
         while True:
@@ -431,15 +436,15 @@ async def run_dsp(
                 clip_path = playback_queue.get_nowait()
             except asyncio.QueueEmpty:
                 # No clip ready — write one silence chunk at real-time rate.
-                if proc.poll() is None and proc.stdin is not None:
+                _t0 = _time.monotonic()
+                if proc.poll() is None:
                     try:
-                        await loop.run_in_executor(
-                            None, proc.stdin.write, bytes(_CHUNK_SAMPLES * 4)
-                        )
+                        await _pipe_write_async(proc, bytes(_CHUNK_SAMPLES * 4))
                     except BrokenPipeError:
                         log.warning("dsp_ffmpeg_pipe_broken")
                         proc = await loop.run_in_executor(None, _start_ffmpeg)
-                await asyncio.sleep(_CHUNK_SAMPLES / _SR)
+                _elapsed = _time.monotonic() - _t0
+                await asyncio.sleep(max(0.0, _CHUNK_SAMPLES / _SR - _elapsed))
                 continue
 
             # Process clip in a background task so we can keep writing silence
@@ -460,16 +465,16 @@ async def run_dsp(
 
             pipe_ok = True
             while not process_task.done():
-                if proc.poll() is None and proc.stdin is not None:
+                _t0 = _time.monotonic()
+                if proc.poll() is None:
                     try:
-                        await loop.run_in_executor(
-                            None, proc.stdin.write, bytes(_CHUNK_SAMPLES * 4)
-                        )
+                        await _pipe_write_async(proc, bytes(_CHUNK_SAMPLES * 4))
                     except BrokenPipeError:
                         log.warning("dsp_ffmpeg_pipe_broken")
                         proc = await loop.run_in_executor(None, _start_ffmpeg)
                         pipe_ok = False
-                await asyncio.sleep(_CHUNK_SAMPLES / _SR)
+                _elapsed = _time.monotonic() - _t0
+                await asyncio.sleep(max(0.0, _CHUNK_SAMPLES / _SR - _elapsed))
 
             raw = await process_task
             if not pipe_ok or len(raw) == 0:
@@ -507,32 +512,58 @@ async def run_dsp(
             bytes_written = 0
             total_bytes = total_frames * 4  # stereo int16 = 4 bytes/sample frame
 
-            try:
-                if proc.stdin is not None:
-                    chunk_idx = 0
-                    board = _build_chain(state, progress=0.0)  # initial chain for this clip
-                    for frame_start in range(0, total_frames, _CHUNK_SAMPLES):
-                        # Rebuild DSP chain every 5 s — no audio gap, affects next chunks only
-                        if chunk_idx > 0 and chunk_idx % _5S_CHUNKS == 0:
-                            progress = min(bytes_written / total_bytes, 1.0) if total_bytes > 0 else 0.0
-                            if state.world_event_burst:
-                                board = _build_chain(state, progress=progress, burst_reverb=True)
-                            else:
-                                board = _build_chain(state, progress=progress)
-                        chunk_frames = raw_to_write[frame_start : frame_start + _CHUNK_SAMPLES]
-                        # Apply DSP to this chunk (reset=False keeps Reverb tail across chunks)
-                        dsp_chunk = board(chunk_frames.T, _SR, reset=False).T
-                        pcm_chunk = (dsp_chunk * 32767).astype(np.int16).tobytes()
-                        await loop.run_in_executor(None, proc.stdin.write, pcm_chunk)
-                        bytes_written += len(pcm_chunk)
-                        # Emit progress ~every 1 s (50 chunks × 4096 / 44100 ≈ 4.6 s → use 50)
-                        if chunk_idx % 50 == 0 and total_bytes > 0:
-                            await state_queue.put({
-                                "current_song_progress": min(bytes_written / total_bytes, 1.0),
-                            })
-                        await asyncio.sleep(len(pcm_chunk) / 4 / _SR)
-                        chunk_idx += 1
-            except BrokenPipeError:
+            # Run PCM write loop in a dedicated thread so time.sleep is used for
+            # precise real-time pacing. asyncio.sleep has ~40ms event-loop scheduling
+            # overhead per chunk under load, which causes audio to run at only 69% real-time.
+            _pipe_broken = False
+
+            def _pcm_write_thread() -> None:
+                nonlocal bytes_written, _pipe_broken
+                chunk_idx = 0
+                _chunk_duration = _CHUNK_SAMPLES / _SR
+                board = _build_chain(state, progress=0.0)
+                fd = proc.stdin.fileno() if proc.stdin is not None else -1
+                if fd < 0:
+                    return
+                # Write in batches of _WRITE_BATCH chunks to amortize GIL acquisition
+                # overhead. Each batch write blocks in C (releases GIL) for most of
+                # the batch duration, leaving little Python code for GIL contention.
+                _WRITE_BATCH = 8   # 8 × 4096 / 44100 ≈ 742ms per write
+                _batch_duration = _CHUNK_SAMPLES * _WRITE_BATCH / _SR
+                pcm_batch: list[bytes] = []
+                for frame_start in range(0, total_frames, _CHUNK_SAMPLES):
+                    if chunk_idx > 0 and chunk_idx % _5S_CHUNKS == 0:
+                        prog = min(bytes_written / total_bytes, 1.0) if total_bytes > 0 else 0.0
+                        if state.world_event_burst:
+                            board = _build_chain(state, progress=prog, burst_reverb=True)
+                        else:
+                            board = _build_chain(state, progress=prog)
+                    chunk_frames = raw_to_write[frame_start : frame_start + _CHUNK_SAMPLES]
+                    dsp_chunk = board(chunk_frames.T, _SR, reset=False).T
+                    pcm_batch.append((dsp_chunk * 32767).astype(np.int16).tobytes())
+                    chunk_idx += 1
+
+                    if len(pcm_batch) == _WRITE_BATCH or frame_start + _CHUNK_SAMPLES >= total_frames:
+                        batch_data = b"".join(pcm_batch)
+                        try:
+                            # Blocking write on a pipe sized to one batch:
+                            # blocks for ~one batch duration until FFmpeg drains space.
+                            # This IS the real-time throttle — GIL released during block.
+                            os.write(fd, batch_data)
+                        except OSError:
+                            _pipe_broken = True
+                            return
+                        bytes_written += len(batch_data)
+                        if total_bytes > 0:
+                            loop.call_soon_threadsafe(
+                                state_queue.put_nowait,
+                                {"current_song_progress": min(bytes_written / total_bytes, 1.0)},
+                            )
+                        pcm_batch = []
+
+            await loop.run_in_executor(None, _pcm_write_thread)
+
+            if _pipe_broken:
                 log.warning("dsp_ffmpeg_pipe_broken")
                 proc = await loop.run_in_executor(None, _start_ffmpeg)
 

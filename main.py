@@ -25,6 +25,13 @@ from core.websocket_server import start_websocket_server
 
 load_dotenv()  # loads .env from cwd or any parent directory
 
+# Increase GIL switch interval from default 5ms to 50ms.
+# The DSP PCM write thread uses time.sleep(92ms) for real-time pacing.
+# With many asyncio coroutines competing for the GIL, the thread wakes up
+# from sleep but waits ~40ms for GIL reacquisition, causing 0.69x audio rate.
+# 50ms intervals give the DSP thread longer uninterrupted runs.
+sys.setswitchinterval(0.05)
+
 log = structlog.get_logger()
 
 
