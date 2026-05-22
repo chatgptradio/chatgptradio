@@ -177,6 +177,45 @@ def test_progress_increases_during_playback() -> None:
         assert b > a, f"progress not increasing: {a} -> {b}"
 
 
+def test_crossfade_no_echo_pending_tail_not_double_written() -> None:
+    """_pending_tail mechanism: the tail held from clip N must not appear in clip N's write window.
+
+    After applying the fix, raw_to_write = raw[:-tail_reserve] — the last tail_reserve frames
+    are held back and NOT written. The crossfade with the next clip blends them once (in xfade),
+    so each frame is written exactly once.
+    """
+    from core.dsp import _CROSSFADE_SAMPLES, _crossfade_arrays
+
+    sr = 44100
+    # Simulate two consecutive clips (mono for simplicity)
+    clip_n = np.linspace(0, 1, sr * 5, dtype=np.float32).reshape(-1, 1).repeat(2, axis=1)
+    clip_n1 = np.linspace(1, 0, sr * 5, dtype=np.float32).reshape(-1, 1).repeat(2, axis=1)
+
+    # --- Clip N processing ---
+    tail_reserve = min(_CROSSFADE_SAMPLES, len(clip_n))
+    pending_tail = clip_n[-tail_reserve:].copy()
+    raw_to_write_n = clip_n[:-tail_reserve]
+
+    # raw_to_write must NOT contain the tail
+    assert len(raw_to_write_n) + len(pending_tail) == len(clip_n)
+    # The tail is not part of raw_to_write_n
+    assert not np.array_equal(raw_to_write_n[-10:], pending_tail[:10])
+
+    # --- Clip N+1 processing ---
+    raw = clip_n1.copy()
+    blend_len = min(len(pending_tail), len(raw))
+    xfade = _crossfade_arrays(pending_tail[:blend_len], raw[:blend_len], sr)
+    raw_blended = np.concatenate([xfade, raw[blend_len:]])
+
+    tail_reserve_n1 = min(_CROSSFADE_SAMPLES, len(raw_blended))
+    raw_to_write_n1 = raw_blended[:-tail_reserve_n1]
+
+    # Total frames written = clip_n body + clip_n1 body (each tail written exactly once via blend)
+    total_written = len(raw_to_write_n) + len(raw_to_write_n1)
+    # Each clip contributes (len - tail_reserve) frames of body + tail_reserve blended at transition
+    assert total_written == 2 * (len(clip_n) - tail_reserve)
+
+
 def test_progress_reaches_one_at_end() -> None:
     """Final progress must be exactly 1.0 regardless of clip length (BUG5 fix — issue #168)."""
     from core.dsp import _CHUNK_SAMPLES

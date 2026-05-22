@@ -121,8 +121,9 @@ async def run_dsp(
 
     if use_x11grab:
         video_input = [
-            # thread_queue_size prevents x11grab queue blocking that silences video stream
-            "-thread_queue_size", "512",
+            # thread_queue_size prevents x11grab queue blocking that silences video stream.
+            # 32 = 2s buffer at 15fps. 512 would pre-alloc 512×3.5MB=1.8GB of X11 shared mem.
+            "-thread_queue_size", "32",
             "-f", "x11grab",
             "-framerate", "15",            # 15fps — réduit charge CPU SwiftShader sur VPS sans GPU
             "-video_size", "1280x720",
@@ -164,7 +165,7 @@ async def run_dsp(
     ]
     loop = asyncio.get_running_loop()
     restart_delay = 2.0
-    prev_audio: np.ndarray | None = None
+    _pending_tail: np.ndarray | None = None  # unwritten tail — blended into next clip's head
 
     def _start_ffmpeg() -> subprocess.Popen[bytes]:
         return subprocess.Popen(
@@ -243,12 +244,19 @@ async def run_dsp(
                 playback_queue.task_done()
                 continue
 
-            if prev_audio is not None:
-                tail_len = min(_CROSSFADE_SAMPLES, len(prev_audio), len(raw))
-                xfade = _crossfade_arrays(prev_audio[-tail_len:], raw[:tail_len], _SR)
-                raw = np.concatenate([xfade, raw[tail_len:]])
+            # Blend pending tail from previous clip (never written) with head of this clip.
+            if _pending_tail is not None:
+                blend_len = min(len(_pending_tail), len(raw))
+                xfade = _crossfade_arrays(_pending_tail[:blend_len], raw[:blend_len], _SR)
+                raw = np.concatenate([xfade, raw[blend_len:]])
+                _pending_tail = None
 
-            total_frames = len(raw)
+            # Hold back the last tail — it will be blended into the next clip's head.
+            tail_reserve = min(_CROSSFADE_SAMPLES, len(raw))
+            _pending_tail = raw[-tail_reserve:].copy()
+            raw_to_write = raw[:-tail_reserve] if tail_reserve < len(raw) else raw
+
+            total_frames = len(raw_to_write)
             bytes_written = 0
             total_bytes = total_frames * 4  # stereo int16 = 4 bytes/sample frame
 
@@ -260,7 +268,7 @@ async def run_dsp(
                         # Rebuild DSP chain every 5 s — no audio gap, affects next chunks only
                         if chunk_idx > 0 and chunk_idx % _5S_CHUNKS == 0:
                             board = _build_chain(state)
-                        chunk_frames = raw[frame_start : frame_start + _CHUNK_SAMPLES]
+                        chunk_frames = raw_to_write[frame_start : frame_start + _CHUNK_SAMPLES]
                         # Apply DSP to this chunk (reset=False keeps Reverb tail across chunks)
                         dsp_chunk = board(chunk_frames.T, _SR, reset=False).T
                         pcm_chunk = (dsp_chunk * 32767).astype(np.int16).tobytes()
@@ -273,7 +281,6 @@ async def run_dsp(
                             })
                         await asyncio.sleep(len(pcm_chunk) / 4 / _SR)
                         chunk_idx += 1
-                    prev_audio = raw
             except BrokenPipeError:
                 log.warning("dsp_ffmpeg_pipe_broken")
                 proc = await loop.run_in_executor(None, _start_ffmpeg)
