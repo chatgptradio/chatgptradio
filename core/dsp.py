@@ -35,13 +35,25 @@ from core.state import GlobalState
 log = structlog.get_logger()
 
 _SR = 44100
-_CROSSFADE_S = 3
+_CROSSFADE_S = 12  # maximum reserve — covers ambient/drone at 12 s
 _CROSSFADE_SAMPLES = _CROSSFADE_S * _SR
 _FFMPEG_RESTART_MAX_S = 60
 _TARGET_LUFS = -14.0
 _MAX_GAIN_DB = 18.0
 _CHUNK_SAMPLES = 4096  # ~93 ms at 44100 Hz — throttles pipe writes to real-time
 _5S_CHUNKS = int(5 * _SR / _CHUNK_SAMPLES)  # ≈ 54 chunks — DSP chain rebuild interval
+
+
+def _crossfade_samples(state: "GlobalState") -> int:
+    """Adaptive crossfade: long for ambient/neoclassical, short for crisis/industrial."""
+    if state.crisis_level > 0.7:
+        return 2 * _SR
+    return {
+        "ambient": 12, "drone": 12,
+        "neoclassical": 10, "jazz": 8,
+        "experimental": 6, "psych": 6,
+        "industrial": 4,
+    }.get(state.drift_territory, 8) * _SR
 
 
 def _clamp(v: float, lo: float, hi: float) -> float:
@@ -92,27 +104,23 @@ def _build_chain(
         ladder_cutoff = _clamp(auto_cutoff, 4000.0, 20000.0)
     ladder_resonance = _clamp(hc * 0.8, 0.0, 1.0)
 
-    # Reverb wet level: state-driven, then scaled by release factor.
-    # Ceiling lowered to 0.20 (was 0.35) — a2a clips already carry the reference
-    # track's acoustic space; adding heavy wet on top created double-reverb mud.
-    # dry_level=0.85 keeps the source clearly audible (was 0.7 — over-attenuated dry).
-    wet = _clamp(cr * 0.25 + me * 0.1, 0.0, 0.20)
+    # Reverb: kept subtle — source audio should dominate.
+    # wet ceiling 0.10, room ceiling 0.40, dry 0.92 keeps presence without mud.
+    wet = _clamp(cr * 0.15 + me * 0.06, 0.0, 0.10)
     wet = _clamp(wet * auto_reverb_factor, 0.0, 1.0)
 
-    # RT2 — world_event_burst: push reverb noticeably higher for this rebuild window
+    # RT2 — world_event_burst: brief dramatic reverb for this rebuild window only
     if burst_reverb:
-        wet = 0.5
-        room = 0.85
+        wet = 0.35
+        room = 0.70
     else:
-        # Room size cap lowered to 0.60 (was 1.0) — room_size=1.0 added a cathedral
-        # reverb tail that persisted audibly for several seconds per chunk.
-        room = _clamp(0.15 + wt * 0.3 + cr * 0.15, 0.0, 0.60)
+        room = _clamp(0.10 + wt * 0.2 + cr * 0.10, 0.0, 0.40)
 
     effects: list = [
         Reverb(
             room_size=room,
             wet_level=wet,
-            dry_level=0.85,
+            dry_level=0.92,
         ),
         HighShelfFilter(
             cutoff_frequency_hz=8000.0,
@@ -135,8 +143,8 @@ def _build_chain(
     # Feedback cap lowered 0.6→0.35, mix cap 0.4→0.25 — at source_divergence=1.0 the
     # previous values produced an audible 3-echo trail that sat on top of a2a reverb.
     if state.drift_territory in ("psych", "experimental"):
-        delay_feedback = _clamp(state.source_divergence * 0.25, 0.0, 0.35)
-        delay_mix = _clamp(state.source_divergence * 0.15, 0.0, 0.25)
+        delay_feedback = _clamp(state.source_divergence * 0.18, 0.0, 0.25)
+        delay_mix = _clamp(state.source_divergence * 0.10, 0.0, 0.15)
         effects.append(Delay(delay_seconds=0.375, feedback=delay_feedback, mix=delay_mix))
 
         # DSP+4 — Phaser: territory-conditional (psych/experimental only — NO FAKE)
@@ -184,9 +192,10 @@ def _build_level_chain(state: GlobalState) -> Pedalboard:
 
 
 def _crossfade_arrays(a: np.ndarray, b: np.ndarray, sr: int) -> np.ndarray:
+    """Equal-power crossfade — constant perceived loudness at the midpoint."""
     n = len(a)
     t = np.linspace(0.0, 1.0, n, dtype=np.float32)[:, np.newaxis]
-    return a * (1.0 - t) + b * t
+    return (a * np.cos(t * np.pi / 2) + b * np.sin(t * np.pi / 2)).astype(np.float32)
 
 
 def _apply_transition_eq(
@@ -584,7 +593,7 @@ async def run_dsp(
 
             # Blend pending tail from previous clip (never written) with head of this clip.
             if _pending_tail is not None:
-                blend_len = min(len(_pending_tail), len(raw))
+                blend_len = min(len(_pending_tail), _crossfade_samples(state), len(raw))
                 tail = _pending_tail[:blend_len].copy()
                 head = raw[:blend_len].copy()
 
