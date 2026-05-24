@@ -33,7 +33,8 @@ def test_build_chain_normal_state() -> None:
     from core.dsp import _build_chain
     chain = _build_chain(GlobalState())
     reverb = next(e for e in chain if isinstance(e, Reverb))
-    assert reverb.room_size == pytest.approx(0.2, abs=0.01)
+    # room = clamp(0.10 + wt*0.2 + cr*0.10, 0, 0.40) → 0.10 at rest
+    assert reverb.room_size == pytest.approx(0.10, abs=0.01)
 
 
 def test_build_chain_crisis_state() -> None:
@@ -41,7 +42,8 @@ def test_build_chain_crisis_state() -> None:
     from core.dsp import _build_chain
     chain = _build_chain(GlobalState(crisis_level=1.0, world_temperature=1.0))
     reverb = next(e for e in chain if isinstance(e, Reverb))
-    assert reverb.room_size == pytest.approx(0.85, abs=0.05)
+    # room = clamp(0.10 + 1.0*0.2 + 1.0*0.10, 0, 0.40) → 0.40 at peak crisis
+    assert reverb.room_size == pytest.approx(0.40, abs=0.05)
 
 
 def test_build_chain_has_limiter() -> None:
@@ -67,7 +69,9 @@ def test_crossfade_shape() -> None:
     b = np.ones((window, 2), dtype=np.float32)
     out = _crossfade_arrays(a, b, sr)
     assert out.shape == (window, 2)
-    assert float(np.mean(np.abs(out[window // 2]))) == pytest.approx(1.0, abs=0.05)
+    # Equal-power crossfade: at midpoint cos(π/4) + sin(π/4) = √2 — amplitude ≈ 1.414.
+    # Power (RMS) is constant; amplitude is intentionally higher than linear crossfade.
+    assert float(np.mean(np.abs(out[window // 2]))) == pytest.approx(2**0.5, abs=0.05)
 
 
 def test_stretch_ratio() -> None:

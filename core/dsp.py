@@ -35,7 +35,7 @@ from core.state import GlobalState
 log = structlog.get_logger()
 
 _SR = 44100
-_CROSSFADE_S = 12  # maximum reserve — covers ambient/drone at 12 s
+_CROSSFADE_S = 10  # maximum reserve — covers ambient/drone at 10 s
 _CROSSFADE_SAMPLES = _CROSSFADE_S * _SR
 _FFMPEG_RESTART_MAX_S = 60
 _TARGET_LUFS = -14.0
@@ -45,15 +45,20 @@ _5S_CHUNKS = int(5 * _SR / _CHUNK_SAMPLES)  # ≈ 54 chunks — DSP chain rebuil
 
 
 def _crossfade_samples(state: "GlobalState") -> int:
-    """Adaptive crossfade: long for ambient/neoclassical, short for crisis/industrial."""
+    """Adaptive crossfade: long for ambient/drone, short for crisis/industrial.
+
+    Tonal territories (neoclassical/jazz) use shorter fades to avoid two melodies
+    overlapping simultaneously — 6 s is long enough for a smooth volume blend
+    without melodic clash.
+    """
     if state.crisis_level > 0.7:
         return 2 * _SR
     return {
-        "ambient": 12, "drone": 12,
-        "neoclassical": 10, "jazz": 8,
+        "ambient": 10, "drone": 10,
+        "neoclassical": 6, "jazz": 6,
         "experimental": 6, "psych": 6,
-        "industrial": 4,
-    }.get(state.drift_territory, 8) * _SR
+        "industrial": 3,
+    }.get(state.drift_territory, 6) * _SR
 
 
 def _clamp(v: float, lo: float, hi: float) -> float:
@@ -597,24 +602,24 @@ async def run_dsp(
                 tail = _pending_tail[:blend_len].copy()
                 head = raw[:blend_len].copy()
 
-                # T1: EQ crossfade — cut bass on both sides (basses never double)
-                tail, head = _apply_transition_eq(tail, head, state, _SR)
-
-                # T2: filter sweep — outgoing closes, incoming opens (speed = drift_velocity)
+                # T2: filter sweep — outgoing closes, incoming opens (speed = drift_velocity).
+                # T1 (bass cut) removed: equal-power crossfade already prevents bass doubling
+                # and the static LowShelf on the incoming head created a spectral click at
+                # the xfade/body boundary (bass cut → full bass at sample blend_len).
+                # T3 (reverb throw) removed: it compounded with the main DSP reverb chain,
+                # producing a reverb burst that was re-processed → muddy transitions.
                 tail = _apply_filter_sweep(tail, state, _SR, direction="close")
                 head = _apply_filter_sweep(head, state, _SR, direction="open")
-
-                # T3: reverb throw on last ~1 s of outgoing tail
-                last_s = min(_SR, len(tail))
-                if last_s > 0:
-                    tail[-last_s:] = _apply_reverb_throw(tail[-last_s:], _SR)
 
                 xfade = _crossfade_arrays(tail, head, _SR)
                 raw = np.concatenate([xfade, raw[blend_len:]])
                 _pending_tail = None
 
             # Hold back the last tail — it will be blended into the next clip's head.
-            tail_reserve = min(_CROSSFADE_SAMPLES, len(raw))
+            # Use _crossfade_samples(state) not _CROSSFADE_SAMPLES: using the constant
+            # (12 s) while blend_len uses the territory value (e.g. 3 s for industrial)
+            # caused 9 s of audio to be held back and then discarded at every transition.
+            tail_reserve = min(_crossfade_samples(state), len(raw))
             _pending_tail = raw[-tail_reserve:].copy()
             raw_to_write = raw[:-tail_reserve] if tail_reserve < len(raw) else raw
 
