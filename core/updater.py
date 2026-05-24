@@ -126,6 +126,31 @@ def compute_derived(state: GlobalState) -> None:
     active = [getattr(state, s) for s in _SOURCE_SIGNAL_FIELDS if getattr(state, s) != 0.0]
     state.source_divergence = statistics.stdev(active) if len(active) >= 2 else 0.0
 
+    # Feed synthesized emotions + derived scalars into the self-model so drift.py
+    # can read them from prediction_errors like any other signal.
+    for _name, _val in (
+        ("excitement",        state.excitement),
+        ("anxiety",           state.anxiety),
+        ("frustration",       state.frustration),
+        ("curiosity",         state.curiosity),
+        ("creativity",        state.creativity),
+        ("world_temperature", state.world_temperature),
+        ("source_divergence", state.source_divergence),
+        ("audience_energy",   state.audience_energy),
+    ):
+        update_self_model(state, _name, _val)
+
+    # Audio feedback loop: feed audio analysis fields into self-model so
+    # prediction_errors track deviations from learned baselines.
+    # Guard: skip default values (0.0 / 0) to avoid polluting baselines
+    # with absence-of-signal noise.
+    if state.audio_bpm_delta > 0:
+        update_self_model(state, "audio_bpm_delta", state.audio_bpm_delta)
+    if state.audio_key_match != 0:
+        update_self_model(state, "audio_key_match", state.audio_key_match)
+    if state.audio_energy_level > 0:
+        update_self_model(state, "audio_energy_level", state.audio_energy_level)
+
     pe = state.prediction_errors
     vol = state.signal_volatilities
 

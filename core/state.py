@@ -65,6 +65,9 @@ class GlobalState(BaseModel):
     drift_territory: str = "ambient"
     time_in_territory_h: float = 0.0
     drift_velocity: float = 0.0
+    audio_bpm_delta: float = 0.0
+    audio_key_match: float = 0.0
+    audio_energy_level: float = 0.0
 
     # ── CATEGORY 4: Audience ─────────────────────────────────────────────────
 
@@ -86,6 +89,7 @@ class GlobalState(BaseModel):
     current_track_name: str = ""
     journal_text: str = ""
     visual_mode: str = "neural"
+    viewer_cmd_label: str = ""
     active_event: str = ""
     event_label: str = ""
     event_intensity: float = 0.0

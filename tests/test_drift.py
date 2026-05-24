@@ -251,3 +251,20 @@ def test_all_15_territories_reachable():
     assert ALL_TERRITORIES == reachable, (
         f"Territories not reachable: {ALL_TERRITORIES - reachable}"
     )
+
+
+def test_territory_fatigue_nudges_bpm():
+    """With time_in_territory_h=8, bpm is strictly higher than with 0."""
+    # Build state with zero PE so only territory_fatigue contributes to bpm_force.
+    state_fatigued = GlobalState(time_in_territory_h=8.0)
+    state_fresh = GlobalState(time_in_territory_h=0.0)
+
+    current_fatigued = MusicVector(bpm=90.0)
+    current_fresh = MusicVector(bpm=90.0)
+
+    result_fatigued = update_drift(current_fatigued, state_fatigued, 1.0)
+    result_fresh = update_drift(current_fresh, state_fresh, 1.0)
+
+    # Territory fatigue must produce a strictly higher BPM after 8h in same territory.
+    # At 8h: fatigue = clamp(8/10 - 0.3, 0, 0.5) = 0.5; nudge = 0.5 * 0.1 = 0.05
+    assert result_fatigued.bpm > result_fresh.bpm

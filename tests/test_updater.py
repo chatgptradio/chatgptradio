@@ -237,3 +237,39 @@ async def test_tuple_queue_item_backward_compat(state, db):
         pass
 
     assert state.openai_status == pytest.approx(0.5)
+
+
+async def test_audio_feedback_enters_self_model(db):
+    """compute_derived feeds audio_bpm_delta into the self-model when non-zero.
+
+    audio_bpm_delta is emitted once by _maybe_emit_audio_feedback and then stays
+    in GlobalState across subsequent compute_derived cycles. The self-model must
+    track it even when no new audio update is enqueued, so prediction_errors must
+    be non-zero after a second compute_derived cycle (first establishes baseline,
+    second detects change when audio_bpm_delta differs from the EMA baseline).
+    """
+    # Cycle 1 sets a non-zero audio_bpm_delta; compute_derived initialises its baseline.
+    s = GlobalState(audio_bpm_delta=0.3)
+    updater = StateUpdater(s, db)
+    task = asyncio.create_task(updater.run())
+
+    # Trigger a compute_derived cycle — baseline for audio_bpm_delta will be set.
+    await updater.enqueue("excitement", 0.1)
+    await updater.queue.join()
+
+    # Simulate a new audio emission with a different value (no updater restart needed).
+    # The next compute_derived cycle will see a changed value vs baseline.
+    s.audio_bpm_delta = 0.6
+
+    # Trigger a second compute_derived cycle — prediction_error must now be non-zero.
+    await updater.enqueue("excitement", 0.2)
+    await updater.queue.join()
+
+    task.cancel()
+    try:
+        await task
+    except asyncio.CancelledError:
+        pass
+
+    # compute_derived must have detected the deviation and stored a non-zero PE.
+    assert s.prediction_errors.get("audio_bpm_delta", 0.0) != 0.0

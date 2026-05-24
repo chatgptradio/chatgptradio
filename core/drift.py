@@ -66,6 +66,12 @@ def update_drift(current: MusicVector, state: GlobalState, dt_h: float) -> Music
         + pw("world_temperature") * w_bpm["world_temperature"]
     )
 
+    # Territory fatigue: gentle BPM nudge after long stay in same territory.
+    # Activates after ~3h (0.3 threshold), max +0.05 BPM force at 8h+.
+    # NO FAKE: time_in_territory_h is a real signal incremented by compute_derived().
+    territory_fatigue = _clamp(state.time_in_territory_h / 10.0 - 0.3, 0.0, 0.5)
+    bpm_force += territory_fatigue * 0.1
+
     energy_vol = (vol.get("excitement", 0.1) + vol.get("audience_energy", 0.1)) / 2
     damping = 1.0 - (1.0 / (1.0 + energy_vol * 50))
 
