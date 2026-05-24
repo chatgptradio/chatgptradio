@@ -1,3 +1,5 @@
+import math
+
 from core.self_model import update_drift_weights
 from core.state import GlobalState, MusicVector
 
@@ -51,7 +53,7 @@ def update_drift(current: MusicVector, state: GlobalState, dt_h: float) -> Music
     vol = state.signal_volatilities
 
     def pw(signal: str) -> float:
-        return pe.get(signal, 0.0) / max(vol.get(signal, 0.01), 0.01)
+        return math.tanh(pe.get(signal, 0.0) / max(vol.get(signal, 0.01), 0.01))
 
     # ── BPM ──────────────────────────────────────────────────────────────────
     bpm_signals = ["excitement", "audience_energy", "world_temperature"]

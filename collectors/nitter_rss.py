@@ -85,5 +85,5 @@ async def collect(state: GlobalState) -> dict[str, Any]:
         except Exception as exc:
             logger.debug("nitter_rss: instance %s failed: %s", url, exc)
 
-    logger.debug("nitter_rss: all instances failed, returning {}")
+    logger.warning("nitter_rss: all %d instances failed — twitter signals stale", len(_NITTER_INSTANCES))
     return {}

@@ -1,10 +1,13 @@
 """CNN Fear & Greed Index collector."""
 
+import logging
 from typing import Any
 
 from collectors.utils import fetch_json
 from core.node import node
 from core.state import GlobalState
+
+logger = logging.getLogger(__name__)
 
 COLLECTOR_META = {"name": "cnn_fear_greed", "interval_s": 1800}
 
@@ -24,5 +27,9 @@ _HEADERS = {
 )
 async def collect(state: GlobalState) -> dict[str, Any]:
     data = await fetch_json(_URL, headers=_HEADERS)
-    score = float(data["fear_and_greed"]["score"]) / 100.0
-    return {"fear_greed_index": max(0.0, min(1.0, score))}
+    try:
+        score = float(data["fear_and_greed"]["score"]) / 100.0
+        return {"fear_greed_index": max(0.0, min(1.0, score))}
+    except (KeyError, TypeError, ValueError) as exc:
+        logger.warning("cnn_fear_greed: unexpected response shape: %s — returning {}", exc)
+        return {}

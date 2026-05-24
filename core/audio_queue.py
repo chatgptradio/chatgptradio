@@ -34,8 +34,10 @@ def _clamp(value: float, lo: float, hi: float) -> float:
 
 def _key_distance(key_a: str, key_b: str) -> float:
     """Circle of fifths distance 0.0–1.0. 0=same key root, 1=tritone (6 steps)."""
-    ka = (key_a or "").split("/")[0].strip().split()[0]
-    kb = (key_b or "").split("/")[0].strip().split()[0]
+    ka_parts = (key_a or "").split("/")[0].strip().split()
+    kb_parts = (key_b or "").split("/")[0].strip().split()
+    ka = ka_parts[0] if ka_parts else ""
+    kb = kb_parts[0] if kb_parts else ""
     if not ka or not kb:
         return 0.0
     try:
@@ -117,6 +119,7 @@ async def _analyze_clip_async(conn: aiosqlite.Connection, path: Path) -> None:
     exception is caught and logged.
     """
     if not _HAS_LIBROSA:
+        log.warning("librosa_not_available", path=str(path), effect="no BPM/key/MFCC analysis, A2A ref_bpm will be None")
         return
 
     try:
@@ -126,7 +129,7 @@ async def _analyze_clip_async(conn: aiosqlite.Connection, path: Path) -> None:
             y, sr = _librosa.load(str(path), sr=44100, mono=True)  # type: ignore[possibly-unbound]
 
             tempo, _ = _librosa.beat.beat_track(y=y, sr=sr)  # type: ignore[possibly-unbound]
-            detected_bpm = float(tempo)
+            detected_bpm = float(_np.atleast_1d(tempo)[0])
 
             chroma = _librosa.feature.chroma_cqt(y=y, sr=sr)  # type: ignore[possibly-unbound]
             pcp_mean = chroma.mean(axis=1)
@@ -145,6 +148,11 @@ async def _analyze_clip_async(conn: aiosqlite.Connection, path: Path) -> None:
             rms = float(_np.sqrt(_np.mean(y ** 2)))  # type: ignore[possibly-unbound]
             energy_rms = min(rms / 0.5, 1.0)
 
+            # fill_ratio: fraction of non-silent content (trim-based estimate).
+            # Used by find_reference() to deprioritise thin/mostly-silent clips.
+            total_samples = max(len(y), 1)
+            fill_ratio = float((trim_end_samp - trim_start_samp) / total_samples)
+
             return {
                 "detected_bpm": detected_bpm,
                 "detected_key": detected_key,
@@ -153,6 +161,7 @@ async def _analyze_clip_async(conn: aiosqlite.Connection, path: Path) -> None:
                 "trim_start_s": trim_start_s,
                 "trim_end_s": trim_end_s,
                 "energy_rms": energy_rms,
+                "fill_ratio": fill_ratio,
             }
 
         results = await loop.run_in_executor(None, _load_and_analyze)
@@ -164,6 +173,7 @@ async def _analyze_clip_async(conn: aiosqlite.Connection, path: Path) -> None:
         trim_start_s = results["trim_start_s"]
         trim_end_s = results["trim_end_s"]
         energy_rms = results["energy_rms"]
+        fill_ratio = results["fill_ratio"]
 
         async with conn.execute(
             "SELECT mood_snapshot FROM audio_clips WHERE path=?", (str(path),)
@@ -175,6 +185,7 @@ async def _analyze_clip_async(conn: aiosqlite.Connection, path: Path) -> None:
             "trim_start_s": trim_start_s,
             "trim_end_s": trim_end_s,
             "energy_rms": energy_rms,
+            "fill_ratio": fill_ratio,
         })
 
         await conn.execute(
@@ -217,6 +228,7 @@ async def _wav_to_mp3(wav_bytes: bytes) -> bytes:
         "ffmpeg", "-y",
         "-f", "wav", "-i", "pipe:0",
         "-codec:a", "libmp3lame", "-b:a", "192k",
+        "-ar", "44100",
         "-f", "mp3", "pipe:1",
         stdin=asyncio.subprocess.PIPE,
         stdout=asyncio.subprocess.PIPE,
@@ -242,7 +254,7 @@ async def _generate_audio(prompt: str, state: GlobalState) -> bytes:
         "fal-ai/stable-audio-25/text-to-audio",
         arguments={
             "prompt": prompt,
-            "total_seconds": 47,
+            "total_seconds": 180,
             "num_inference_steps": steps,
         },
     )
@@ -296,9 +308,8 @@ async def _generate_from_reference(
     )
     guidance_scale = _clamp(1.0 + state.source_divergence * 0.2, 1.0, 1.2)
 
-    # Use reference file's actual duration (no arbitrary cap) — max 190s (Stable Audio limit)
-    ref_secs = await _get_ref_duration(ref_path)
-    total_seconds = min(max(ref_secs, 30), 190) if ref_secs else 90
+    ref_duration = await _get_ref_duration(ref_path)
+    total_seconds = min(ref_duration, 180) if ref_duration > 0 else 180
 
     from builders.music_prompt import get_inference_steps
 
@@ -335,8 +346,7 @@ async def find_reference(
     async with conn.execute(
         """
         SELECT path, territory, mood_snapshot FROM audio_clips
-        WHERE (source = 'reference')
-           OR (source IN ('generated', 'fal_derived') AND play_count >= 1)
+        WHERE source = 'reference' AND play_count = 0
         ORDER BY last_played_at ASC
         LIMIT 20
         """,
@@ -459,7 +469,6 @@ async def _backfill_fallback_names(
                     (dn, str(p)),
                 )
                 await conn.commit()
-                await state_queue.put({"current_track_name": dn})
                 log.info("fallback_clip_named", path=str(p), display_name=dn)
         except Exception:
             log.exception("fallback_name_error", path=str(p))
@@ -498,7 +507,6 @@ async def _index_fallback_clips(
                     (dn, str(fallback)),
                 )
                 await conn.commit()
-                await state_queue.put({"current_track_name": dn})
 
         paths.append(fallback)
 
@@ -533,6 +541,8 @@ async def _auto_index_references_on_startup(
         if str(path) in indexed:
             continue
         await index_clip(conn, path, state, prompt="", source="reference", display_name=path.stem)
+        # Kick off in-process librosa analysis so BPM/MFCC are ready before first A2A call.
+        asyncio.create_task(_analyze_clip_async(conn, path))
         new_count += 1
 
     if new_count:
@@ -554,6 +564,14 @@ def _trigger_librosa_analysis() -> None:
         stdout=subprocess.DEVNULL,
         stderr=subprocess.DEVNULL,
     )
+
+
+async def _has_pending_reference(conn: aiosqlite.Connection) -> bool:
+    """Return True when at least one reference file has never been used for A2A."""
+    async with conn.execute(
+        "SELECT 1 FROM audio_clips WHERE source = 'reference' AND play_count = 0 LIMIT 1"
+    ) as cur:
+        return await cur.fetchone() is not None
 
 
 # ── Music prompt builder ──────────────────────────────────────────────────────
@@ -579,8 +597,8 @@ async def run_audio_queue(
     """Main audio queue coroutine.
 
     Continuously fills *playback_queue* with generated audio clips.
-    Pushes ``{"current_track_name": name}`` to *state_queue* whenever a
-    clip with a non-empty display name is queued.
+    Fills *playback_queue* with clips. When a viewer ``!request`` genre is
+    pending, skips reuse and generates a fresh clip for that genre.
     """
     api_key = os.environ.get("FAL_API_KEY", "") or os.environ.get("FAL_KEY", "")
     if not api_key:
@@ -614,8 +632,19 @@ async def run_audio_queue(
         if cmd_engine is not None:
             for kind, value in cmd_engine.pop_all():  # type: ignore[union-attr]
                 if kind == "replay":
+                    p = Path(value)
+                    _dn = ""
                     try:
-                        await playback_queue.put(Path(value))  # type: ignore[union-attr]
+                        async with conn.execute(
+                            "SELECT display_name FROM audio_clips WHERE path=?", (str(p),)
+                        ) as _rc:
+                            _rr = await _rc.fetchone()
+                        if _rr and _rr[0]:
+                            _dn = _rr[0]
+                    except Exception:
+                        pass
+                    try:
+                        await playback_queue.put((p, _dn))  # type: ignore[union-attr]
                     except asyncio.QueueFull:
                         pass
                 elif kind == "request":
@@ -645,15 +674,16 @@ async def run_audio_queue(
             continue
 
         # ── Reuse an existing clip if available ───────────────────────────────
-        result = await find_reusable(conn, state)
+        # Skip reuse when a !request is pending or when unprocessed reference files
+        # exist (play_count=0) — ensures new references are converted via A2A promptly.
+        _pending_ref = await _has_pending_reference(conn)
+        result = None if (state.requested_genre or _pending_ref) else await find_reusable(conn, state)
         if result is not None:
             candidate, display_name = result
             await mark_played(conn, candidate)
             log.info("audio_clip_queued", path=str(candidate), display_name=display_name, source="reused")
             if playback_queue is not None:
-                await playback_queue.put(candidate)
-            if display_name:
-                await state_queue.put({"current_track_name": display_name})
+                await playback_queue.put((candidate, display_name))
             await state_queue.put({"queue_length": playback_queue.qsize() if playback_queue is not None else 1})
             await asyncio.sleep(_POLL_INTERVAL)
             continue
@@ -663,7 +693,7 @@ async def run_audio_queue(
         prompt_hash = hashlib.md5(prompt.encode()).hexdigest()[:8]
         # Skip stability guard during active crisis: queue low + crisis high → generate immediately
         in_crisis = state.crisis_level > 0.6 and qsize < _QUEUE_TARGET
-        if prompt_hash == state.last_prompt_hash and qsize > 0 and not in_crisis:
+        if prompt_hash == state.last_prompt_hash and qsize > 0 and not in_crisis and not _pending_ref:
             await asyncio.sleep(_POLL_INTERVAL)
             continue
 
@@ -678,7 +708,7 @@ async def run_audio_queue(
                 _snap_row = await _cur.fetchone()
             _ref_snap: dict = orjson.loads(_snap_row[0] or "{}") if _snap_row else {}
             _ref_mfcc = _ref_snap.get("mfcc_fingerprint")
-            _mfcc_dist = 1.0  # assume max distance if no MFCC
+            _mfcc_dist: float | None = None  # None = no data, skip MFCC gate
             if _ref_mfcc and state.mfcc_fingerprint:
                 import numpy as _np_r5
                 rv = _np_r5.array(_ref_mfcc, dtype=_np_r5.float32)
@@ -686,7 +716,7 @@ async def run_audio_queue(
                 norm = float(_np_r5.linalg.norm(rv) * _np_r5.linalg.norm(sv))
                 if norm > 0:
                     _mfcc_dist = 1.0 - float(_np_r5.dot(rv, sv) / norm)
-            if state.source_divergence > 0.7 and _mfcc_dist > 0.6:
+            if state.source_divergence > 0.7 and _mfcc_dist is not None and _mfcc_dist > 0.6:
                 log.info(
                     "a2a_skipped_divergence",
                     source_divergence=state.source_divergence,
@@ -728,12 +758,9 @@ async def run_audio_queue(
             # Consume requested_genre after generating for it
             state.requested_genre = ""
 
-            if display_name:
-                await state_queue.put({"current_track_name": display_name})
-
             await state_queue.put({"last_prompt_hash": prompt_hash})
             if playback_queue is not None:
-                await playback_queue.put(outpath)
+                await playback_queue.put((outpath, display_name))
             await state_queue.put({"queue_length": playback_queue.qsize() if playback_queue is not None else 1})
 
             log.info(
@@ -745,5 +772,14 @@ async def run_audio_queue(
 
         except Exception:
             log.exception("audio_generation_error", prompt=prompt)
+            # Generation failed (e.g. API credits exhausted). If queue is empty and
+            # all clips are in cooldown, bypass cooldown so playback never stops.
+            if playback_queue is not None and playback_queue.qsize() == 0:
+                fallback = await find_reusable(conn, state, cooldown_s=0)
+                if fallback is not None:
+                    fb_path, fb_name = fallback
+                    await mark_played(conn, fb_path)
+                    await playback_queue.put((fb_path, fb_name))
+                    log.warning("audio_fallback_no_cooldown", path=str(fb_path))
 
         await asyncio.sleep(_POLL_INTERVAL)

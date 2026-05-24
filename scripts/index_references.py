@@ -149,7 +149,7 @@ def _analyse(path: Path) -> dict:
         drift_timbre = "metallic"
 
     # 2e. Trim silence boundaries
-    _, trim_indices = librosa.effects.trim(y, top_db=30)
+    _, trim_indices = librosa.effects.trim(y, top_db=60)
     trim_start_s = float(trim_indices[0] / sr)
     trim_end_s = float(trim_indices[1] / sr)
 

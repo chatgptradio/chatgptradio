@@ -51,11 +51,11 @@ def test_build_chain_automation_drop_open() -> None:
 
 
 def test_build_chain_release_reduces_reverb() -> None:
-    """With excitement=0.5 and progress=0.9, Reverb wet_level must be lower than at progress=0.0."""
+    """With excitement=0.5, anxiety=0.4, and progress=0.9, Reverb wet_level must be lower than at progress=0.0."""
     from pedalboard import Reverb
     from core.dsp import _build_chain
 
-    state = GlobalState(excitement=0.5, urgency=0.0)
+    state = GlobalState(excitement=0.5, urgency=0.0, anxiety=0.4)
     chain_base = _build_chain(state, progress=0.0)
     chain_release = _build_chain(state, progress=0.9)
 
@@ -71,7 +71,7 @@ def test_build_chain_release_reduces_reverb() -> None:
 
 
 def test_burst_reverb_sets_high_wet() -> None:
-    """When burst_reverb=True, Reverb wet_level must be 1.0 and room_size must be 0.95."""
+    """When burst_reverb=True, Reverb wet_level must be 0.5 and room_size must be 0.85."""
     from pedalboard import Reverb
     from core.dsp import _build_chain
 
@@ -79,8 +79,8 @@ def test_burst_reverb_sets_high_wet() -> None:
     chain = _build_chain(state, progress=0.0, burst_reverb=True)
 
     reverb = next(e for e in chain if isinstance(e, Reverb))
-    assert reverb.wet_level == pytest.approx(1.0, abs=0.01)
-    assert reverb.room_size == pytest.approx(0.95, abs=0.01)
+    assert reverb.wet_level == pytest.approx(0.5, abs=0.01)
+    assert reverb.room_size == pytest.approx(0.85, abs=0.01)
 
 
 # ---------------------------------------------------------------------------

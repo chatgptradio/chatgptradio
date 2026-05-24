@@ -138,8 +138,11 @@ def test_compute_derived_harmonic_complexity():
 
 def test_wonder_positive_when_curiosity_pe_high():
     s = GlobalState()
-    s.prediction_errors["curiosity"] = 2.0
-    s.signal_volatilities["curiosity"] = 0.1
+    # Drive curiosity via arxiv PE (curiosity is synthesized, not set directly).
+    # Pre-set curiosity baseline to 0 so update_self_model yields pe["curiosity"] > 0.
+    s.prediction_errors["arxiv_papers_today"] = 2.0
+    s.signal_volatilities["arxiv_papers_today"] = 0.1
+    s.signal_baselines["curiosity"] = 0.0
     compute_derived(s)
     assert s.wonder > 0
 
@@ -164,18 +167,16 @@ def test_urgency_positive_when_world_event_burst():
 
 async def test_wonder_prediction_error_set_after_updater_cycle(db):
     s = GlobalState()
-    # Seed a low curiosity baseline so that enqueueing a high value produces a real PE,
-    # which in turn makes compute_derived yield wonder > 0 and register it in self-model.
-    s.signal_baselines["curiosity"] = 0.0
-    s.signal_volatilities["curiosity"] = 0.1
+    # Drive wonder via arxiv_papers_today PE (curiosity is synthesized, not directly settable).
+    s.signal_volatilities["arxiv_papers_today"] = 0.1
     updater = StateUpdater(s, db)
     task = asyncio.create_task(updater.run())
 
-    # Cycle 1: curiosity = 1.0 vs baseline 0.0 → PE = 1.0 → wonder > 0 → wonder baseline set
-    await updater.enqueue("curiosity", 1.0)
+    # Cycle 1: high arxiv PE → state.curiosity > 0 → wonder > 0 → wonder baseline established
+    await updater.enqueue("prediction_errors", {"arxiv_papers_today": 2.0})
     await updater.queue.join()
-    # Cycle 2: curiosity = 0.0 → PE negative → wonder drops → wonder PE != 0
-    await updater.enqueue("curiosity", 0.0)
+    # Cycle 2: negative arxiv PE → curiosity drops → wonder drops → wonder PE != 0
+    await updater.enqueue("prediction_errors", {"arxiv_papers_today": -2.0})
     await updater.queue.join()
     task.cancel()
     try:

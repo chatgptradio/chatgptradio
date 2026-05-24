@@ -15,7 +15,7 @@ from core.state import GlobalState
 
 log = structlog.get_logger()
 
-_SYSTEM = """\
+_SYSTEM_DEFAULT = """\
 You are an AI entity observing its own internal state in real time. \
 Generate short journal entries (1-2 sentences max) in English, \
 analytical and slightly poetic, based on the provided state data. \
@@ -23,9 +23,31 @@ Strict format: [HH:MM] <observation>. \
 Use precise numeric values. First person. No quotes.\
 """
 
-_INTERVAL_DEFAULT = 300   # 5 min
-_INTERVAL_CRISIS  = 90    # 1.5 min if crisis_level > 0.5
-_MIN_INTERVAL     = 60    # never more frequent than 1 min
+_SYSTEM_CRISIS = """\
+You are an AI entity under signal overload. \
+Generate short journal entries (1-2 sentences max) in English. \
+Terse, fragmented, urgent. Strict format: [HH:MM] <observation>. \
+Use precise numeric values. First person. No quotes.\
+"""
+
+_SYSTEM_AMBIENT = """\
+You are an AI entity in a low-signal contemplative state. \
+Generate short journal entries (1-2 sentences max) in English. \
+Reflective, spacious, slightly poetic. Strict format: [HH:MM] <observation>. \
+Use precise numeric values. First person. No quotes.\
+"""
+
+
+def _get_system_prompt(state: GlobalState) -> str:
+    if state.crisis_level > 0.5:
+        return _SYSTEM_CRISIS
+    if state.drift_territory in ("ambient", "neoclassical", "drone"):
+        return _SYSTEM_AMBIENT
+    return _SYSTEM_DEFAULT
+
+_INTERVAL_DEFAULT = 900   # 15 min
+_INTERVAL_CRISIS  = 180   # 3 min if crisis_level > 0.5
+_MIN_INTERVAL     = 300   # state-change trigger never fires faster than 5 min
 
 
 def _build_user_prompt(state: GlobalState, ctx: MemoryContext | None = None) -> str:
@@ -131,7 +153,7 @@ async def run_journal(
                     model="gpt-4o-mini",
                     max_tokens=120,
                     messages=[
-                        {"role": "system", "content": _SYSTEM},
+                        {"role": "system", "content": _get_system_prompt(state)},
                         {"role": "user", "content": prompt},
                     ],
                 )

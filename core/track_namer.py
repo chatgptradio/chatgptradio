@@ -20,12 +20,78 @@ def _get_client() -> openai.AsyncOpenAI:
     return _client
 
 
-_SYSTEM = """\
-You name AI-generated music tracks for a 24/7 AI radio stream.
-Given the emotional state of the stream, invent a fictional artist name and a track title.
-Return JSON only: {"artist": "...", "title": "..."}.
-2-3 words each. English. Evocative, slightly cryptic. No quotes inside values.\
+_SYSTEM_DEFAULT = """\
+Name an AI-generated track for a 24/7 AI radio stream.
+Aesthetic: electronic / techno / jazz. \
+Naming vocabulary: abstract nouns, scientific terms, glitch words, signal names. \
+Artist names like: Boards of Canada, Burial, Four Tet, Aphex Twin (style only — invent new names). \
+Return JSON only: {"artist": "...", "title": "..."}. 2-3 words each. No quotes inside values.\
 """
+
+_SYSTEM_AMBIENT = """\
+Name an AI-generated track for a 24/7 AI radio stream.
+Aesthetic: slow, textural, spatial — Kranky / 4AD / Touch label sensibility. \
+Artist names: geographic locations, natural phenomena, lowercase words, fragmented phrases. \
+Track titles: single abstract nouns, durations, states of matter, light conditions. \
+Return JSON only: {"artist": "...", "title": "..."}. 2-4 words each. No quotes inside values.\
+"""
+
+_SYSTEM_NEOCLASSICAL = """\
+Name an AI-generated track for a 24/7 AI radio stream.
+Aesthetic: neoclassical / modern composition — ECM Records / Deutsche Grammophon sensibility. \
+Artist names: composed of a surname and initial, or a place name, or a collective noun. \
+Track titles: opus numbers, Latin phrases, descriptive adjectives, movements. \
+Return JSON only: {"artist": "...", "title": "..."}. 2-3 words each. No quotes inside values.\
+"""
+
+_SYSTEM_INDUSTRIAL = """\
+Name an AI-generated track for a 24/7 AI radio stream.
+Aesthetic: industrial / noise / power electronics — Throbbing Gristle, Einstürzende Neubauten style. \
+Artist names: machine components, chemical compounds, military codes, broken syntax. \
+Track titles: error messages, process names, degraded signals, numeric sequences. \
+Return JSON only: {"artist": "...", "title": "..."}. 2-3 words each. No quotes inside values.\
+"""
+
+_SYSTEM_EXPERIMENTAL = """\
+Name an AI-generated track for a 24/7 AI radio stream.
+Aesthetic: experimental / glitch / electroacoustic — Warp Records, Raster-Noton sensibility. \
+Artist names: mathematical concepts, phoneme fragments, algorithm names, corrupted words. \
+Track titles: spectral terms, codec artefacts, data structures, untranslatable states. \
+Return JSON only: {"artist": "...", "title": "..."}. 2-4 words each. No quotes inside values.\
+"""
+
+_SYSTEM_CRISIS = """\
+Name an AI-generated track for a 24/7 AI radio stream currently under signal overload.
+Aesthetic: chaos, collapse, emergency broadcast. \
+Artist names: error codes, broken identifiers, null values, truncated strings. \
+Track titles: stack traces, timeout messages, corrupted data, interrupted transmissions. \
+Return JSON only: {"artist": "...", "title": "..."}. 2-3 words each. No quotes inside values.\
+"""
+
+_SYSTEM_JAZZ = """\
+Name an AI-generated track for a 24/7 AI radio stream.
+Aesthetic: jazz / soul / spiritual — Blue Note, Impulse!, ECM sensibility. \
+Artist names: first name + last name (invented), or "The X Quartet/Trio/Ensemble". \
+Track titles: verbs as nouns, modal jazz terms, place names, abstract states of feeling. \
+Return JSON only: {"artist": "...", "title": "..."}. 2-3 words each. No quotes inside values.\
+"""
+
+
+def _get_system_prompt(state: GlobalState) -> str:
+    if state.crisis_level > 0.5:
+        return _SYSTEM_CRISIS
+    t = state.drift_territory
+    if t in ("ambient", "drone"):
+        return _SYSTEM_AMBIENT
+    if t == "neoclassical":
+        return _SYSTEM_NEOCLASSICAL
+    if t == "jazz":
+        return _SYSTEM_JAZZ
+    if t == "industrial":
+        return _SYSTEM_INDUSTRIAL
+    if t in ("experimental", "psych"):
+        return _SYSTEM_EXPERIMENTAL
+    return _SYSTEM_DEFAULT
 
 _EMOTION_ORDER = [
     "excitement",
@@ -66,10 +132,11 @@ async def generate_track_name(state: GlobalState) -> str:
     try:
         resp = await _get_client().chat.completions.create(
             model="gpt-4o-mini",
-            max_tokens=20,
+            max_tokens=30,
+            temperature=1.1,
             response_format={"type": "json_object"},
             messages=[
-                {"role": "system", "content": _SYSTEM},
+                {"role": "system", "content": _get_system_prompt(state)},
                 {"role": "user", "content": user_msg},
             ],
         )

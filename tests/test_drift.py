@@ -192,6 +192,20 @@ def test_drift_velocity_capped_at_one():
     assert state.drift_velocity <= 1.0
 
 
+def test_bpm_momentum_bounded_with_tiny_volatility():
+    """pw() must not produce unbounded momentum when volatility is near-zero.
+
+    Without tanh: pw = 10/0.001 = 10000 → drift_momentum["bpm"] ≈ 3333 (unbounded).
+    With tanh:    pw = tanh(10000) ≈ 1.0  → drift_momentum["bpm"] ≈ 0.33 (bounded).
+    """
+    state = make_state()
+    state.prediction_errors = {"excitement": 10.0}
+    state.signal_volatilities = {"excitement": 0.001}
+    current = MusicVector(bpm=90.0)
+    update_drift(current, state, 1.0)
+    assert abs(state.drift_momentum.get("bpm", 0.0)) <= 5.0
+
+
 def test_all_15_territories_reachable():
     """Each of the 15 territories must be reachable by derive_territory_from_errors."""
     pe_configs: dict[str, tuple[dict[str, float], dict[str, float]]] = {

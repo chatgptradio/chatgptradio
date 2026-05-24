@@ -25,7 +25,6 @@ from pedalboard import (  # type: ignore[attr-defined]
     LowShelfFilter,
     MP3Compressor,
     Phaser,
-    PitchShift,
     Reverb,
 )
 from pedalboard._pedalboard import Pedalboard
@@ -61,10 +60,7 @@ def _build_chain(
     wt = state.world_temperature
     cr = state.crisis_level
     mt = state.musical_tension
-    ae = state.audience_energy
-    em = state.curiosity
     me = state.anxiety
-    ur = state.excitement
     hc = state.harmonic_complexity
 
     # RT1 — Intra-clip DSP automation (NO FAKE: only active when excitement > 0.3 OR urgency > 0.4)
@@ -86,40 +82,45 @@ def _build_chain(
     else:
         auto_reverb_factor = 1.0
 
-    # DSP+2 — LadderFilter: cutoff tracks drift_velocity (always active)
-    # Low cutoff when stable, opens as drift accelerates
-    ladder_cutoff = _clamp(200.0 + state.drift_velocity * 19800.0, 200.0, 20000.0)
+    # DSP+2 — LadderFilter: cutoff tracks drift_velocity.
+    # BUG FIX: min cutoff raised to 4000 Hz (was 200 Hz → silenced entire audio at rest).
+    # With drift_velocity=0, 200 Hz LPF cuts everything above 200 Hz = silent music.
+    # 4000 Hz minimum preserves the "muffled at rest" artistic intent without silence.
+    ladder_cutoff = _clamp(4000.0 + state.drift_velocity * 16000.0, 4000.0, 20000.0)
     # RT1 override: if automation is active, use progress-driven cutoff
     if active:
-        ladder_cutoff = _clamp(auto_cutoff, 200.0, 20000.0)
+        ladder_cutoff = _clamp(auto_cutoff, 4000.0, 20000.0)
     ladder_resonance = _clamp(hc * 0.8, 0.0, 1.0)
 
-    # Reverb wet level: state-driven, then scaled by release factor
-    wet = _clamp(0.1 + cr * 0.5 + me * 0.2, 0.0, 1.0)
+    # Reverb wet level: state-driven, then scaled by release factor.
+    # Ceiling lowered to 0.20 (was 0.35) — a2a clips already carry the reference
+    # track's acoustic space; adding heavy wet on top created double-reverb mud.
+    # dry_level=0.85 keeps the source clearly audible (was 0.7 — over-attenuated dry).
+    wet = _clamp(cr * 0.25 + me * 0.1, 0.0, 0.20)
     wet = _clamp(wet * auto_reverb_factor, 0.0, 1.0)
 
-    # RT2 — world_event_burst: force wet=1.0 and room=0.95 for this rebuild window
+    # RT2 — world_event_burst: push reverb noticeably higher for this rebuild window
     if burst_reverb:
-        wet = 1.0
-        room = 0.95
+        wet = 0.5
+        room = 0.85
     else:
-        room = _clamp(0.2 + wt * 0.4 + cr * 0.25, 0.0, 1.0)
+        # Room size cap lowered to 0.60 (was 1.0) — room_size=1.0 added a cathedral
+        # reverb tail that persisted audibly for several seconds per chunk.
+        room = _clamp(0.15 + wt * 0.3 + cr * 0.15, 0.0, 0.60)
 
     effects: list = [
         Reverb(
             room_size=room,
             wet_level=wet,
+            dry_level=0.85,
         ),
         HighShelfFilter(
             cutoff_frequency_hz=8000.0,
             gain_db=_clamp(-cr * 18 - mt * 4, -40.0, 0.0),
         ),
-        Compressor(
-            threshold_db=_clamp(-18 - mt * 12 - ur * 6, -60.0, 0.0),
-            ratio=4.0,
-        ),
-        Gain(gain_db=_clamp(ae * 3 + em * 2, -12.0, 12.0)),
-        PitchShift(semitones=_clamp(ur * 0.5 - me * 0.3, -12.0, 12.0)),
+        # Compressor + Gain removed from real-time chain — they change average level
+        # and defeat LUFS normalization. Both are applied in _build_level_chain(),
+        # which processes the full clip once at load time before a second LUFS pass.
         Chorus(depth=_clamp(hc * 0.8, 0.0, 1.0)),
         # DSP+2 — LadderFilter: resonant sweep driven by drift_velocity and harmonic_complexity
         LadderFilter(
@@ -131,17 +132,19 @@ def _build_chain(
     ]
 
     # DSP+3 — Delay: territory-conditional (psych/experimental only — NO FAKE)
-    # Only active when drift carries the signal into psychedelic or experimental space
+    # Feedback cap lowered 0.6→0.35, mix cap 0.4→0.25 — at source_divergence=1.0 the
+    # previous values produced an audible 3-echo trail that sat on top of a2a reverb.
     if state.drift_territory in ("psych", "experimental"):
-        delay_feedback = _clamp(state.source_divergence * 0.4, 0.0, 0.6)
-        delay_mix = _clamp(state.source_divergence * 0.3, 0.0, 0.4)
+        delay_feedback = _clamp(state.source_divergence * 0.25, 0.0, 0.35)
+        delay_mix = _clamp(state.source_divergence * 0.15, 0.0, 0.25)
         effects.append(Delay(delay_seconds=0.375, feedback=delay_feedback, mix=delay_mix))
 
         # DSP+4 — Phaser: territory-conditional (psych/experimental only — NO FAKE)
         # Rate and depth driven by drift_velocity and harmonic_complexity respectively
+        # mix lowered 0.5→0.30 — at 0.5 the phaser dominated the mix noticeably.
         phaser_depth = _clamp(hc * 0.8, 0.0, 1.0)
         phaser_rate = _clamp(0.5 + state.drift_velocity * 2.0, 0.1, 3.0)
-        effects.append(Phaser(rate_hz=phaser_rate, depth=phaser_depth, mix=0.5))
+        effects.append(Phaser(rate_hz=phaser_rate, depth=phaser_depth, mix=0.30))
 
     # DSP+1 — Crisis hierarchy tier 3: telephony artefacts (cr > 0.71, proportional)
     # gsm_mix is 0 at cr=0.7, 1 at cr=0.9 — only included when contribution is non-zero
@@ -160,6 +163,24 @@ def _build_chain(
 
     effects.append(Limiter(threshold_db=-1.0))
     return Pedalboard(effects)
+
+
+def _build_level_chain(state: GlobalState) -> Pedalboard:
+    """Level-management chain — applied once to the full clip at load time.
+
+    Compressor + Gain are isolated here so they never distort the LUFS-normalised
+    baseline mid-playback.  After this chain runs, _normalize_lufs() re-targets
+    -14 LUFS, guaranteeing a consistent output level regardless of state.
+    """
+    mt = state.musical_tension
+    ur = state.excitement
+    ae = state.audience_energy
+    em = state.curiosity
+    threshold_db = _clamp(-18 - mt * 12 - ur * 6, -60.0, 0.0)
+    return Pedalboard([
+        Compressor(threshold_db=threshold_db, ratio=4.0),
+        Gain(gain_db=_clamp(ae * 3 + em * 2, -12.0, 12.0)),
+    ])
 
 
 def _crossfade_arrays(a: np.ndarray, b: np.ndarray, sr: int) -> np.ndarray:
@@ -236,19 +257,30 @@ def _apply_reverb_throw(
     if n == 0:
         return audio
     half = n // 2
-    board = Pedalboard([Reverb(room_size=0.9, wet_level=1.0, dry_level=0.0)])
+    board = Pedalboard([Reverb(room_size=0.85, wet_level=0.5, dry_level=0.5)])
     result = audio.copy()
     if half > 0:
         result[half:] = board(audio[half:].T, sr).T.astype(np.float32)
     return result
 
 
-def _read_and_stretch(path: Path, drift_bpm: float) -> np.ndarray:
-    with AudioFile(str(path)) as f:
+def _read_and_stretch(
+    path: Path,
+    drift_bpm: float,
+    trim_start_s: float = 0.0,
+    trim_end_s: float = 0.0,
+) -> np.ndarray:
+    with AudioFile(str(path)).resampled_to(_SR) as f:
         audio = f.read(f.frames)
     audio = audio.T.astype(np.float32)
     if audio.shape[1] == 1:
         audio = np.repeat(audio, 2, axis=1)
+    n = len(audio)
+    if trim_start_s > 0.0 or (0.0 < trim_end_s < n / _SR):
+        start = max(0, int(trim_start_s * _SR))
+        end = int(trim_end_s * _SR) if trim_end_s > 0.0 else n
+        end = min(max(end, start + _SR), n)  # keep at least 1 s
+        audio = audio[start:end, :]
     ratio = _stretch_ratio(drift_bpm)
     if abs(ratio - 1.0) > 0.01:
         return pyrubberband.time_stretch(audio, _SR, ratio).astype(np.float32)
@@ -324,7 +356,13 @@ async def run_dsp(
         return
 
     display = os.environ.get("OVERLAY_DISPLAY", ":99")
-    use_x11grab = shutil.which("Xvfb") is not None and browser_ready is not None
+    # USE_OVERLAY=0 disables x11grab (fallback to static black background).
+    # Audio was silent due to PitchShift(reset=False) bug (now fixed), not x11grab.
+    use_x11grab = (
+        os.environ.get("USE_OVERLAY", "1") != "0"
+        and shutil.which("Xvfb") is not None
+        and browser_ready is not None
+    )
 
     if browser_ready is not None:
         await browser_ready.wait()
@@ -332,22 +370,18 @@ async def run_dsp(
 
     if use_x11grab:
         video_input = [
-            # thread_queue_size: 4 = 4s buffer at 1fps capture.
-            # Capture at 1fps but output at 10fps (9 duplicate P-frames per second) —
-            # duplicate P-frames are trivial to encode; CBR filler pads to 2500k.
-            # At 5fps, x11grab/SwiftShader lock contention caused speed=0.6x (queue stall).
-            # At 1fps, speed=0.987x in testing — stable encoding with headroom for Python+Chrome.
-            "-thread_queue_size", "4",
+            "-thread_queue_size", "64",
             "-f", "x11grab",
-            "-framerate", "1",             # 1fps capture → 10fps output via fps= filter below
+            "-framerate", "10",
             "-video_size", "1280x720",
             "-draw_mouse", "0",
             "-i", f"{display}.0",
         ]
     else:
         video_input = [
+            "-re",                           # read lavfi at native rate (10fps real-time)
             "-f", "lavfi",
-            "-i", "color=c=0x0a0a1a:s=1280x720:r=10",
+            "-i", "color=c=0x0a0a1a:s=1280x720:r=10",  # static bg at 10fps
         ]
 
     video_encode = [
@@ -355,12 +389,9 @@ async def run_dsp(
         # nal-hrd=cbr forces filler NAL units so libx264 actually hits 2500k on static content
         # (without it, skip-heavy frames produce ~200-500 Kbps despite minrate=2500k)
         "-b:v", "2500k", "-minrate", "2500k", "-maxrate", "2500k", "-bufsize", "5000k",
-        # threads=2: match CPU core count (default=3 causes contention on 2-core VPS)
-        # threads=2: match CPU core count. vsync=cfr+fps_mode ensures 10fps output
-        # from 5fps x11grab by duplicating frames (tiny P-frames + CBR filler).
-        "-vf", "fps=10",                   # duplicate 5fps capture → 10fps declared output
+        "-vf", "fps=10",
         "-x264opts", "nal-hrd=cbr:force-cfr=1:threads=2",
-        "-g", "20",                        # keyframe every 2s at 10fps (YouTube requires ≤4s)
+        "-g", "20",                        # keyframe every 2s at 10fps (YouTube ≤4s)
         "-pix_fmt", "yuv420p",
     ]
     if not use_x11grab:
@@ -369,12 +400,17 @@ async def run_dsp(
     ffmpeg_cmd = [
         "ffmpeg", "-y",
         *video_input,
-        # thread_queue_size prevents pipe stalls when audio queue momentarily empties between
-        # clips — avoids "faster than real-time" bursts followed by "no data" on RTMP side
-        "-thread_queue_size", "512",
+        # thread_queue_size -1 = unlimited: s16le demuxer never blocks even when the
+        # mux temporarily pauses audio consumption. PCM timestamps from sample count
+        # remain accurate regardless of queue depth, so A/V sync is preserved by the mux.
+        # Memory: 44100 pkt/s × 4B × max_delay. With PCM thread at 94% and mux at 90%,
+        # excess = 1588 pkt/s × 4B = 6.3KB/s max accumulation rate.
+        # thread_queue_size 10M: never blocks even with PCM slightly faster than mux.
+        # Memory: 10M × 4B = 40MB. A/V sync preserved by mux via PCM timestamps.
+        "-thread_queue_size", "10000000",
         "-f", "s16le", "-ar", str(_SR), "-ac", "2", "-i", "pipe:0",
         *video_encode,
-        "-c:a", "aac", "-b:a", "192k",
+        "-c:a", "aac", "-b:a", "160k",
         "-map", "0:v", "-map", "1:a",
         # output options: max_muxing_queue_size must come before the output URL
         "-max_muxing_queue_size", "1024",
@@ -383,13 +419,19 @@ async def run_dsp(
     ]
     loop = asyncio.get_running_loop()
     restart_delay = 2.0
-    _pending_tail: np.ndarray | None = None  # unwritten tail — blended into next clip's head
+    _pending_tail: np.ndarray | None = None   # unwritten tail — blended into next clip's head
+    _prefetched_raw: np.ndarray | None = None  # next clip pre-processed during current playback
+    _prefetched_path: Path | None = None
+    _prefetched_display_name: str = ""
 
     def _start_ffmpeg() -> subprocess.Popen[bytes]:
         import fcntl
+        import pathlib as _pl
+        _log = _pl.Path("/tmp/ffmpeg_live.log")
         p = subprocess.Popen(
             ffmpeg_cmd, stdin=subprocess.PIPE,
-            stdout=subprocess.DEVNULL, stderr=subprocess.DEVNULL,
+            stdout=subprocess.DEVNULL,
+            stderr=_log.open("ab"),
         )
         if p.stdin is not None:
             fd = p.stdin.fileno()
@@ -432,54 +474,113 @@ async def run_dsp(
             else:
                 restart_delay = 2.0
 
-            try:
-                clip_path = playback_queue.get_nowait()
-            except asyncio.QueueEmpty:
-                # No clip ready — write one silence chunk at real-time rate.
-                _t0 = _time.monotonic()
-                if proc.poll() is None:
-                    try:
-                        await _pipe_write_async(proc, bytes(_CHUNK_SAMPLES * 4))
-                    except BrokenPipeError:
-                        log.warning("dsp_ffmpeg_pipe_broken")
-                        proc = await loop.run_in_executor(None, _start_ffmpeg)
-                _elapsed = _time.monotonic() - _t0
-                await asyncio.sleep(max(0.0, _CHUNK_SAMPLES / _SR - _elapsed))
-                continue
-
-            # Process clip in a background task so we can keep writing silence
-            # to FFmpeg stdin during CPU-intensive operations (prevents A/V stall).
-            # Returns raw (stretched + normalised) audio — DSP is applied chunk-by-chunk
-            # in the PCM write loop below so the chain can be rebuilt every 5 s.
-            async def _process_clip() -> np.ndarray:
-                try:
-                    a = await loop.run_in_executor(
-                        None, _read_and_stretch, clip_path, state.drift_bpm
-                    )
-                    return await loop.run_in_executor(None, _normalize_lufs, a, _SR)
-                except Exception:
-                    log.exception("dsp_read_error", path=str(clip_path))
-                    return np.array([], dtype=np.float32)
-
-            process_task = asyncio.create_task(_process_clip())
-
+            # Use prefetched clip if ready — zero silence at transition.
+            # Otherwise fall back to normal get + process (with silence during processing).
             pipe_ok = True
-            while not process_task.done():
-                _t0 = _time.monotonic()
-                if proc.poll() is None:
-                    try:
-                        await _pipe_write_async(proc, bytes(_CHUNK_SAMPLES * 4))
-                    except BrokenPipeError:
-                        log.warning("dsp_ffmpeg_pipe_broken")
-                        proc = await loop.run_in_executor(None, _start_ffmpeg)
-                        pipe_ok = False
-                _elapsed = _time.monotonic() - _t0
-                await asyncio.sleep(max(0.0, _CHUNK_SAMPLES / _SR - _elapsed))
+            if _prefetched_raw is not None:
+                clip_path = _prefetched_path  # type: ignore[assignment]
+                clip_display_name = _prefetched_display_name
+                raw = _prefetched_raw
+                _prefetched_raw = None
+                _prefetched_path = None
+                _prefetched_display_name = ""
+            else:
+                try:
+                    clip_path, clip_display_name = playback_queue.get_nowait()
+                except asyncio.QueueEmpty:
+                    # No clip ready — write one silence chunk at real-time rate.
+                    _t0 = _time.monotonic()
+                    if proc.poll() is None:
+                        try:
+                            await _pipe_write_async(proc, bytes(_CHUNK_SAMPLES * 4))
+                        except BrokenPipeError:
+                            log.warning("dsp_ffmpeg_pipe_broken")
+                            proc = await loop.run_in_executor(None, _start_ffmpeg)
+                    _elapsed = _time.monotonic() - _t0
+                    await asyncio.sleep(max(0.0, _CHUNK_SAMPLES / _SR - _elapsed))
+                    continue
 
-            raw = await process_task
-            if not pipe_ok or len(raw) == 0:
-                playback_queue.task_done()
-                continue
+                assert isinstance(clip_path, Path)
+
+                _trim_start_s = 0.0
+                _trim_end_s = 0.0
+                if conn is not None:
+                    try:
+                        async with conn.execute(
+                            "SELECT mood_snapshot FROM audio_clips WHERE path=?",
+                            (str(clip_path),),
+                        ) as _cur:
+                            _row = await _cur.fetchone()
+                        if _row and _row[0]:
+                            _snap = orjson.loads(_row[0])
+                            _trim_start_s = float(_snap.get("trim_start_s", 0.0))
+                            _trim_end_s = float(_snap.get("trim_end_s", 0.0))
+                    except Exception:
+                        pass
+
+                async def _process_clip(
+                    _cp: Path = clip_path,
+                    _ts: float = _trim_start_s,
+                    _te: float = _trim_end_s,
+                ) -> np.ndarray:
+                    try:
+                        a = await loop.run_in_executor(
+                            None, _read_and_stretch, _cp, state.drift_bpm, _ts, _te
+                        )
+                        a = await loop.run_in_executor(None, _normalize_lufs, a, _SR)
+                        # Level pre-bake: apply Compressor+Gain to full clip, then
+                        # re-normalise so output LUFS is consistent regardless of state.
+                        def _level_bake(_audio: np.ndarray) -> np.ndarray:
+                            board = _build_level_chain(state)
+                            processed = board(_audio.T, _SR).T.astype(np.float32)
+                            return _normalize_lufs(processed, _SR)
+                        return await loop.run_in_executor(None, _level_bake, a)
+                    except Exception:
+                        log.exception("dsp_read_error", path=str(_cp))
+                        return np.array([], dtype=np.float32)
+
+                process_task = asyncio.create_task(_process_clip())
+
+                # While next clip loads, flush the pending tail through DSP instead of
+                # writing silence. The tail (last 3 s of the previous clip) was held back
+                # for crossfade, but in this fallback path the prefetch wasn't ready —
+                # playing it now prevents an audible gap during the loading delay.
+                _tail_flush_pcm = b""
+                if _pending_tail is not None:
+                    try:
+                        _tf_board = _build_chain(state)
+                        _tf_out = _tf_board(_pending_tail.T, _SR, reset=False).T
+                        _tail_flush_pcm = (_tf_out * 32767).astype(np.int16).tobytes()
+                    except Exception:
+                        pass
+                    _pending_tail = None  # consumed — no crossfade with incoming head
+                _tail_flush_pos = 0
+
+                while not process_task.done():
+                    _t0 = _time.monotonic()
+                    if proc.poll() is None:
+                        try:
+                            _tf_end = min(_tail_flush_pos + _CHUNK_SAMPLES * 4, len(_tail_flush_pcm))
+                            _tf_chunk = _tail_flush_pcm[_tail_flush_pos:_tf_end]
+                            _tail_flush_pos = _tf_end
+                            chunk_out = _tf_chunk + bytes(_CHUNK_SAMPLES * 4 - len(_tf_chunk))
+                            await _pipe_write_async(proc, chunk_out)
+                        except BrokenPipeError:
+                            log.warning("dsp_ffmpeg_pipe_broken")
+                            proc = await loop.run_in_executor(None, _start_ffmpeg)
+                            pipe_ok = False
+                    _elapsed = _time.monotonic() - _t0
+                    await asyncio.sleep(max(0.0, _CHUNK_SAMPLES / _SR - _elapsed))
+
+                raw = await process_task
+                if not pipe_ok or len(raw) == 0:
+                    playback_queue.task_done()
+                    continue
+
+            # Write track name + reset progress bar now — playback is actually starting.
+            if clip_display_name:
+                await state_queue.put({"current_track_name": clip_display_name})
+            await state_queue.put({"current_song_progress": 0.0})
 
             # Blend pending tail from previous clip (never written) with head of this clip.
             if _pending_tail is not None:
@@ -525,51 +626,111 @@ async def run_dsp(
                 fd = proc.stdin.fileno() if proc.stdin is not None else -1
                 if fd < 0:
                     return
-                # Key design: accumulate _5S_CHUNKS chunks of DSP (5s) then write in
-                # ONE os.write call. The kernel writes to the 16KB pipe continuously
-                # in 16KB increments (FFmpeg gets a frame every 92ms — not bursty),
-                # keeping the GIL released for the entire 5s write. Python reacquires
-                # GIL only once per 5s (vs once per 92ms) → 34ms overhead / 5000ms
-                # = 99.3% real-time (vs 73% with per-frame writes).
-                pcm_buf: list[bytes] = []
+                # Explicit real-time throttle: sleep after each write to stay on schedule.
+                # os.write blocking alone is insufficient — FFmpeg drains the pipe faster
+                # than real-time when RTMP backpressure is low, causing the thread to
+                # finish in seconds instead of clip_duration seconds.
+                _t_start = _time.monotonic()
                 for frame_start in range(0, total_frames, _CHUNK_SAMPLES):
-                    # DSP in Python (GIL needed, fast: 0.78ms per chunk)
                     chunk_frames = raw_to_write[frame_start : frame_start + _CHUNK_SAMPLES]
-                    dsp_chunk = board(chunk_frames.T, _SR, reset=False).T
-                    pcm_buf.append((dsp_chunk * 32767).astype(np.int16).tobytes())
-                    chunk_idx += 1
-                    bytes_written += _CHUNK_SAMPLES * 4
-
-                    # Every 5s (or at clip end): write accumulated DSP output in one call
-                    if chunk_idx % _5S_CHUNKS == 0 or frame_start + _CHUNK_SAMPLES >= total_frames:
-                        try:
-                            # Single blocking write — GIL released for ~5s while kernel
-                            # drains the 16KB pipe 54× at 92ms intervals.
-                            os.write(fd, b"".join(pcm_buf))
-                        except OSError:
-                            _pipe_broken = True
-                            return
-                        pcm_buf = []
-                        if total_bytes > 0:
-                            loop.call_soon_threadsafe(
-                                state_queue.put_nowait,
-                                {"current_song_progress": min(bytes_written / total_bytes, 1.0)},
-                            )
-                        # Rebuild DSP chain every 5s (same cadence as before)
+                    if chunk_idx > 0 and chunk_idx % _5S_CHUNKS == 0:
                         prog = min(bytes_written / total_bytes, 1.0) if total_bytes > 0 else 0.0
-                        if state.world_event_burst:
-                            board = _build_chain(state, progress=prog, burst_reverb=True)
-                        else:
-                            board = _build_chain(state, progress=prog)
+                        new_board = _build_chain(state, progress=prog, burst_reverb=bool(state.world_event_burst))
+                        # Crossfade old→new over this chunk to avoid audible click at rebuild boundary
+                        old_out = board(chunk_frames.T, _SR, reset=False).T.astype(np.float32)
+                        new_out = new_board(chunk_frames.T, _SR, reset=False).T.astype(np.float32)
+                        t = np.linspace(0.0, 1.0, len(old_out), dtype=np.float32)[:, np.newaxis]
+                        dsp_chunk = old_out * (1.0 - t) + new_out * t
+                        board = new_board
+                    else:
+                        dsp_chunk = board(chunk_frames.T, _SR, reset=False).T
+                    pcm_chunk = (dsp_chunk * 32767).astype(np.int16).tobytes()
+                    try:
+                        os.write(fd, pcm_chunk)
+                    except OSError:
+                        _pipe_broken = True
+                        return
+                    bytes_written += len(pcm_chunk)
+                    if chunk_idx % 50 == 0 and total_bytes > 0:
+                        loop.call_soon_threadsafe(
+                            state_queue.put_nowait,
+                            {"current_song_progress": min(bytes_written / total_bytes, 1.0)},
+                        )
+                    chunk_idx += 1
+                    # Sleep until the expected wall-clock time for this chunk — keeps
+                    # audio arriving at real-time rate regardless of pipe drain speed.
+                    _expected = _t_start + chunk_idx * _chunk_duration
+                    _slack = _expected - _time.monotonic()
+                    if _slack > 0.001:
+                        _time.sleep(_slack)
+
+            # Prefetch next clip during the ~47s PCM write — so it's ready at transition.
+            # get_nowait() takes it off the queue now; task_done() fires at end of next iteration.
+            _prefetch_task: asyncio.Task[np.ndarray] | None = None
+            _next_clip_path: Path | None = None
+            _next_display_name: str = ""
+            try:
+                _next_clip_path, _next_display_name = playback_queue.get_nowait()
+                assert _next_clip_path is not None
+
+                _p_trim_start = 0.0
+                _p_trim_end = 0.0
+                if conn is not None:
+                    try:
+                        async with conn.execute(
+                            "SELECT mood_snapshot FROM audio_clips WHERE path=?",
+                            (str(_next_clip_path),),
+                        ) as _cur2:
+                            _row2 = await _cur2.fetchone()
+                        if _row2 and _row2[0]:
+                            _snap2 = orjson.loads(_row2[0])
+                            _p_trim_start = float(_snap2.get("trim_start_s", 0.0))
+                            _p_trim_end = float(_snap2.get("trim_end_s", 0.0))
+                    except Exception:
+                        pass
+
+                async def _prefetch_next(
+                    _p: Path = _next_clip_path,
+                    _ts: float = _p_trim_start,
+                    _te: float = _p_trim_end,
+                ) -> np.ndarray:
+                    try:
+                        a = await loop.run_in_executor(None, _read_and_stretch, _p, state.drift_bpm, _ts, _te)
+                        a = await loop.run_in_executor(None, _normalize_lufs, a, _SR)
+                        def _level_bake_pre(_audio: np.ndarray) -> np.ndarray:
+                            board = _build_level_chain(state)
+                            processed = board(_audio.T, _SR).T.astype(np.float32)
+                            return _normalize_lufs(processed, _SR)
+                        return await loop.run_in_executor(None, _level_bake_pre, a)
+                    except Exception:
+                        log.exception("dsp_prefetch_error", path=str(_p))
+                        return np.array([], dtype=np.float32)
+
+                _prefetch_task = asyncio.create_task(_prefetch_next())
+                log.debug("dsp_prefetch_started", path=str(_next_clip_path))
+            except asyncio.QueueEmpty:
+                pass
 
             await loop.run_in_executor(None, _pcm_write_thread)
+
+            # Collect prefetch result — should be instant (processed during 47s write)
+            if _prefetch_task is not None:
+                _result = await _prefetch_task
+                if len(_result) > 0:
+                    _prefetched_raw = _result
+                    _prefetched_path = _next_clip_path
+                    _prefetched_display_name = _next_display_name
+                else:
+                    # Prefetch failed — mark consumed, will fall back to normal path
+                    playback_queue.task_done()
 
             if _pipe_broken:
                 log.warning("dsp_ffmpeg_pipe_broken")
                 proc = await loop.run_in_executor(None, _start_ffmpeg)
 
             await state_queue.put({
-                "current_song_progress": 1.0,
+                "current_track_name": "",   # hide HUD between clips — silence is not "100%"
+                "current_song_progress": 0.0,
                 "stream_bitrate": 192.0,
                 "dropped_frames": 0.0,
                 "songs_played_today": state.songs_played_today + 1,
@@ -577,6 +738,7 @@ async def run_dsp(
             })
             playback_queue.task_done()
             if conn is not None:
+                assert isinstance(clip_path, Path)
                 await _maybe_emit_audio_feedback(conn, clip_path, state, state_queue)
     finally:
         if proc.stdin is not None:
