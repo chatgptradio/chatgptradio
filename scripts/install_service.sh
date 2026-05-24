@@ -12,10 +12,15 @@ After=network-online.target
 [Service]
 Type=simple
 WorkingDirectory=$REPO
-ExecStartPre=-/bin/bash -c 'pkill -x Xvfb || true; pkill -f chromium-browser || true; sleep 1'
+# Kill orphan processes from any previous run before starting
+ExecStartPre=-/bin/bash -c 'pkill -9 -f "rtmp://" || true; pkill -9 -f "chromium" || true; pkill -9 -x Xvfb || true; fuser -k 8765/tcp 2>/dev/null || true; fuser -k 8080/tcp 2>/dev/null || true; sleep 1'
 ExecStart=/home/stream/.local/bin/uv run python main.py
 Restart=always
 RestartSec=10
+# Kill entire cgroup (includes FFmpeg children) on service stop
+KillMode=control-group
+KillSignal=SIGTERM
+TimeoutStopSec=15
 StandardOutput=journal
 StandardError=journal
 Environment=HOME=/home/stream

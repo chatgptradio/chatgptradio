@@ -72,7 +72,7 @@ async def test_generate_track_name_called_concurrently(tmp_path):
 
 @pytest.mark.asyncio
 async def test_current_track_name_pushed_to_state_queue(tmp_path):
-    """display_name is pushed to state_queue when non-empty."""
+    """Generated clip with display_name is put in playback_queue as (path, name) tuple."""
     from core.audio_queue import run_audio_queue
 
     state = GlobalState()
@@ -109,16 +109,12 @@ async def test_current_track_name_pushed_to_state_queue(tmp_path):
         except asyncio.CancelledError:
             pass
 
-    # Drain state_queue and look for current_track_name update
-    updates = []
-    while not state_queue.empty():
-        updates.append(await state_queue.get())
-
-    track_name_updates = [u for u in updates if "current_track_name" in u]
-    assert any(
-        u["current_track_name"] == "Ghost Protocol - Fading Signal"
-        for u in track_name_updates
-    )
+    # clip should be queued as (path, display_name) tuple — current_track_name is
+    # pushed by dsp.py at playback time, not here.
+    assert not playback_queue.empty()
+    item = await playback_queue.get()
+    assert isinstance(item, tuple) and len(item) == 2
+    assert item[1] == "Ghost Protocol - Fading Signal"
     await conn.close()
 
 
@@ -176,7 +172,7 @@ async def test_empty_display_name_not_pushed(tmp_path):
 
 @pytest.mark.asyncio
 async def test_find_reusable_display_name_pushed(tmp_path):
-    """When find_reusable returns (path, display_name), display_name is pushed to state_queue."""
+    """When find_reusable returns (path, display_name), clip is put in playback_queue as tuple."""
     from core.audio_queue import run_audio_queue
 
     state = GlobalState()
@@ -195,6 +191,11 @@ async def test_find_reusable_display_name_pushed(tmp_path):
         ) as mock_reuse,
         patch("core.audio_queue.mark_played", new_callable=AsyncMock),
         patch("core.audio_queue._index_fallback_clips", new_callable=AsyncMock, return_value=[]),
+        # Prevent real reference files from being indexed (would set _pending_ref=True,
+        # causing the reuse path to be skipped in favour of A2A generation)
+        patch("core.audio_queue._auto_index_references_on_startup", new_callable=AsyncMock, return_value=0),
+        # Prevent background crisis cache generation (makes HTTP requests, competes for event loop)
+        patch("core.audio_queue._build_crisis_cache", new_callable=AsyncMock),
         patch("core.audio_queue._POLL_INTERVAL", 9999),  # prevent second loop
         patch.dict("os.environ", {"FAL_API_KEY": "test-key"}),
     ):
@@ -210,14 +211,10 @@ async def test_find_reusable_display_name_pushed(tmp_path):
         except asyncio.CancelledError:
             pass
 
-    updates = []
-    while not state_queue.empty():
-        updates.append(await state_queue.get())
-
-    assert any(
-        u.get("current_track_name") == "Reuse Artist - Reuse Track"
-        for u in updates
-    )
+    # playback_queue receives (path, display_name) — current_track_name pushed by dsp.py
+    assert not playback_queue.empty()
+    item = await playback_queue.get()
+    assert item == (fake_clip, "Reuse Artist - Reuse Track")
     await conn.close()
 
 

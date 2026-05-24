@@ -129,6 +129,26 @@
 
 ---
 
+## Décisions 2026-05-24 — Audit pipeline robustesse (PRs #202 #205 #206)
+
+| Décision | Choix retenu | Alternative rejetée | Raison |
+|----------|-------------|---------------------|--------|
+| `total_seconds` text-to-audio | 180s (override décision précédente 45s) | 45s | Décision explicite : clips longs = moins d'appels fal.ai/h, expérience musicale plus continue. La décision 45s avait été prise suite à l'épuisement du solde fal.ai — situation résolue. |
+| `total_seconds` audio-to-audio | `min(ref_duration, 180)` via ffprobe | 45s fixe | La durée de la référence est la bonne métrique : A2A doit reproduire la structure temporelle de la source. Cap 180s = limite API. |
+| `pw()` dans `drift.py` | `math.tanh(pe / max(vol, 0.01))` — borné à `[-1, 1]` | Division brute `pe / vol` — non bornée | Avec `vol=0.001`, `pw=10000` → `drift_momentum["bpm"] = 3333` → BPM rate-limit absorbait le pic mais le momentum persistait 100+ cycles. `tanh` borne à ±1 sans changer le signe ni la direction. |
+| Reverb `wet_level` max | 0.20 (était 0.35) | Garder 0.35 | Les clips audio-to-audio ont la réverbération de la piste référence baked-in. Ajouter wet=0.35 créait une double-reverb audible. Max 0.20 = effet présent sans surcharger. |
+| Reverb `room_size` max | 0.60 (était 1.0) | Garder 1.0 | `room_size=1.0` génère une queue de réverbération de plusieurs secondes. Sur des chunks de 93ms, la queue s'accumule sur toute la durée du clip → reverb perceptivement dominante. |
+| Reverb `dry_level` | 0.85 (était 0.70) | Garder 0.70 | `dry_level=0.70` atténuait trop le signal sec. Avec `wet=0.35 + dry=0.70`, la reverb était proportionnellement plus forte que le source. 0.85 rend le source clairement audible. |
+| Delay feedback/mix max | 0.35/0.25 (était 0.60/0.40) | Garder 0.60/0.40 | Avec `source_divergence=1.0`, 3 échos successifs à 60% = trail d'écho de 1.1s clairement audible, amplifié par la reverb en amont. |
+| Journal intervalle | 15 min défaut, 3 min crise, 5 min min | 5 min défaut, 90s crise, 60s min | La fingerprint (`crisis_level:.1f`, `world_temperature:.1f`) changeait à presque chaque cycle → trigger `state_changed` se déclenchait toutes les 60s en pratique → ~60 appels GPT/h au lieu de 12. |
+| Track namer system prompts | 7 prompts distincts avec références esthétiques (Kranky, Warp, Blue Note…) + `temperature=1.1` | 5 prompts génériques avec adjectifs seuls | Mêmes adjectifs → GPT-4o-mini converge vers le même espace lexical. Les références esthétiques (labels, artistes réels) contraignent le style de nommage à des vocabulaires distincts par territoire. |
+| Audio feedback loop | `audio_bpm_delta`/`audio_key_match`/`audio_energy_level` passent dans `update_self_model()` | Laisser ces champs dans GlobalState sans les alimenter dans le self-model | Ces champs étaient émis par `_maybe_emit_audio_feedback()` et atteignaient GlobalState, mais `drift.py` ne les lisait jamais — boucle feedback morte. Brancher dans `compute_derived()` ferme la boucle sans modifier l'architecture. |
+| `time_in_territory_h` dans drift | Signal de fatigue `(h/10 - 0.3).clamp(0, 0.5) * 0.1` ajouté à `bpm_force` | Ignorer (situation actuelle) | Un territoire actif 8h produit la même dérive qu'un territoire actif 1h — le temps musical n'existait pas. La contribution max (+0.05 sur `bpm_force`) est délibérément faible pour ne pas dominer les signaux PE réels. |
+| Nitter RSS health tracking | `_last_ok_idx` module-level + rotation + `source_health["nitter_rss"]` | Ordre fixe + pas de tracking | Instances Nitter éphémères → retenter en premier celle qui a fonctionné = réduction des timeouts. `source_health` permet au monitoring de détecter une panne prolongée. |
+| arXiv signal | Delta normalisé 7j : `(today - avg) / max(avg, 1)` | Count brut | Count brut = 0 pendant ~23h/24 → `arxiv_papers_today` PE plat la plupart du temps → `curiosity` non alimentée sauf 1h/jour. Delta normalisé = signal continu centré sur 0, positif quand au-dessus de la moyenne. |
+
+---
+
 ## Décisions rejetées
 
 | Décision | Raison |

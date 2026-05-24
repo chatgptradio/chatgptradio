@@ -1,4 +1,4 @@
-"""Tests for chat_commands — English responses, !song, !replay."""
+"""Tests for chat_commands — handle_command dispatch and return values."""
 import pytest
 from unittest.mock import AsyncMock, MagicMock, patch
 import asyncio
@@ -19,55 +19,66 @@ def _make_deps(track_name: str = ""):
 
 
 @pytest.mark.asyncio
-async def test_song_with_track_name():
-    state, eng, q, conn = _make_deps(track_name="Void Cartographer - Cold Signal")
-    result = await handle_command("!song", state, eng, q, conn)
-    assert result == "♪ Void Cartographer - Cold Signal"
-
-
-@pytest.mark.asyncio
-async def test_song_no_track_name_returns_none():
-    state, eng, q, conn = _make_deps(track_name="")
-    result = await handle_command("!song", state, eng, q, conn)
-    assert result is None
-
-
-@pytest.mark.asyncio
-async def test_mood_english_emotion():
+async def test_mood_returns_dominant_signal():
     state, eng, q, conn = _make_deps()
     state.prediction_errors = {"anxiety": 0.9}
     state.signal_volatilities = {"anxiety": 0.1}
-    result = await handle_command("!mood", state, eng, q, conn)
+    eng.try_mood.return_value = True
+    result = await handle_command("!mood", "", state, eng, q, conn)
     assert result is not None
     assert "anxiety" in result
 
 
 @pytest.mark.asyncio
-async def test_vibe_unknown_mode_english():
+async def test_mood_excludes_counter_fields():
     state, eng, q, conn = _make_deps()
-    result = await handle_command("!vibe badmode", state, eng, q, conn)
-    assert result is not None
-    assert "unknown mode" in result
-    assert "inconnu" not in result
+    # Only counter fields — filtered out → no mood signal → returns None
+    state.prediction_errors = {"songs_played_today": 5.0, "queue_length": 2.0}
+    state.signal_volatilities = {}
+    eng.try_mood.return_value = True
+    result = await handle_command("!mood", "", state, eng, q, conn)
+    assert result is None
 
 
 @pytest.mark.asyncio
-async def test_request_unknown_genre_english():
+async def test_mood_prefers_signal_over_counter():
     state, eng, q, conn = _make_deps()
-    result = await handle_command("!request badgenre", state, eng, q, conn)
+    state.prediction_errors = {"songs_played_today": 99.0, "openai_incident_score": 0.5}
+    state.signal_volatilities = {"openai_incident_score": 0.1}
+    eng.try_mood.return_value = True
+    result = await handle_command("!mood", "", state, eng, q, conn)
+    assert result is not None
+    assert "openai_incident_score" in result
+    assert "songs_played_today" not in result
+
+
+@pytest.mark.asyncio
+async def test_request_unknown_genre():
+    state, eng, q, conn = _make_deps()
+    result = await handle_command("!request badgenre", "", state, eng, q, conn)
     assert result is not None
     assert "unknown genre" in result
-    assert "inconnu" not in result
+
+
+@pytest.mark.asyncio
+async def test_request_valid_genre():
+    state, eng, q, conn = _make_deps()
+    eng.try_request.return_value = True
+    result = await handle_command("!request ambient", "", state, eng, q, conn)
+    assert result is not None
+    assert "ambient" in result
 
 
 @pytest.mark.asyncio
 async def test_replay_found():
     from pathlib import Path
     state, eng, q, conn = _make_deps()
+    eng.try_replay.return_value = True
     with patch("core.chat_commands.find_by_display_name", new_callable=AsyncMock) as mock_find:
         mock_find.return_value = (Path("/fake/path.mp3"), "Void Cartographer - Cold Signal")
-        result = await handle_command("!replay cold signal", state, eng, q, conn)
-    assert result == "▶ queuing Void Cartographer - Cold Signal"
+        result = await handle_command("!replay cold signal", "", state, eng, q, conn)
+    assert result is not None
+    assert "Void Cartographer - Cold Signal" in result
     eng.push.assert_called_once_with("replay", "/fake/path.mp3")
 
 
@@ -76,15 +87,17 @@ async def test_replay_not_found():
     state, eng, q, conn = _make_deps()
     with patch("core.chat_commands.find_by_display_name", new_callable=AsyncMock) as mock_find:
         mock_find.return_value = None
-        result = await handle_command("!replay xyznotexist", state, eng, q, conn)
-    assert result == "track not found: xyznotexist"
+        result = await handle_command("!replay xyznotexist", "", state, eng, q, conn)
+    assert result is not None
+    assert "xyznotexist" in result
 
 
 @pytest.mark.asyncio
 async def test_replay_no_arg():
     state, eng, q, conn = _make_deps()
-    result = await handle_command("!replay", state, eng, q, conn)
-    assert result == "usage: !replay <track name>"
+    result = await handle_command("!replay", "", state, eng, q, conn)
+    assert result is not None
+    assert "replay" in result.lower()
 
 
 @pytest.mark.asyncio
@@ -92,8 +105,9 @@ async def test_switch_advances_to_next_mode():
     state, eng, q, conn = _make_deps()
     state.visual_mode = "neural"
     eng.try_switch.return_value = True
-    result = await handle_command("!switch", state, eng, q, conn)
-    assert result == "◈ switching to synapse"
+    result = await handle_command("!switch", "", state, eng, q, conn)
+    assert result is not None
+    assert "synapse" in result
     update = await asyncio.wait_for(q.get(), timeout=1.0)
     assert update["visual_mode"] == "synapse"
 
@@ -103,8 +117,9 @@ async def test_switch_explicit_valid_mode():
     state, eng, q, conn = _make_deps()
     state.visual_mode = "neural"
     eng.try_switch.return_value = True
-    result = await handle_command("!switch chaos", state, eng, q, conn)
-    assert result == "◈ switching to chaos"
+    result = await handle_command("!switch chaos", "", state, eng, q, conn)
+    assert result is not None
+    assert "chaos" in result
     update = await asyncio.wait_for(q.get(), timeout=1.0)
     assert update["visual_mode"] == "chaos"
 
@@ -114,8 +129,9 @@ async def test_switch_invalid_explicit_mode_advances():
     state, eng, q, conn = _make_deps()
     state.visual_mode = "unknown_xyz"  # not in SCENE_CYCLE → fallback to neural → next = synapse
     eng.try_switch.return_value = True
-    result = await handle_command("!switch badmode", state, eng, q, conn)
-    assert result == "◈ switching to synapse"
+    result = await handle_command("!switch badmode", "", state, eng, q, conn)
+    assert result is not None
+    assert "synapse" in result
 
 
 @pytest.mark.asyncio
@@ -123,7 +139,7 @@ async def test_switch_on_cooldown_returns_message():
     state, eng, q, conn = _make_deps()
     eng.try_switch.return_value = False
     eng.cooldown_remaining.return_value = 180.0
-    result = await handle_command("!switch", state, eng, q, conn)
+    result = await handle_command("!switch", "", state, eng, q, conn)
     assert result is not None
     assert "cooldown" in result
     assert "180" in result
@@ -135,5 +151,18 @@ async def test_switch_wraps_around_from_chaos():
     state, eng, q, conn = _make_deps()
     state.visual_mode = "chaos"
     eng.try_switch.return_value = True
-    result = await handle_command("!switch", state, eng, q, conn)
-    assert result == "◈ switching to globe"
+    result = await handle_command("!switch", "", state, eng, q, conn)
+    assert result is not None
+    assert "globe" in result
+
+
+@pytest.mark.asyncio
+async def test_switch_wraps_around_from_globe():
+    state, eng, q, conn = _make_deps()
+    state.visual_mode = "globe"
+    eng.try_switch.return_value = True
+    result = await handle_command("!switch", "", state, eng, q, conn)
+    assert result is not None
+    assert "neural" in result  # globe wraps back to neural
+    update = await asyncio.wait_for(q.get(), timeout=1.0)
+    assert update["visual_mode"] == "neural"

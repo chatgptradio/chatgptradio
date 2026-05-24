@@ -8,11 +8,11 @@ from core.state import GlobalState
 
 
 def test_scene_cycle_order():
-    assert SCENE_CYCLE == ["neural", "synapse", "particles", "chaos", "globe", "nebula"]
+    assert SCENE_CYCLE == ["neural", "synapse", "chaos", "globe"]
 
 
-def test_scene_cycle_has_six_modes():
-    assert len(SCENE_CYCLE) == 6
+def test_scene_cycle_has_four_modes():
+    assert len(SCENE_CYCLE) == 4
 
 
 @pytest.mark.asyncio
@@ -44,22 +44,6 @@ async def test_rotator_advances_from_synapse():
     except asyncio.CancelledError:
         pass
     update = await asyncio.wait_for(q.get(), timeout=1.0)
-    assert update["visual_mode"] == "particles"
-
-
-@pytest.mark.asyncio
-async def test_rotator_advances_from_particles():
-    state = GlobalState()
-    state.visual_mode = "particles"
-    q: asyncio.Queue = asyncio.Queue()
-    task = asyncio.create_task(run_scene_rotator(state, q, interval_s=0))
-    await asyncio.sleep(0.05)
-    task.cancel()
-    try:
-        await task
-    except asyncio.CancelledError:
-        pass
-    update = await asyncio.wait_for(q.get(), timeout=1.0)
     assert update["visual_mode"] == "chaos"
 
 
@@ -80,9 +64,9 @@ async def test_rotator_advances_from_chaos():
 
 
 @pytest.mark.asyncio
-async def test_rotator_wraps_around_from_nebula():
+async def test_rotator_wraps_around_from_globe():
     state = GlobalState()
-    state.visual_mode = "nebula"
+    state.visual_mode = "globe"
     q: asyncio.Queue = asyncio.Queue()
     task = asyncio.create_task(run_scene_rotator(state, q, interval_s=0))
     await asyncio.sleep(0.05)
@@ -92,7 +76,7 @@ async def test_rotator_wraps_around_from_nebula():
     except asyncio.CancelledError:
         pass
     update = await asyncio.wait_for(q.get(), timeout=1.0)
-    assert update["visual_mode"] == "neural"  # nebula wraps to neural
+    assert update["visual_mode"] == "neural"  # globe wraps to neural
 
 
 @pytest.mark.asyncio

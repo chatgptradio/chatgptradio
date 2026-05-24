@@ -124,8 +124,8 @@ async def cleanup_ghost_paths(conn: aiosqlite.Connection) -> int:
 async def find_reusable(
     conn: aiosqlite.Connection,
     state: GlobalState,
-    max_play_count: int = 10,
-    cooldown_s: float = 300.0,
+    max_play_count: int = 999,
+    cooldown_s: float = 36000.0,
 ) -> tuple[Path, str] | None:
     """Return (path, display_name) of a reusable clip scored by state match, or None.
 
@@ -192,14 +192,20 @@ async def find_by_display_name(
     conn: aiosqlite.Connection,
     name: str,
 ) -> tuple[Path, str] | None:
-    """Case-insensitive search by display_name. Returns (path, display_name) or None."""
+    """Case-insensitive search by display_name. Returns (path, display_name) or None.
+
+    Spaces in *name* are treated as wildcards so "echo frontier chasing shadows"
+    matches "Echo Frontier - Chasing Shadows" (the ' - ' separator is skipped).
+    """
+    words = name.strip().split()
+    pattern = "%" + "%".join(words) + "%"
     async with conn.execute(
         """
         SELECT path, display_name FROM audio_clips
         WHERE LOWER(display_name) LIKE LOWER(?)
         ORDER BY last_played_at DESC LIMIT 1
         """,
-        (f"%{name}%",),
+        (pattern,),
     ) as cur:
         row = await cur.fetchone()
     if row is None:

@@ -1,6 +1,6 @@
 """CommandEngine — lightweight chat command dispatcher.
 
-Manages cooldowns for !vibe and !request commands and exposes a push()
+Manages cooldowns for chat commands and exposes a push()
 method to inject commands into the DSP/playback pipeline.
 """
 
@@ -8,8 +8,6 @@ from __future__ import annotations
 
 import time
 
-
-_SWITCH_COOLDOWN_S: float = 300.0
 
 VALID_GENRES: tuple[str, ...] = (
     "ambient",
@@ -21,17 +19,20 @@ VALID_GENRES: tuple[str, ...] = (
     "drone",
 )
 
-_VIBE_COOLDOWN_S: float = 120.0
 _REQUEST_COOLDOWN_S: float = 60.0
+_SWITCH_COOLDOWN_S: float = 300.0
+_REPLAY_COOLDOWN_S: float = 120.0
+_MOOD_COOLDOWN_S: float = 30.0
 
 
 class CommandEngine:
     """Tracks cooldowns and routes commands to downstream consumers."""
 
     def __init__(self) -> None:
-        self._vibe_last: dict[str, float] = {}
         self._request_last: dict[str, float] = {}
         self._switch_last: float = 0.0
+        self._replay_last: float = 0.0
+        self._mood_last: float = 0.0
         self._pending: list[tuple[str, str]] = []
 
     # ── Public API ────────────────────────────────────────────────────────────
@@ -47,39 +48,43 @@ class CommandEngine:
 
     # ── Cooldown helpers ──────────────────────────────────────────────────────
 
-    def try_vibe(self, mode: str) -> bool:
-        """Return True and record timestamp if cooldown has elapsed."""
+    def try_request(self, genre: str) -> bool:
         now = time.monotonic()
-        if now - self._vibe_last.get(mode, 0.0) >= _VIBE_COOLDOWN_S:
-            self._vibe_last[mode] = now
+        if now - self._request_last.get(genre, 0.0) >= _REQUEST_COOLDOWN_S:
+            self._request_last[genre] = now
             return True
         return False
 
     def try_switch(self) -> bool:
-        """Return True and record timestamp if the global switch cooldown has elapsed."""
         now = time.monotonic()
         if now - self._switch_last >= _SWITCH_COOLDOWN_S:
             self._switch_last = now
             return True
         return False
 
-    def cooldown_remaining(self, kind: str, arg: str) -> float:
-        """Return seconds remaining before *arg* can be used again for *kind*."""
+    def try_replay(self) -> bool:
         now = time.monotonic()
-        if kind == "vibe":
-            return max(0.0, _VIBE_COOLDOWN_S - (now - self._vibe_last.get(arg, 0.0)))
-        if kind == "request":
-            return max(
-                0.0, _REQUEST_COOLDOWN_S - (now - self._request_last.get(arg, 0.0))
-            )
-        if kind == "switch":
-            return max(0.0, _SWITCH_COOLDOWN_S - (now - self._switch_last))
-        return 0.0
-
-    def try_request(self, genre: str) -> bool:
-        """Return True and record timestamp if cooldown has elapsed."""
-        now = time.monotonic()
-        if now - self._request_last.get(genre, 0.0) >= _REQUEST_COOLDOWN_S:
-            self._request_last[genre] = now
+        if now - self._replay_last >= _REPLAY_COOLDOWN_S:
+            self._replay_last = now
             return True
         return False
+
+    def try_mood(self) -> bool:
+        now = time.monotonic()
+        if now - self._mood_last >= _MOOD_COOLDOWN_S:
+            self._mood_last = now
+            return True
+        return False
+
+    def cooldown_remaining(self, kind: str, arg: str = "") -> float:
+        """Return seconds remaining before *kind* can be used again."""
+        now = time.monotonic()
+        if kind == "request":
+            return max(0.0, _REQUEST_COOLDOWN_S - (now - self._request_last.get(arg, 0.0)))
+        if kind == "switch":
+            return max(0.0, _SWITCH_COOLDOWN_S - (now - self._switch_last))
+        if kind == "replay":
+            return max(0.0, _REPLAY_COOLDOWN_S - (now - self._replay_last))
+        if kind == "mood":
+            return max(0.0, _MOOD_COOLDOWN_S - (now - self._mood_last))
+        return 0.0

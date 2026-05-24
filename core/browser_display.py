@@ -28,7 +28,8 @@ async def run_browser_display(
         ready_event.set()
         return
 
-    overlay_url = f"http://localhost:{port}/visualizer.html"
+    import time as _time
+    overlay_url = f"http://localhost:{port}/visualizer.html?v={int(_time.time())}"
 
     # Start Xvfb
     xvfb = await asyncio.create_subprocess_exec(
@@ -59,6 +60,19 @@ async def run_browser_display(
             "--no-first-run",
             "--test-type",                   # suppresses --no-sandbox warning bar
             "--window-size=1280,720",
+            # Headless overhead reduction
+            "--disable-extensions",
+            "--disable-background-networking",
+            "--disable-sync",
+            "--disable-translate",
+            "--disable-notifications",
+            "--disable-default-apps",
+            "--disable-hang-monitor",
+            "--disable-component-update",
+            "--disable-client-side-phishing-detection",
+            "--mute-audio",                  # audio goes through FFmpeg pipe, not Chromium
+            "--disable-background-timer-throttling",
+            "--disable-renderer-backgrounding",
             f"--display={display}",
             f"--app={overlay_url}",
             stdout=asyncio.subprocess.DEVNULL,

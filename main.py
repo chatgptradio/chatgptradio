@@ -25,12 +25,11 @@ from core.websocket_server import start_websocket_server
 
 load_dotenv()  # loads .env from cwd or any parent directory
 
-# Increase GIL switch interval from default 5ms to 50ms.
-# The DSP PCM write thread uses time.sleep(92ms) for real-time pacing.
-# With many asyncio coroutines competing for the GIL, the thread wakes up
-# from sleep but waits ~40ms for GIL reacquisition, causing 0.69x audio rate.
-# 50ms intervals give the DSP thread longer uninterrupted runs.
-sys.setswitchinterval(0.05)
+# Use default Python GIL switch interval (5ms).
+# PCM write thread blocks os.write() for ~92ms (GIL released in C kernel).
+# After write completes, GIL wait ≤ 5ms → audio rate ~93% real-time.
+# FFmpeg lavfi encodes at ~90% real-time → audio slightly faster → small buffer → no gaps.
+sys.setswitchinterval(0.005)
 
 log = structlog.get_logger()
 

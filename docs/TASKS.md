@@ -87,7 +87,7 @@ Vérifié le 2026-05-20 — smoke test OK : GlobalState 77 champs, WebSocket 4fp
 | Module | Fichier | État |
 |--------|---------|------|
 | YouTube Live Chat polling (pytchat) | `collectors/youtube_chat.py` | ✅ PR #130 |
-| !commands (song/request/vibe) | `core/chat_commands.py` | ✅ PR #130 |
+| !commands (`!mood`/`!request`/`!switch`/`!replay`) | `core/chat_commands.py` | ✅ mis à jour 2026-05-23 |
 | CommandEngine injecté via make_collector() | `main.py` | ✅ PR #130 |
 | YouTube broadcast lifecycle (auto-start) | `core/youtube.py` | ❌ pas encore implémenté |
 
@@ -143,7 +143,7 @@ Vérifié 2026-05-20 — 353+ tests verts. NO FAKE validé sur tous les overlays
 | FFmpeg → RTMP pipe | `core/dsp.py` | ✅ mergé | 2f763f1 |
 | CalendarEngine 15 événements | `core/calendar_engine.py` | ✅ mergé | 2f763f1 |
 | Three.js graph @node | `overlays/graph.html` | ✅ mergé | 2f763f1 |
-| Three.js 6 modes (neural/synapse/particles/chaos/globe/nebula) | `overlays/visualizer.html` | ✅ mergé | PR #118 + suite |
+| Three.js 5 modes (neural/synapse/chaos/globe/nebula) | `overlays/visualizer.html` | ✅ mergé | PR #118 + suite |
 | CNN Fear & Greed collecteur | `collectors/cnn_fear_greed.py` | ✅ mergé | 2f763f1 |
 | SceneRotator (rotation 6 modes auto) | `core/scene_rotator.py` | ✅ mergé | 2f763f1 |
 
@@ -284,6 +284,110 @@ ADR : [ADR-0007](adr/0007-emotion-synthesis.md)
 | #178 | Automation DSP intra-clip + reverb throw world_event_burst + BPM rate limit (Blocs 10-RT1+RT2+RT3) | `core/dsp.py`, `core/drift.py` | #201 | ✅ |
 
 **Résumé Sprint 4 :** automation RT1 conditionnelle (excitement/urgency), LadderFilter cutoff ramp 300Hz→20kHz build-up, reverb release 0.8→1.0, reverb throw world_event_burst, BPM rate limit ±8 BPM/clip dans update_drift(). 482 tests.
+
+---
+
+### Hotfixes production — 2026-05-23
+
+| Titre | Fichier(s) | État |
+|-------|------------|------|
+| `current_track_name` au démarrage réel PCM (plus au queuing) — playback_queue porte `(Path, str)` | `core/audio_queue.py`, `core/dsp.py` | ✅ |
+| `!song` supprimé ; `!vibe` supprimé (doublon `!request`) | `core/chat_commands.py`, `core/command_engine.py` | ✅ |
+| Cooldowns anti-spam sur toutes les commandes : `!mood` 30 s, `!request` 60 s/genre, `!switch` 300 s, `!replay` 120 s | `core/command_engine.py`, `core/chat_commands.py` | ✅ |
+| HUD `viewer_cmd_label` : notification 8 s overlay + `_show()` sur toutes les commandes | `core/chat_commands.py`, `core/state.py`, `overlays/visualizer.html` | ✅ |
+| ON AIR badge HUD top-left : uptime masqué si < 1 min | `overlays/visualizer.html` | ✅ |
+| `system_metrics` : `COLLECTOR_META` + entrée `config.yaml` + `psutil` installé → `uptime_h` / `cpu_percent` / `hour_utc` actifs | `collectors/system_metrics.py`, `config.yaml` | ✅ |
+| `viewers` : YouTube Data API `videos.list?liveStreamingDetails` → viewer count réel, cache 120 s | `collectors/youtube_chat.py` | ✅ |
+| pytchat channel ID bypass : `get_channelid` monkey-patché → contourne scraping YouTube hex-JSON | `collectors/youtube_chat.py` | ✅ |
+| `num_inference_steps` plafonné à 8 (limite API fal.ai 2026-05) | `builders/music_prompt.py` | ✅ |
+| SYNAPSE mode : bloom réduit (alpha 0.9→0.45, power 1.5→2.2, node size réduit, scale max 2.0→1.0) | `overlays/visualizer.html` | ✅ |
+| SYNAPSE bloom — réduction complémentaire : nodes `g * 0.22` + pow 3.0, connexions cap ~0.35 (`0.28*vStr + 0.07*flow`) | `overlays/visualizer.html` | ✅ |
+| Progress bar HUD : `wrapEl.style.display = 'block'` (était `''` → CSS `display:none` gagnait) | `overlays/visualizer.html` | ✅ |
+| `current_track_name` loop au démarrage : suppression écritures `state_queue` parasites dans `_backfill_fallback_names()` + `_index_fallback_clips()` | `core/audio_queue.py` | ✅ |
+| `total_seconds: 47 → 45` text-to-audio (audio-to-audio garde la durée de la référence) — optimisation coût fal.ai | `core/audio_queue.py` | ✅ |
+| `find_reusable` : `max_play_count: 10 → 999`, `cooldown_s: 300 → 1800` — 94 clips disponibles non utilisés car seuil épuisé (avg play_count ≥ 10) | `core/audio_library.py` | ✅ |
+| `restart.sh` : kill ordonné FFmpeg/Chromium/Xvfb/ports + vérification 5 composants post-démarrage | `scripts/restart.sh` | ✅ |
+| `watchdog.sh` : 5 checks (service/main.py/FFmpeg→RTMP/Chromium/WS:8765), restart si check critique échoue ou ≥2 checks KO, cooldown 60s après démarrage | `scripts/watchdog.sh` | ✅ |
+| `install_service.sh` : `ExecStartPre` ajoute kill FFmpeg+ports, `KillMode=control-group`, `TimeoutStopSec=15` | `scripts/install_service.sh` | ✅ |
+| `setup_crons.sh` : watchdog.sh remplace check_stream.sh dans cron toutes les 2 min | `scripts/setup_crons.sh` | ✅ |
+
+### Hotfixes production — 2026-05-23 (session 2)
+
+| Titre | Fichier(s) | État |
+|-------|------------|------|
+| PCM thread real-time throttle : `time.sleep(_slack)` après chaque chunk — FFmpeg drainait le pipe plus vite que le temps réel → HUD clignotait toutes les 6-7 s | `core/dsp.py` | ✅ |
+| `current_track_name = ""` en fin de clip — ancien nom restait affiché à 100% pendant le silence inter-clip | `core/dsp.py` | ✅ |
+| Fallback `find_reusable(cooldown_s=0)` quand génération échoue ET queue vide (fal.ai credits épuisés) | `core/audio_queue.py` | ✅ |
+| CSS progress bar `transition: width 0.25s` (était 1 s) | `overlays/visualizer.html` | ✅ |
+| SYNAPSE mode : blending `NormalBlending → AdditiveBlending` (nœuds + connexions) — scène quasiment invisible sans bloom pass | `overlays/visualizer.html` | ✅ |
+| CHAOS mode : caméra rapprochée `z=80 → z=55`, `maxDistance: 200 → 120` | `overlays/visualizer.html` | ✅ |
+| `!mood` : filtrer `_MOOD_EXCLUDE` (songs_played_today, queue_length, etc.) de prediction_errors avant de chercher le signal dominant | `core/chat_commands.py` | ✅ |
+| `SCENE_CYCLE` : supprimer `globe` et `nebula` (scènes retirées) → `["neural", "synapse", "chaos"]` | `core/scene_rotator.py` | ✅ |
+| Génération audio text-to-audio : `total_seconds: 45 → 180` + bypass cooldown bibliothèque avant génération | `core/audio_queue.py` | ✅ |
+| Tests `test_chat_commands.py` + `test_command_engine.py` + `test_scene_rotator.py` mis à jour (signature `author_name`, `SCENE_CYCLE` réduit, suppression `!vibe`/`!song`) | `tests/` | ✅ |
+
+### Hotfixes production — 2026-05-23 (session 3) + nouvelle scène Kinect
+
+| Titre | Fichier(s) | État |
+|-------|------------|------|
+| Silence inter-clip : `_read_and_stretch()` applique maintenant `trim_start_s`/`trim_end_s` (librosa) stockés dans `mood_snapshot` — 2-4 s de silence Stable Audio 2.5 supprimés à la lecture. DB interrogée avant chaque tâche de décodage et prefetch. | `core/dsp.py` | ✅ |
+| SYNAPSE mode — nœuds quasi-invisibles : `float alpha = g * 0.12` → `g * 0.9` dans le fragment shader nœuds (valeur hardcodée proche de 0) | `overlays/visualizer.html` | ✅ |
+| SYNAPSE mode — connexions quasi-invisibles : `0.16 * vStr` → `0.55 * vStr` dans le fragment shader connexions | `overlays/visualizer.html` | ✅ |
+| SYNAPSE mode — bloom : `EffectComposer` + `UnrealBloomPass(strength=1.8, radius=0.5, threshold=0.0)`. Force varie `1.6 + maxPredError * 1.2` (data-driven, NO FAKE). | `overlays/visualizer.html` | ✅ |
+| **Nouvelle scène KINECT** : nuage de points 3D (320×240 = 76 800 points) piloté par canvas procédural data-driven. Depth map = hotspots de `prediction_errors` + `crisis_level` + `world_event_burst`. Rotation mesh lerp vers `drift_territory`. Palette 4 couleurs par quartile de territoire. `pointSize` = `1.5 + maxPE*2.5 + tension*1.5`. | `overlays/visualizer.html` | ✅ |
+| `SCENE_CYCLE` étendu à 4 : `["neural", "synapse", "chaos", "kinect"]`. Keyboard shortcut `4=kinect`. *(remplacé session 4 — voir ci-dessous)* | `core/scene_rotator.py`, `overlays/visualizer.html` | ✅ → mis à jour |
+| Script dev `scripts/dev-overlay.sh` : serveur HTTP port 8081 sur `overlays/`, isolé du live (:8080). | `scripts/dev-overlay.sh` | ✅ |
+
+---
+
+### Hotfixes production — 2026-05-23 (session 4) — A2A, drift, bibliothèque
+
+| Titre | Fichier(s) | État |
+|-------|------------|------|
+| SYNAPSE bloom augmenté : init `(sz, 0.4, 0.4, 0.15)`, dynamique `0.3 + maxPredError*0.3` ; GLOBE bloom `0.9 + maxPE*0.4` | `overlays/visualizer.html` | ✅ |
+| Rotation caméra accélérée : `autoRotateSpeed: 1.5` (était 0.3) | `overlays/visualizer.html` | ✅ |
+| `SCENE_CYCLE` : kinect retiré → `["neural","synapse","chaos","globe"]`. Keyboard : `1=neural 2=synapse 3=chaos 4=globe`. | `core/scene_rotator.py`, `overlays/visualizer.html` | ✅ |
+| `visualizer_dev.html` créé : copie live + titre DEV. KinectMode, SynapseMode1, SynapseMode2 supprimés → 4 modes identiques au live. | `overlays/visualizer_dev.html` | ✅ |
+| `find_reference()` : `AND play_count = 0` — chaque référence humaine ne sert qu'une seule fois pour A2A. | `core/audio_queue.py` | ✅ |
+| Déduplication MFCC : 91/93 clips `fal_derived` supprimés (cascade A2A-sur-A2A, similarity ≥ 0.88). Script réutilisable créé. | `scripts/dedup_clips.py`, DB | ✅ |
+| `find_reusable()` cooldown : 1 800 s (30 min) → 36 000 s (10 h). Favorise la génération fraîche. | `core/audio_library.py` | ✅ |
+| **Bug drift critique** : `update_self_model()` jamais appelé pour les 8 champs dérivés (émotions, world_temperature, source_divergence, audience_energy) → `prediction_errors` vides → BPM/territory/key/timbre figés depuis le démarrage. Fix : 8 appels dans `compute_derived()` après calcul. | `core/updater.py` | ✅ |
+| `!mood` : réponse GPT-4o-mini in-character (max 12 mots, données réelles). Singleton client. Fallback mécanique si GPT échoue. | `core/chat_commands.py` | ✅ |
+| Test `test_a2a_decision_sets_ref_path_to_none` : fingerprints MFCC orthogonaux explicites (test écrit pour ancien bug `_mfcc_dist=1.0`). | `tests/test_audio_to_audio.py` | ✅ |
+
+---
+
+### Hotfixes production — 2026-05-24
+
+| Titre | Fichier(s) | État |
+|-------|------------|------|
+| **Silence entre transitions** : dans le path fallback (prefetch raté), `_pending_tail` (3 s finales du clip précédent) est maintenant écrit via DSP au lieu du silence pendant que le clip suivant charge — plus de gap perceptible | `core/dsp.py` | ✅ |
+| **`!replay` cassé** : `find_by_display_name()` convertit les espaces en wildcards (`echo frontier chasing shadows` → `%echo%frontier%chasing%shadows%`) pour matcher `"Echo Frontier - Chasing Shadows"` (le séparateur ` - ` était un non-match) | `core/audio_library.py` | ✅ |
+| **`!replay` sans titre** : display_name récupéré depuis la DB quand le clip replay est mis dans `playback_queue` — nom de piste affiché correctement dans le HUD pendant la lecture | `core/audio_queue.py` | ✅ |
+| **Librosa `float(tempo)` crash** : `librosa.beat.beat_track()` v0.10+ retourne un array → `float(tempo)` → `TypeError`. Fix : `float(np.atleast_1d(tempo)[0])` | `core/audio_queue.py` | ✅ |
+| **System prompts contextuels — journal** : 3 variantes selon état — urgente/fragmentée (`crisis > 0.5`), contemplative (`ambient/neoclassical/drone`), neutre (défaut) | `core/journal.py` | ✅ |
+| **System prompts contextuels — `!mood`** : terse/instable (`anxiety/frustration + σ > 2`), vive/énergisée (`excitement/curiosity + σ > 2`), neutre (défaut) | `core/chat_commands.py` | ✅ |
+| **System prompts contextuels — track_namer** : atmospheric (`ambient/neoclassical/drone`), mechanical (`industrial`), abstract (`experimental/psych`), urgent/fragmentée (`crisis > 0.5`), neutre (défaut) | `core/track_namer.py` | ✅ |
+| **Watchdog crash-loop** : compteur de skips consécutifs (`/tmp/stream_watchdog_skip_count`) — après 3 skips d'affilée (6 min), les vérifications sont forcées même si le service vient de démarrer | `scripts/watchdog.sh` | ✅ |
+| **Watchdog nettoyage processus** : à chaque run (toutes les 2 min), tue les processus pytest orphelins et les shell-snapshots Claude Code de plus de 5 min — évite l'OOM par accumulation de processus dev | `scripts/watchdog.sh` | ✅ |
+| **Watchdog alerte mémoire** : log WARN si RAM disponible < 200 MB | `scripts/watchdog.sh` | ✅ |
+
+---
+
+### Audit pipeline & robustesse — 2026-05-24 (PRs #202 #205 #206)
+
+| Titre | Fichier(s) | PR | État |
+|-------|------------|-----|------|
+| **Égalisation audio (mixage constant)** : `Compressor`+`Gain` déplacés dans `_build_level_chain()` (one-shot + second pass LUFS). Reverb wet max 0.35→0.20, room cap 1.0→0.60, `dry_level` 0.7→0.85, delay feedback cap 0.6→0.35, phaser mix 0.5→0.30. `AudioFile.resampled_to(_SR)` + `-ar 44100` ffmpeg | `core/dsp.py`, `core/audio_queue.py` | #202 | ✅ |
+| **Génération text-to-audio 180s** (clips longs, moins d'appels API) ; **audio-to-audio : durée de la référence** via ffprobe (cap 180s) | `core/audio_queue.py` | #202 | ✅ |
+| **Journal intervalle 15 min** (défaut), 3 min (crise), 5 min (min state-change) — trigger `state_changed` tirait toutes les 60s → −90 % appels GPT | `core/journal.py` | #202 | ✅ |
+| **Track namer : 7 system prompts** (ambient/drone/neoclassical/jazz/industrial/experimental/crisis) avec références esthétiques + `temperature=1.1` + `max_tokens` 20→30 | `core/track_namer.py` | #202 | ✅ |
+| **`pw()` tanh** dans `drift.py` : momentum BPM borné à ≤1.0 au lieu de 333+ quand volatilité proche de zéro | `core/drift.py` | #202 | ✅ |
+| **CNN fear_greed parsing défensif** : `try/except (KeyError, TypeError, ValueError)` | `collectors/cnn_fear_greed.py` | #202 | ✅ |
+| **Nitter RSS : `log.warning`** quand toutes les instances échouent (était `debug` — invisible en prod) | `collectors/nitter_rss.py` | #202 | ✅ |
+| **Boucle feedback audio complète** (#203) : `audio_bpm_delta` / `audio_key_match` / `audio_energy_level` entrent dans `update_self_model()` via `compute_derived()`. `time_in_territory_h` comme signal de fatigue dans `update_drift()` (+0.05 max sur `bpm_force` après 3h) | `core/updater.py`, `core/drift.py` | #205 | ✅ |
+| **Nitter RSS health tracking** (#204) : 4 instances, rotation vers la dernière fiable (`_last_ok_idx`), timeout 10s→6s, `source_health["nitter_rss"]` mis à jour | `collectors/nitter_rss.py` | #206 | ✅ |
+| **arXiv delta normalisé** (#204) : rolling avg 7 derniers appels → `(today - avg) / max(avg, 1)` centré sur 0, actif en continu (vs count brut = 0 pendant 23h/24) | `collectors/arxiv.py`, `core/state.py` | #206 | ✅ |
 
 ---
 

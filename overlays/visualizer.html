@@ -5,22 +5,46 @@
   <title>ChatGPT Radio — Visualizer</title>
   <style>
     * { margin:0; padding:0; box-sizing:border-box; }
-    body { background:#000510; overflow:hidden; font-family:'Courier New',monospace; }
+    body { background:#000000; overflow:hidden; font-family:'Courier New',monospace; }
     canvas { display:block; }
     #hud { position:fixed; top:0; left:0; width:100%; height:100%; pointer-events:none; }
     #drift { position:absolute; bottom:24px; left:24px; color:#00D4FF; font-size:13px; line-height:1.8; text-shadow:0 0 12px #00D4FF88; }
     #drift .territory { font-size:16px; letter-spacing:2px; text-transform:uppercase; }
-    #drift .crisis { color:#FF4444; animation:blink 1s step-end infinite; }
+    #track-info { position:absolute; bottom:172px; left:24px; color:#00D4FF; font-size:13px; line-height:1.8; text-shadow:0 0 12px #00D4FF88; }
+    #track-progress-wrap { position:absolute; bottom:168px; left:24px; width:180px; height:2px; background:#1a3344; border-radius:1px; overflow:hidden; display:none; }
+    #track-progress-bar { height:100%; width:0%; background:#00D4FF; transition:width 0.25s linear; }
     #sources { position:absolute; top:24px; right:24px; color:#8899AA; font-size:11px; line-height:1.7; text-align:right; }
     #journal { position:absolute; bottom:24px; right:24px; color:#8899BB; font-size:11px; max-width:380px; line-height:1.6; opacity:0.85; border-left:1px solid #334; padding-left:12px; }
-    #mode-indicator { position:absolute; top:24px; left:24px; font-size:10px; color:#334; }
-    #ws-status { position:absolute; top:38px; left:24px; font-size:10px; color:#334; }
-    #chat-status { position:absolute; top:52px; left:24px; font-size:10px; color:#556677; }
+    #on-air {
+      position:absolute; top:0; left:0;
+      padding:7px 14px 7px 11px;
+      background:rgba(160,0,0,0.13);
+      border-right:1px solid #ff222222;
+      border-bottom:1px solid #ff222222;
+      border-radius:0 0 7px 0;
+      display:flex; align-items:center; gap:8px;
+    }
+    #on-air-dot {
+      width:8px; height:8px;
+      background:#ff2222; border-radius:50%;
+      box-shadow:0 0 7px #ff2222cc;
+      animation:on-air-pulse 1.5s ease-in-out infinite;
+      flex-shrink:0;
+    }
+    #on-air-label {
+      font-size:11px; font-weight:bold; letter-spacing:2.5px;
+      color:#ff3333; text-shadow:0 0 10px #ff333366;
+    }
+    #on-air-uptime { font-size:10px; color:#772222; letter-spacing:1px; }
+    @keyframes on-air-pulse { 0%,100%{opacity:1;box-shadow:0 0 7px #ff2222cc} 50%{opacity:0.15;box-shadow:0 0 2px #ff222244} }
+    #mode-indicator { position:absolute; top:40px; left:24px; font-size:10px; color:#446655; }
+    #ws-status { position:absolute; top:54px; left:24px; font-size:10px; color:#446655; }
+    #chat-status { position:absolute; top:68px; left:24px; font-size:10px; color:#556677; }
     #chat-status.live { color:#cc7733; }
-    #reddit-status { position:absolute; top:66px; left:24px; font-size:10px; color:#556677; }
+    #reddit-status { display:none; }
     #event-banner {
       position: absolute;
-      top: 60px; left: 50%; transform: translateX(-50%);
+      top: 84px; left: 50%; transform: translateX(-50%);
       color: #FFD700;
       font-size: 18px; letter-spacing: 3px; text-transform: uppercase;
       text-shadow: 0 0 20px #FFD70088;
@@ -28,7 +52,14 @@
       transition: opacity 2s;
       pointer-events: none;
     }
-    #ws-status.connected { color:#225522; }
+    #ws-status.connected { color:#336644; }
+    #viewer-cmd {
+      position:absolute; bottom:205px; left:24px;
+      font-size:11px; color:#99BB77; letter-spacing:0.5px;
+      text-shadow:0 0 8px #99BB7744;
+      opacity:0; transition:opacity 0.6s ease;
+    }
+    #viewer-cmd.active { opacity:1; }
     #fade { position:fixed; top:0; left:0; width:100%; height:100%; background:#000; pointer-events:none; opacity:0; transition:opacity 1.5s; z-index:10; }
     @keyframes blink { 50% { opacity:0; } }
   </style>
@@ -36,12 +67,16 @@
 <body>
 <div id="fade"></div>
 <div id="hud">
+  <div id="on-air"><div id="on-air-dot"></div><span id="on-air-label">ON AIR</span><span id="on-air-uptime"></span></div>
   <div id="mode-indicator">◆ NEURAL</div>
   <div id="ws-status">◌ connecting…</div>
   <div id="chat-status"></div>
   <div id="reddit-status"></div>
   <div id="event-banner"></div>
   <div id="drift"></div>
+  <div id="viewer-cmd"></div>
+  <div id="track-info" style="display:none"></div>
+  <div id="track-progress-wrap"><div id="track-progress-bar"></div></div>
   <div id="sources"></div>
   <div id="journal"></div>
 </div>
@@ -55,22 +90,16 @@
 <script type="module">
 import * as THREE from 'three';
 import { OrbitControls } from 'three/addons/controls/OrbitControls.js';
-import { EffectComposer } from 'three/addons/postprocessing/EffectComposer.js';
-import { RenderPass } from 'three/addons/postprocessing/RenderPass.js';
-import { UnrealBloomPass } from 'three/addons/postprocessing/UnrealBloomPass.js';
-import { FilmPass } from 'three/addons/postprocessing/FilmPass.js';
-import { AfterimagePass } from 'three/addons/postprocessing/AfterimagePass.js';
-import { OutputPass } from 'three/addons/postprocessing/OutputPass.js';
 
 // ── Setup Three.js ────────────────────────────────────────────────────────────
 
 const scene = new THREE.Scene();
-scene.background = new THREE.Color(0x000510);
+scene.background = new THREE.Color(0x000000);
 const camera = new THREE.PerspectiveCamera(55, innerWidth/innerHeight, 0.1, 500);
 camera.position.set(0, 0, 22);
 const renderer = new THREE.WebGLRenderer({antialias:false, powerPreference:'low-power'});
 renderer.setSize(innerWidth, innerHeight);
-renderer.setPixelRatio(0.5);  // render at 640x360 internally — 4× less SwiftShader work
+renderer.setPixelRatio(1.0);
 document.body.prepend(renderer.domElement);
 scene.add(new THREE.AmbientLight(0x112233, 2));
 const fill = new THREE.PointLight(0x00D4FF, 3, 60);
@@ -243,8 +272,7 @@ class NeuralMode {
     const now=performance.now();
     if(now-this._lastSig>400){this._updateSig(state);this._lastSig=now;}
     if(this._controls){this._controls.autoRotate=true;this._controls.autoRotateSpeed=0.5+excit*1.5;}
-    const r=crisis*0.04,b=crisis*0.03;
-    scene.background=new THREE.Color(r,0,b);
+    scene.background=new THREE.Color(0,0,0);
     renderer.render(scene, this._cam);
     return true;
   }
@@ -256,68 +284,8 @@ class NeuralMode {
     this._sprites.forEach(s=>sc.remove(s));this._sprites=[];
     if(this._controls){this._controls.dispose();this._controls=null;}
     this._built=false;
-    scene.background=new THREE.Color(0x000510);
+    scene.background=new THREE.Color(0x000000);
   }
-}
-
-// ── Mode PARTICLES ────────────────────────────────────────────────────────────
-
-class ParticlesMode {
-  constructor() { this.points = null; this.velocities = null; }
-  init(scene, camera) {
-    const N = 3000;
-    const positions = new Float32Array(N * 3);
-    const colors = new Float32Array(N * 3);
-    this.velocities = new Float32Array(N * 3);
-    for (let i = 0; i < N; i++) {
-      positions[i*3]   = (Math.random()-0.5)*20;
-      positions[i*3+1] = (Math.random()-0.5)*20;
-      positions[i*3+2] = (Math.random()-0.5)*10;
-      this.velocities[i*3]   = (Math.random()-0.5)*0.02;
-      this.velocities[i*3+1] = (Math.random()-0.5)*0.02;
-      this.velocities[i*3+2] = (Math.random()-0.5)*0.01;
-    }
-    const geo = new THREE.BufferGeometry();
-    geo.setAttribute('position', new THREE.BufferAttribute(positions, 3));
-    geo.setAttribute('color', new THREE.BufferAttribute(colors, 3));
-    const mat = new THREE.PointsMaterial({ size:0.08, vertexColors:true, transparent:true, opacity:0.85 });
-    this.points = new THREE.Points(geo, mat);
-    scene.add(this.points);
-  }
-  update(state, dt) {
-    if (!this.points) return;
-    const crisis = state.crisis_level || 0;
-    const wt = state.world_temperature || 0.5;
-    const anomaly = state.anomaly_score || 0;
-    const excitation = state.excitation || 0;
-    const tension = state.musical_tension || 0;
-    const bpm_norm = Math.max(0, Math.min(1, ((state.drift_bpm||90) - 60) / 80));
-    const pos = this.points.geometry.attributes.position.array;
-    const col = this.points.geometry.attributes.color.array;
-    const N = pos.length / 3;
-    const hue = (200 + bpm_norm * 80) / 360;
-    const sat = 0.4 + tension * 0.6;
-    const lit = 0.3 + excitation * 0.5;
-    const c = new THREE.Color().setHSL(hue, sat, lit);
-    for (let i = 0; i < N; i++) {
-      const ix = i*3, iy=ix+1, iz=ix+2;
-      const noise = Math.sin(pos[ix]*0.3 + Date.now()*0.0005) * anomaly * 0.05;
-      this.velocities[ix] += (0 - pos[ix]) * crisis * 0.001 + noise;
-      this.velocities[iy] += (0 - pos[iy]) * crisis * 0.001 + noise;
-      this.velocities[ix] *= (0.98 + wt * 0.015);
-      this.velocities[iy] *= (0.98 + wt * 0.015);
-      pos[ix] += this.velocities[ix];
-      pos[iy] += this.velocities[iy];
-      pos[iz] += this.velocities[iz];
-      if (Math.abs(pos[ix]) > 12) this.velocities[ix] *= -1;
-      if (Math.abs(pos[iy]) > 12) this.velocities[iy] *= -1;
-      if (Math.abs(pos[iz]) > 6)  this.velocities[iz] *= -1;
-      col[ix]=c.r; col[iy]=c.g; col[iz]=c.b;
-    }
-    this.points.geometry.attributes.position.needsUpdate = true;
-    this.points.geometry.attributes.color.needsUpdate = true;
-  }
-  dispose(scene) { if (this.points) scene.remove(this.points); this.points = null; }
 }
 
 // ── Mode SYNAPSE ──────────────────────────────────────────────────────────────
@@ -350,7 +318,7 @@ void main(){
   vPulse = pIntensity;
   float scale = nodeSize * uNodeScale * (1.0 + pIntensity * 1.5);
   vec4 mv = modelViewMatrix * vec4(position, 1.0);
-  gl_PointSize = scale * (700.0 / -mv.z);
+  gl_PointSize = scale * (420.0 / -mv.z);
   gl_Position = projectionMatrix * mv;
 }`;
 
@@ -363,10 +331,10 @@ void main(){
   vec2 c = 2.0 * gl_PointCoord - 1.0;
   float d = length(c);
   if(d > 1.0) discard;
-  float g = pow(1.0 - smoothstep(0.0, 1.0, d), 1.5);
+  float g = pow(1.0 - smoothstep(0.0, 0.5, d), 8.0);
   vec3 col = vColor;
-  if(vPulse > 0.0) col = mix(col, vec3(1.0), vPulse * 0.7);
-  float alpha = g * (0.9 - 0.4 * d);
+  if(vPulse > 0.0) col = mix(col, vec3(1.0), vPulse * 0.4);
+  float alpha = g * 0.11;
   gl_FragColor = vec4(col, alpha);
 }`;
 
@@ -412,9 +380,9 @@ varying float vT;
 varying float vPulse;
 void main(){
   float flow = sin(vT * 18.0 - uTime * uFlowSpeed) * 0.5 + 0.5;
-  vec3 col = vColor * (0.55 + 0.3 * flow * vStr);
+  vec3 col = vColor * (0.85 + 0.15 * flow * vStr);
   if(vPulse > 0.0) col = mix(col, vec3(1.0), vPulse * 0.6);
-  float alpha = (0.5 * vStr + 0.15 * flow + vPulse * 0.3)
+  float alpha = (0.55 * vStr + 0.18 * flow + vPulse * 0.3)
     * smoothstep(0.0, 0.05, vT) * smoothstep(1.0, 0.95, vT);
   gl_FragColor = vec4(col, alpha);
 }`;
@@ -486,7 +454,7 @@ class SynapseMode {
         pos = new THREE.Vector3(radius * Math.cos(angle), t * 18, radius * Math.sin(angle));
       }
       const colorBase = palette[i % palette.length].clone();
-      this._nodes.push({ pos, color: colorBase, size: 0.6 + Math.random() * 0.6 });
+      this._nodes.push({ pos, color: colorBase, size: 0.4 + Math.random() * 0.3 });
     }
 
     // Build edges — connect each node to 2-3 nearest neighbours
@@ -581,37 +549,24 @@ class SynapseMode {
     this._controls = new OrbitControls(this._cam, renderer.domElement);
     Object.assign(this._controls, {
       enableDamping: true, dampingFactor: 0.05,
-      autoRotate: true, autoRotateSpeed: 0.3,
+      autoRotate: true, autoRotateSpeed: 1.5,
       enablePan: false, enableZoom: false
     });
-
-    // Stars
-    const N = 3000, pos = [];
-    for (let i = 0; i < N; i++) {
-      const r = THREE.MathUtils.randFloat(50, 150);
-      const phi = Math.acos(THREE.MathUtils.randFloatSpread(2));
-      const theta = THREE.MathUtils.randFloat(0, Math.PI * 2);
-      pos.push(r * Math.sin(phi) * Math.cos(theta), r * Math.sin(phi) * Math.sin(theta), r * Math.cos(phi));
-    }
-    const sg = new THREE.BufferGeometry();
-    sg.setAttribute('position', new THREE.Float32BufferAttribute(pos, 3));
-    this._starField = new THREE.Points(sg, new THREE.PointsMaterial({ color: 0xffffff, size: 0.12, depthWrite: false, opacity: 0.6, transparent: true }));
-    sc.add(this._starField);
 
     // Build initial formation (default = 0)
     this._buildNetwork(sc, 0, 0);
     this._clock.start();
   }
 
+  _getFormation() { return 3; }  // Synapse = linéaire/ADN vertical; override dans GlobeMode
+
   update(state, dt) {
     const t = this._clock.getElapsedTime();
-    const territory = state.drift_territory ?? 0;
     const burstSignal = state.world_event_burst ?? 0;
     const predErrors = state.prediction_errors ?? {};
     const maxPredError = Math.max(0, ...Object.values(predErrors).map(Number).filter(isFinite));
 
-    // Formation based on territory quartile
-    const formation = territory < 0.25 ? 0 : territory < 0.5 ? 1 : territory < 0.75 ? 2 : 3;
+    const formation = this._getFormation();
     const paletteIdx = formation;
 
     // Rebuild network when formation changes
@@ -619,8 +574,8 @@ class SynapseMode {
       this._buildNetwork(scene, formation, paletteIdx);
     }
 
-    // Node scale: lerp 0.5 → 2.0 based on maxPredError (data-driven, no fake base)
-    this._targetNodeScale = 0.5 + maxPredError * 1.5;
+    // Node scale: lerp 0.4 → 1.0 based on maxPredError (data-driven, no fake base)
+    this._targetNodeScale = 0.4 + maxPredError * 0.6;
     this._currentNodeScale = this._lerp(this._currentNodeScale, this._targetNodeScale, 0.05);
 
     // Update shader uniforms
@@ -649,10 +604,7 @@ class SynapseMode {
     }
     this._lastBurst = burstSignal;
 
-    // Background: subtle tint based on territory
-    const r = territory * 0.03;
-    const b = 0.02 + (1 - territory) * 0.04;
-    scene.background = new THREE.Color(r, 0, b);
+    scene.background = new THREE.Color(0, 0, 0);
 
     if (this._controls) this._controls.update();
     renderer.render(scene, this._cam);
@@ -665,7 +617,7 @@ class SynapseMode {
     if (this._starField) { sc.remove(this._starField); this._starField.geometry.dispose(); this._starField = null; }
     if (this._controls) { this._controls.dispose(); this._controls = null; }
     this._nodes = []; this._edges = [];
-    scene.background = new THREE.Color(0x000510);
+    scene.background = new THREE.Color(0x000000);
   }
 }
 
@@ -685,7 +637,6 @@ class ChaosMode {
     this.morphing = false;
     this._fromPts = null;
     this._toPts = null;
-    this._currentBloom = 0.45;
   }
 
   _normalise(points, size) {
@@ -869,12 +820,12 @@ void main(){
 
   init(sc, cam) {
     this._cam = new THREE.PerspectiveCamera(60, innerWidth / innerHeight, 0.1, 2500);
-    this._cam.position.set(0, 0, 80);
+    this._cam.position.set(0, 0, 55);
 
     this._controls = new OrbitControls(this._cam, renderer.domElement);
     Object.assign(this._controls, {
       enableDamping: true, dampingFactor: 0.05,
-      minDistance: 20, maxDistance: 200,
+      minDistance: 15, maxDistance: 120,
       autoRotate: true, autoRotateSpeed: 0.3
     });
 
@@ -940,9 +891,7 @@ void main(){
     }
 
     // Background: dark purple-black, tinted by territory
-    const territory = state.drift_territory ?? 0;
-    const bg = new THREE.Color().setHSL(0.75 - territory * 0.15, 0.3, 0.02 + territory * 0.02);
-    scene.background = bg;
+    scene.background = new THREE.Color(0, 0, 0);
 
     if (this._controls) this._controls.update();
     renderer.render(scene, this._cam);
@@ -954,13 +903,227 @@ void main(){
     if (this._starField) { sc.remove(this._starField); this._starField.geometry.dispose(); this._starField = null; }
     if (this._controls) { this._controls.dispose(); this._controls = null; }
     this._fromPts = null; this._toPts = null;
-    scene.background = new THREE.Color(0x000510);
+    scene.background = new THREE.Color(0x000000);
   }
+}
+
+// ── Helper : territoire string → fraction 0-1 ─────────────────────────────────
+// Ordre croissant : calme/ambient → intense/noise.  Utilisé par SynapseMode + KinectMode.
+const _TERRITORY_LIST = [
+  'ambient','lo-fi','minimalist','blues','jazz','neoclassical',
+  'cinematic','electronic','drone','psych','experimental',
+  'techno','darkwave','industrial','noise'
+];
+function _terr2frac(t) {
+  const i = _TERRITORY_LIST.indexOf(String(t));
+  return i >= 0 ? i / (_TERRITORY_LIST.length - 1) : 0;
+}
+
+// ── Mode KINECT — depth point cloud piloté par GlobalState ───────────────────
+// Source : adapté de threejs.org/examples/webgl_video_kinect.html
+// Remplacement de la texture vidéo Kinect par un canvas procédural data-driven.
+// Chaque signal de GlobalState crée un "hotspot" de profondeur dans le nuage.
+// NO FAKE : le canvas n'est redessiné que si les données changent.
+
+const _KIN_VS = `
+uniform sampler2D map;
+uniform float width;
+uniform float height;
+uniform float nearClipping, farClipping;
+uniform float pointSize;
+uniform float zOffset;
+varying vec2 vUv;
+varying float vDepth;
+const float XtoZ = 1.11146;
+const float YtoZ = 0.83359;
+void main(){
+  vUv = vec2(position.x / width, position.y / height);
+  vec4 col = texture2D(map, vUv);
+  float depth = (col.r + col.g + col.b) / 3.0;
+  vDepth = depth;
+  float z = (1.0 - depth) * (farClipping - nearClipping) + nearClipping;
+  vec4 pos = vec4(
+    (position.x / width - 0.5) * z * XtoZ,
+    (position.y / height - 0.5) * z * YtoZ,
+    -z + zOffset,
+    1.0
+  );
+  gl_PointSize = pointSize * (0.5 + depth * 2.0);
+  gl_Position = projectionMatrix * modelViewMatrix * pos;
+}`;
+
+const _KIN_FS = `
+uniform vec3 uColor1;
+uniform vec3 uColor2;
+varying vec2 vUv;
+varying float vDepth;
+void main(){
+  vec2 c = 2.0 * gl_PointCoord - 1.0;
+  if(length(c) > 1.0) discard;
+  vec3 col = mix(uColor1, uColor2, vUv.x * 0.6 + vDepth * 0.4);
+  float alpha = (0.25 + vDepth * 0.55) * (1.0 - length(c) * 0.4);
+  gl_FragColor = vec4(col, alpha);
+}`;
+
+// Palettes par quartile de territoire (0-3)
+const _KIN_PALETTES = [
+  [new THREE.Color(0x00D4FF), new THREE.Color(0x0055AA)],  // ambient/ethereal → cyan
+  [new THREE.Color(0xFF6600), new THREE.Color(0xFF2200)],  // intense/urgent → orange-red
+  [new THREE.Color(0xA855F7), new THREE.Color(0x6366F1)],  // complex/dark → violet
+  [new THREE.Color(0x10B981), new THREE.Color(0xFACC15)],  // euphoric/bright → green-gold
+];
+
+class KinectMode {
+  constructor() {
+    this._cam = null;
+    this._mesh = null;
+    this._canvas = null; this._ctx = null; this._texture = null;
+    this._clock = new THREE.Clock();
+    this._rotY = 0; this._targetRotY = 0;
+    this._W = 320; this._H = 240;
+    this._lastState = null;
+  }
+
+  init(sc, cam) {
+    const W = this._W, H = this._H;
+
+    this._cam = new THREE.PerspectiveCamera(50, innerWidth / innerHeight, 1, 10000);
+    this._cam.position.set(0, 0, 500);
+
+    // Canvas procédural — source de profondeur data-driven
+    this._canvas = document.createElement('canvas');
+    this._canvas.width = W; this._canvas.height = H;
+    this._ctx = this._canvas.getContext('2d');
+
+    this._texture = new THREE.CanvasTexture(this._canvas);
+    this._texture.minFilter = THREE.NearestFilter;
+    this._texture.generateMipmaps = false;
+
+    const geo = new THREE.BufferGeometry();
+    const verts = new Float32Array(W * H * 3);
+    for (let i = 0, j = 0; i < verts.length; i += 3, j++) {
+      verts[i] = j % W;
+      verts[i + 1] = Math.floor(j / W);
+    }
+    geo.setAttribute('position', new THREE.Float32BufferAttribute(verts, 3));
+
+    const mat = new THREE.ShaderMaterial({
+      uniforms: {
+        map:         { value: this._texture },
+        width:       { value: W },
+        height:      { value: H },
+        nearClipping: { value: 300 },
+        farClipping:  { value: 2000 },
+        pointSize:   { value: 2.0 },
+        zOffset:     { value: 500 },
+        uColor1:     { value: new THREE.Color(0x00D4FF) },
+        uColor2:     { value: new THREE.Color(0x0055AA) },
+      },
+      vertexShader: _KIN_VS, fragmentShader: _KIN_FS,
+      blending: THREE.AdditiveBlending,
+      depthTest: false, depthWrite: false, transparent: true,
+    });
+
+    this._mesh = new THREE.Points(geo, mat);
+    sc.add(this._mesh);
+    this._clock.start();
+  }
+
+  _updateCanvas(state) {
+    const ctx = this._ctx, W = this._W, H = this._H;
+    const crisis  = state.crisis_level ?? 0;
+    const burst   = state.world_event_burst ?? 0;
+    const pe      = state.prediction_errors ?? {};
+    const tension = state.musical_tension ?? 0;
+
+    // Base layer — near-black, slightly brighter with crisis
+    ctx.fillStyle = `rgba(0,0,0,${0.85 - crisis * 0.25})`;
+    ctx.fillRect(0, 0, W, H);
+
+    // One radial blob per active prediction_error signal
+    for (const [key, rawVal] of Object.entries(pe)) {
+      const val = Number(rawVal);
+      if (!isFinite(val) || val < 0.05) continue;
+      const hash = key.split('').reduce((a, c) => (a * 31 + c.charCodeAt(0)) & 0xFFFFFF, 0);
+      const x = ((hash * 0.6180339) % 1) * W;
+      const y = (((hash >> 8) * 0.6180339) % 1) * H;
+      const r = 15 + val * 55 + tension * 20;
+      const intensity = Math.min(val / 2.5, 0.9);
+      const g = ctx.createRadialGradient(x, y, 0, x, y, r);
+      g.addColorStop(0, `rgba(255,255,255,${intensity})`);
+      g.addColorStop(1, 'rgba(0,0,0,0)');
+      ctx.fillStyle = g;
+      ctx.beginPath(); ctx.arc(x, y, r, 0, Math.PI * 2); ctx.fill();
+    }
+
+    // Crisis: soft vignette from center outward
+    if (crisis > 0.08) {
+      const g = ctx.createRadialGradient(W/2, H/2, 0, W/2, H/2, Math.min(W, H) * 0.65);
+      g.addColorStop(0, `rgba(255,255,255,${crisis * 0.35})`);
+      g.addColorStop(1, 'rgba(0,0,0,0)');
+      ctx.fillStyle = g;
+      ctx.fillRect(0, 0, W, H);
+    }
+
+    // World event burst: instantaneous flash
+    if (burst > 0.15) {
+      ctx.fillStyle = `rgba(255,255,255,${burst * 0.55})`;
+      ctx.fillRect(0, 0, W, H);
+    }
+
+    this._texture.needsUpdate = true;
+  }
+
+  update(state, dt) {
+    const territory = state.drift_territory ?? 'ambient';
+    const tf = _terr2frac(territory);
+    const pe = state.prediction_errors ?? {};
+    const maxPE = Math.max(0, ...Object.values(pe).map(Number).filter(isFinite));
+    const tension = state.musical_tension ?? 0;
+    const crisis  = state.crisis_level ?? 0;
+    const vel     = state.drift_velocity ?? 0;
+
+    this._updateCanvas(state);
+
+    // Mesh rotation: lerp toward territory position (data-driven, not time-driven)
+    this._targetRotY = tf * Math.PI * 2;
+    this._rotY += (this._targetRotY - this._rotY) * (0.003 + vel * 0.015);
+    if (this._mesh) this._mesh.rotation.y = this._rotY;
+
+    if (this._mesh) {
+      const u = this._mesh.material.uniforms;
+      u.pointSize.value    = 1.5 + maxPE * 2.5 + tension * 1.5;
+      u.nearClipping.value = Math.max(50, 300 - crisis * 200);
+      u.farClipping.value  = 2000 + maxPE * 800;
+      const pal = _KIN_PALETTES[Math.floor(tf * 4) % _KIN_PALETTES.length];
+      u.uColor1.value.copy(pal[0]);
+      u.uColor2.value.copy(pal[1]);
+    }
+
+    scene.background = new THREE.Color(0, 0, 0);
+    renderer.render(scene, this._cam);
+    return true;
+  }
+
+  dispose(sc) {
+    if (this._mesh) { sc.remove(this._mesh); this._mesh.geometry.dispose(); this._mesh.material.dispose(); this._mesh = null; }
+    if (this._texture) { this._texture.dispose(); this._texture = null; }
+    this._canvas = null; this._ctx = null;
+    scene.background = new THREE.Color(0x000000);
+  }
+}
+
+// ── Mode GLOBE — sphère synaptique, formation 0 forcée ───────────────────────
+// Même réseau que SynapseMode mais figé sur la formation sphère quelle que soit
+// la dérive territoriale.  Tous les autres signaux (PE, burst, chat) restent actifs.
+class GlobeMode extends SynapseMode {
+  _getFormation() { return 0; }  // Globe = sphère
+
 }
 
 // ── Système de modes ──────────────────────────────────────────────────────────
 
-const MODES = { neural: NeuralMode, synapse: SynapseMode, particles: ParticlesMode, chaos: ChaosMode };
+const MODES = { neural: NeuralMode, synapse: SynapseMode, chaos: ChaosMode, kinect: KinectMode, globe: GlobeMode };
 
 // Declared early — NeuralMode.init() reads liveNodes (let TDZ would crash otherwise)
 let liveState = {};
@@ -1006,31 +1169,79 @@ window.switchMode = switchMode;
 
 function updateHUD(st) {
   const crisis = st.crisis_level || 0;
+  const wt = st.world_temperature || 0;
+  const progress = st.current_song_progress || 0;
+  const qlen = st.queue_length || 0;
+  const uptime = st.uptime_h || 0;
+
+  // world_temperature → hue interpolation cold(180°)→warm(0°) via green
+  const wtHue = Math.round(180 - wt * 180);
+  const wtColor = `hsl(${wtHue},70%,55%)`;
+
+  // crisis color + blink
+  const crisisColor = crisis > 0.5 ? '#FF4444' : crisis > 0.2 ? '#FF8844' : '#558866';
+  const crisisBlink = crisis > 0.5 ? 'animation:blink 1s step-end infinite' : '';
+
+  // uptime formatting
+  const uh = Math.floor(uptime);
+  const um = Math.floor((uptime - uh) * 60);
+  const uptimeStr = uh > 0 ? `${uh}h${String(um).padStart(2,'0')}` : um > 0 ? `${um}m` : '';
+
   document.getElementById('drift').innerHTML =
     `<div class="territory">◆ ${st.drift_territory||'ambient'}</div>` +
     `<div>♪ ${Math.round(st.drift_bpm||90)} BPM · ${st.drift_key||'C minor'} · ${st.drift_timbre||'warm'}</div>` +
-    (st.current_track_name ? `<div>♫ ${st.current_track_name}</div>` : '') +
-    (crisis > 0.2 ? `<div class="crisis">⚠ CRISIS ${Math.round(crisis*100)}%</div>` : '');
-  const sh = st.source_health || {};
-  document.getElementById('sources').innerHTML =
-    Object.entries(sh).filter(([k]) => k !== 'reddit').map(([k,v]) =>
-      `<span style="color:${v?'#446644':'#663333'}">${v?'●':'○'} ${k}</span>`
-    ).join('<br>');
-  const redditEl = document.getElementById('reddit-status');
-  if ('reddit' in sh) {
-    const rv = sh.reddit;
-    redditEl.style.color = rv ? '#cc7733' : '#556677';
-    redditEl.textContent = (rv ? '◉' : '◌') + ' reddit';
+    `<div style="color:${crisisColor};${crisisBlink}">◈ CRISIS_LEVEL ${Math.round(crisis*100)}%</div>` +
+    `<div style="color:${wtColor}">⬤ TEMP ${Math.round(wt*100)}%</div>` +
+    (qlen > 0 ? `<div style="color:#556677">⏎ ${qlen} in queue</div>` : '');
+
+  document.getElementById('on-air-uptime').textContent = uptimeStr;
+
+  // Track name + progress bar: stable DOM elements — never rebuilt, only updated in place
+  const trackEl = document.getElementById('track-info');
+  const wrapEl = document.getElementById('track-progress-wrap');
+  const barEl = document.getElementById('track-progress-bar');
+  if (st.current_track_name) {
+    trackEl.textContent = '♫ ' + st.current_track_name;
+    trackEl.style.display = '';
+    wrapEl.style.display = 'block';
+    barEl.style.width = Math.round(progress * 100) + '%';
   } else {
-    redditEl.textContent = '';
+    trackEl.style.display = 'none';
+    wrapEl.style.display = 'none';
+    barEl.style.width = '0%';
   }
+
+  // viewer command notification
+  const vcEl = document.getElementById('viewer-cmd');
+  if (st.viewer_cmd_label) {
+    vcEl.textContent = '◈ ' + st.viewer_cmd_label;
+    vcEl.classList.add('active');
+  } else {
+    vcEl.classList.remove('active');
+  }
+
+  // sources: compact count + detail
+  const sh = st.source_health || {};
+  const entries = Object.entries(sh);
+  const ok = entries.filter(([,v]) => v).length;
+  const total = entries.length;
+  const countColor = ok === total ? '#446644' : ok > total * 0.5 ? '#886633' : '#663333';
+  const detail = entries.map(([k,v]) =>
+    `<span style="color:${v?'#446644':'#663333'}">${v?'●':'○'} ${k}</span>`
+  ).join('<br>');
+  document.getElementById('sources').innerHTML =
+    (total > 0 ? `<div style="color:${countColor};margin-bottom:4px">✓ ${ok}/${total} sources</div>` : '') +
+    detail;
+
   if (st.journal_text) document.getElementById('journal').textContent = st.journal_text;
+
   const chatEl = document.getElementById('chat-status');
   const chatRate = (st.chat_rate || 0).toFixed(1);
   const chatHealth = (st.source_health || {}).youtube_chat;
   const chatLive = chatHealth === true || (chatHealth === undefined && parseFloat(chatRate) > 0);
   chatEl.className = chatLive ? 'live' : '';
   chatEl.textContent = (chatLive ? '◉' : '◌') + ' chat · ' + chatRate + '/min · ' + (st.viewers || 0) + ' viewers';
+
   const evtEl = document.getElementById('event-banner');
   if (st.active_event && st.event_intensity > 0) {
     evtEl.textContent = st.event_label;
@@ -1053,7 +1264,7 @@ function connect() {
   ws.onopen = () => {
     document.getElementById('ws-status').className = 'connected';
     document.getElementById('ws-status').textContent = '● connected';
-    updateHUD({});
+    updateHUD(liveState);  // preserve last known state on reconnect — avoids track name flash
     // Don't force neural here — wait for first WS message so user keeps current mode on reconnect
   };
   ws.onmessage = e => {
@@ -1081,15 +1292,13 @@ function connect() {
 connect();
 
 // ── Render loop ───────────────────────────────────────────────────────────────
-const _FRAME_MS = 1000 / 8;  // 8fps — reduces SwiftShader CPU on VPS (no GPU)
+const _FRAME_MS = 1000 / 30;  // 30fps — bloom removed, setTimeout loop
 let _lastFrameTime = 0;
 
-function animate(now = 0) {
-  requestAnimationFrame(animate);
-  if (now - _lastFrameTime < _FRAME_MS) return;
+function animate() {
+  const now = performance.now();
+  const dt = Math.min((now - _lastFrameTime) * 0.001, 0.05); // capped at 50ms — prevents jump on lag spike
   _lastFrameTime = now;
-  const dt = clock.getDelta();
-  const t = clock.getElapsedTime();
   let handled = false;
   if (activeMode) handled = activeMode.update(liveState, dt) === true;
   if (!handled) {
@@ -1098,12 +1307,13 @@ function animate(now = 0) {
     camera.lookAt(0,0,0);
     renderer.render(scene, camera);
   }
+  setTimeout(animate, _FRAME_MS);
 }
 animate();
 
-// Keyboard shortcuts: 1=neural 2=synapse 3=particles 4=chaos
+// Keyboard shortcuts: 1=neural 2=synapse 3=chaos 4=globe
 window.addEventListener('keydown', (e) => {
-  const map = { '1':'neural', '2':'synapse', '3':'particles', '4':'chaos' };
+  const map = { '1':'neural', '2':'synapse', '3':'chaos', '4':'globe' };
   if (map[e.key]) {
     userOverride = true;  // keep user's choice even when WS heartbeat sends visual_mode:'neural'
     switchMode(map[e.key]);

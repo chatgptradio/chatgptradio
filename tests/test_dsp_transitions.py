@@ -1,6 +1,5 @@
 """Tests for DJ-style transition effects: T1 (EQ crossfade), T2 (filter sweep), T3 (reverb throw)."""
 import numpy as np
-import pytest
 
 from core.state import GlobalState
 

@@ -68,7 +68,8 @@ async def test_replay_puts_in_playback_queue(tmp_path):
 
     assert not playback_queue.empty()
     item = await playback_queue.get()
-    assert item == Path(str(target))
+    # playback_queue uses (path, display_name) tuples; replay has empty display_name
+    assert item == (Path(str(target)), "")
 
     await conn.close()
 

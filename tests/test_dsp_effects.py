@@ -1,5 +1,4 @@
 """Tests for the enriched DSP effects chain — crisis hierarchy, LadderFilter, Delay, Phaser."""
-import pytest
 
 from core.state import GlobalState
 

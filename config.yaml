@@ -18,6 +18,7 @@ collectors:
   - { name: newsapi,          module: collectors.newsapi,           interval_s: 300   }
   - { name: media_cloud,      module: collectors.media_cloud,       interval_s: 900   }
   - { name: cnn_fear_greed,   module: collectors.cnn_fear_greed,    interval_s: 1800  }
+  - { name: system_metrics,  module: collectors.system_metrics,    interval_s: 60    }
 
 websocket:
   port: 8765

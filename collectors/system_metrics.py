@@ -9,6 +9,8 @@ from core.state import GlobalState
 
 log = structlog.get_logger()
 
+COLLECTOR_META = {"name": "system_metrics", "interval_s": 60}
+
 _start_time = time.time()
 
 

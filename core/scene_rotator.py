@@ -5,13 +5,13 @@ import asyncio
 
 from core.state import GlobalState
 
-SCENE_CYCLE: list[str] = ["neural", "synapse", "particles", "chaos", "globe", "nebula"]
+SCENE_CYCLE: list[str] = ["neural", "synapse", "chaos", "globe"]
 
 
 async def run_scene_rotator(
     state: GlobalState,
     state_queue: asyncio.Queue,  # type: ignore[type-arg]
-    interval_s: int = 10800,
+    interval_s: int = 300,
 ) -> None:
     """Advance visual_mode to the next scene in SCENE_CYCLE every interval_s seconds.
 

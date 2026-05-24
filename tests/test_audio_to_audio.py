@@ -8,7 +8,7 @@ from __future__ import annotations
 import asyncio
 import io
 from pathlib import Path
-from unittest.mock import AsyncMock, MagicMock, patch
+from unittest.mock import AsyncMock, patch
 
 import numpy as np
 import pytest
@@ -160,7 +160,8 @@ async def test_a2a_decision_sets_ref_path_to_none(tmp_path):
 
     state = GlobalState()
     state.source_divergence = 0.8
-    # No mfcc_fingerprint in state → mfcc_dist defaults to 1.0 → skip condition met
+    # Provide orthogonal MFCC fingerprints so cosine distance = 1.0 > 0.6 → skip condition met
+    state.mfcc_fingerprint = [1.0] + [0.0] * 19
 
     state_queue: asyncio.Queue = asyncio.Queue()
     playback_queue: asyncio.Queue = asyncio.Queue()
@@ -178,7 +179,9 @@ async def test_a2a_decision_sets_ref_path_to_none(tmp_path):
     ref_path_mock = tmp_path / "ref.mp3"
     ref_path_mock.write_bytes(b"x")
 
-    snap_data = orjson.dumps({"detected_bpm": 100.0}).decode()
+    # Orthogonal MFCC in reference clip → cosine distance = 1.0
+    ref_mfcc = [0.0, 1.0] + [0.0] * 18
+    snap_data = orjson.dumps({"detected_bpm": 100.0, "mfcc_fingerprint": ref_mfcc}).decode()
     await conn.execute(
         "INSERT INTO audio_clips (path, source, territory, mood_snapshot, audio_key, play_count)"
         " VALUES (?, 'reference', 'ambient', ?, '', 0)",

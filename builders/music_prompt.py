@@ -116,13 +116,7 @@ def build_music_prompt(state: GlobalState, prev_prompt: str | None = None) -> st
 
 
 def get_inference_steps(state: GlobalState) -> int:
-    """Adaptive inference steps: fast when queue empty, quality when healthy."""
+    """Adaptive inference steps: fast when urgent, quality when healthy. API max = 8."""
     if state.queue_length == 0:
-        # Queue empty → urgent generation, prefer speed
         return 6
-    elif state.cpu_percent < 70.0:
-        # Queue healthy, CPU available → prefer quality
-        return 14
-    else:
-        # Queue healthy but CPU busy → middle ground
-        return 8
+    return 8

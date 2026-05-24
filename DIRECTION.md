@@ -95,7 +95,7 @@ import fal_client
 # Text-to-audio
 result = await fal_client.run_async(
     "fal-ai/stable-audio-25/text-to-audio",
-    arguments={"prompt": "...", "total_seconds": 47, "num_inference_steps": 8, "guidance_scale": 1.2},
+    arguments={"prompt": "...", "total_seconds": 45, "num_inference_steps": 8, "guidance_scale": 1.2},
 )
 
 # Audio-to-audio (data URI) — all params state-driven, NO HARDCODE
@@ -109,7 +109,7 @@ result = await fal_client.run_async(
     arguments={
         "prompt": "...", "audio_url": data_uri,
         "strength": strength, "guidance_scale": guidance_scale,
-        "num_inference_steps": 8, "total_seconds": 47,
+        "num_inference_steps": 8, "total_seconds": ref_secs,  # durée de la référence [30-190s]
     },
 )
 
@@ -123,7 +123,7 @@ audio_url = result["audio"]["url"]
 |-----------|--------------|----------------|
 | `num_inference_steps` | 8 | 8 |
 | `guidance_scale` | **1.2** | **state-driven [1.0–1.2]** |
-| `total_seconds` | **47** | **47** |
+| `total_seconds` | **45** | **durée référence [30-190s]** |
 | `strength` | — | **state-driven [0.3–0.9]** |
 | `seed` | omis (logguer retour) | omis |
 
@@ -236,7 +236,11 @@ Voir `core/audio_queue._wav_to_mp3()`.
 
 ### Interactivité chat
 
-- **[VALIDÉ]** Commandes : `!song`, `!request <genre>`, `!vibe`
+- **[VALIDÉ]** Commandes : `!mood`, `!request <genre>`, `!switch [mode]`, `!replay <nom>`
+- **[REJETÉ]** `!song` — nom de piste déjà affiché sur le HUD
+- **[REJETÉ]** `!vibe` — remplacé par `!request` (doublon fonctionnel)
+- **[VALIDÉ]** Cooldowns anti-spam : `!mood` 30 s · `!request` 60 s/genre · `!switch` 300 s · `!replay` 120 s
+- **[VALIDÉ]** HUD `viewer_cmd_label` : notification 8 s sur l'overlay à chaque commande acceptée
 - **[VALIDÉ]** Votes genre musical (YouTube poll API)
 - **[REJETÉ]** TTS voix, sentiment analysis chat — V1 : votes explicites uniquement
 
@@ -437,6 +441,9 @@ Représentation : forme d'énergie abstraite Three.js (pulse, contracte, couleur
 | 2026-05-22 | Automation DSP intra-clip (RT1) : conditionée excitement > 0.3 OU urgency > 0.4. LadderFilter cutoff ramp 300Hz→20kHz sur progress 0→0.5 (build-up), reverb wet fade sur 0.8→1.0 (release). | VALIDÉ |
 | 2026-05-22 | Reverb throw world_event_burst (RT2) : when world_event_burst True, prochain rebuild DSP force wet=1.0 room=0.95 pour ~5s. Réaction sonore à un burst d'actualité mondiale réelle. | VALIDÉ |
 | 2026-05-22 | BPM rate limit ±8 BPM/clip (RT3) : clamp dans update_drift() après calcul momentum. Empêche les sauts brusques de tempo qui briseraient la cohérence musicale. | VALIDÉ |
+| 2026-05-23 | `total_seconds` text-to-audio : 47 → 45s. Audio-to-audio garde la durée de la référence [30-190s]. Réduction coût fal.ai, différence perceptive nulle. | VALIDÉ |
+| 2026-05-23 | `find_reusable` : max_play_count 10 → 999, cooldown 300 → 1800s. 94 clips disponibles étaient tous à play_count ≥ 10 → génération systématique malgré bibliothèque pleine. | VALIDÉ |
+| 2026-05-23 | Scripts ops : `restart.sh` (kill ordonné zombies + vérification) + `watchdog.sh` (5 checks : service/main.py/FFmpeg/Chromium/WS) remplacent `check_stream.sh`. `install_service.sh` : `KillMode=control-group` + `TimeoutStopSec=15` + kill FFmpeg dans `ExecStartPre`. | VALIDÉ |
 
 ---
 
@@ -761,8 +768,8 @@ def build_music_prompt(state: GlobalState) -> str:
 
 ### Le problème économique de base
 
-Stable Audio 2.5 = $0.20 par clip de 47s (production — `total_seconds=47`).
-Budget $100/mois = 500 clips × 47s = **6.5 heures** de musique unique.
+Stable Audio 2.5 = $0.20 par clip de 45s (production — `total_seconds=45`).
+Budget $100/mois = 500 clips × 45s = **6.25 heures** de musique unique.
 Mais un stream 24/7 = **720 heures/mois** de contenu nécessaire.
 
 → On ne peut pas générer un nouveau clip toutes les 3 minutes. Il faut une stratégie différente.
@@ -1199,6 +1206,17 @@ GlobalState (83 champs), StateUpdater, SQLite WAL, self_model EMA, drift momentu
 
 **Sprint 4 — 2026-05-22 ✅ (PR #201 — 482 tests)**
 - #178 Automation DSP intra-clip + reverb throw world_event_burst + BPM rate limit ✅ PR #201
+
+**Hotfixes production — 2026-05-23**
+- `current_track_name` écrit au début réel de la lecture PCM (plus au queuing) — playback_queue porte `(Path, str)` tuples
+- ON AIR badge HUD top-left : uptime masqué si < 1 min, point rouge clignotant
+- `viewer_cmd_label` HUD : notification 8 s à chaque commande viewer acceptée
+- `!song` / `!vibe` supprimés ; cooldowns sur toutes les commandes chat
+- `system_metrics` : `COLLECTOR_META` ajouté + entrée `config.yaml` + `psutil` installé → `uptime_h`, `cpu_percent`, `hour_utc` actifs
+- `viewers` : YouTube Data API `videos.list?part=liveStreamingDetails` → viewer count réel, cache 120 s
+- pytchat channel ID bypass : `get_channelid` monkey-patché → contourne le scraping YouTube hex-JSON
+- `num_inference_steps` plafonné à 8 (limite API fal.ai)
+- SYNAPSE mode : bloom réduit (alpha 0.9 → 0.45, power 1.5 → 2.2, node size 0.6–1.2 → 0.4–0.7, scale max 2.0 → 1.0)
 
 **Prochaine étape structurelle**
 - YouTube broadcast auto-lifecycle (`core/youtube.py`) — rotation toutes les 8h

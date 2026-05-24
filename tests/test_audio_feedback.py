@@ -1,7 +1,7 @@
 """Tests for the audio feedback loop: _maybe_emit_audio_feedback in core/dsp.py."""
 import asyncio
 from pathlib import Path
-from unittest.mock import AsyncMock, MagicMock
+from unittest.mock import MagicMock
 
 import orjson
 import pytest
