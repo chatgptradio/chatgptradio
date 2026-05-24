@@ -538,8 +538,12 @@ async def run_dsp(
                     _te: float = _trim_end_s,
                 ) -> np.ndarray:
                     try:
+                        # Skip time-stretch in fallback (non-prefetch) path: pyrubberband
+                        # on a 47 s clip takes 10-25 s and would exhaust the tail buffer,
+                        # causing silence. The prefetch path has 37 s available and applies
+                        # full time-stretch there. 90.0 = no-stretch baseline BPM.
                         a = await loop.run_in_executor(
-                            None, _read_and_stretch, _cp, state.drift_bpm, _ts, _te
+                            None, _read_and_stretch, _cp, 90.0, _ts, _te
                         )
                         a = await loop.run_in_executor(None, _normalize_lufs, a, _SR)
                         # Level pre-bake: apply Compressor+Gain to full clip, then
@@ -570,14 +574,27 @@ async def run_dsp(
                     _pending_tail = None  # consumed — no crossfade with incoming head
                 _tail_flush_pos = 0
 
+                _chunk_bytes = _CHUNK_SAMPLES * 4
                 while not process_task.done():
                     _t0 = _time.monotonic()
                     if proc.poll() is None:
                         try:
-                            _tf_end = min(_tail_flush_pos + _CHUNK_SAMPLES * 4, len(_tail_flush_pcm))
-                            _tf_chunk = _tail_flush_pcm[_tail_flush_pos:_tf_end]
-                            _tail_flush_pos = _tf_end
-                            chunk_out = _tf_chunk + bytes(_CHUNK_SAMPLES * 4 - len(_tf_chunk))
+                            # Circular tail buffer: loop the tail instead of falling through
+                            # to silence when it is exhausted.  The clip may take longer to
+                            # load than the tail covers (especially with time-stretch on the
+                            # prefetch path); looping prevents audible silence at the cost of
+                            # a brief repeat of the last few seconds of the outgoing clip.
+                            _tail_len = len(_tail_flush_pcm)
+                            if _tail_len > 0:
+                                _pos = _tail_flush_pos % _tail_len
+                                _end = _pos + _chunk_bytes
+                                if _end <= _tail_len:
+                                    chunk_out = _tail_flush_pcm[_pos:_end]
+                                else:
+                                    chunk_out = _tail_flush_pcm[_pos:] + _tail_flush_pcm[:_end - _tail_len]
+                                _tail_flush_pos += _chunk_bytes
+                            else:
+                                chunk_out = bytes(_chunk_bytes)
                             await _pipe_write_async(proc, chunk_out)
                         except BrokenPipeError:
                             log.warning("dsp_ffmpeg_pipe_broken")
