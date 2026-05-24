@@ -33,7 +33,7 @@ class GlobalState(BaseModel):
     wikipedia_views_ai: float = 0.0
     newsapi_volume: float = 0.0
     newsapi_sentiment: float = 0.0
-    arxiv_papers_today: int = 0
+    arxiv_papers_today: float = 0.0
     github_ai_stars: float = 0.0
 
     gdelt_global_tone: float = 0.0

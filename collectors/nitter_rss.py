@@ -1,7 +1,8 @@
 """Nitter RSS collector — twitter_volume + twitter_sentiment.
 
-Tries multiple Nitter instances in order and silently returns {} if all fail,
-because Nitter instances go down frequently and noise in logs is unhelpful.
+Tries multiple Nitter instances in order, starting from the last known-good
+instance, and silently returns {} if all fail, because Nitter instances go
+down frequently and noise in logs is unhelpful.
 """
 
 import logging
@@ -21,7 +22,11 @@ _NITTER_INSTANCES = [
     "https://nitter.privacydev.net/OpenAI/rss",
     "https://nitter.poast.org/OpenAI/rss",
     "https://nitter.1d4.us/OpenAI/rss",
+    "https://nitter.cz/OpenAI/rss",
 ]
+
+# Index of the last instance that responded successfully; tried first next call.
+_last_ok_idx: int = 0
 
 _WINDOW_S = 60 * 60  # 60 minutes
 _VOLUME_MAX = 100.0
@@ -77,13 +82,25 @@ def _parse_rss(xml_text: str) -> tuple[float, float]:
     label="Nitter RSS (@OpenAI)",
 )
 async def collect(state: GlobalState) -> dict[str, Any]:
-    for url in _NITTER_INSTANCES:
+    global _last_ok_idx
+
+    n = len(_NITTER_INSTANCES)
+    # Build a rotation starting from the last known-good index
+    indices = [((_last_ok_idx + i) % n) for i in range(n)]
+
+    for i in indices:
+        url = _NITTER_INSTANCES[i]
         try:
-            xml_text = await fetch_text(url, timeout_s=10.0)
+            xml_text = await fetch_text(url, timeout_s=6.0)
             volume, sentiment = _parse_rss(xml_text)
-            return {"twitter_volume": volume, "twitter_sentiment": sentiment}
+            _last_ok_idx = i
+            return {
+                "twitter_volume": volume,
+                "twitter_sentiment": sentiment,
+                "source_health": {"nitter_rss": True},
+            }
         except Exception as exc:
             logger.debug("nitter_rss: instance %s failed: %s", url, exc)
 
-    logger.warning("nitter_rss: all %d instances failed — twitter signals stale", len(_NITTER_INSTANCES))
-    return {}
+    logger.warning("nitter_rss: all %d instances failed — twitter signals stale", n)
+    return {"source_health": {"nitter_rss": False}}

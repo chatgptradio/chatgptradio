@@ -3,7 +3,9 @@
 from datetime import datetime, timedelta, timezone
 from unittest.mock import AsyncMock, MagicMock, patch
 
+import pytest
 
+import collectors.arxiv as arxiv_mod
 from collectors.arxiv import COLLECTOR_META, _parse_arxiv, collect
 from core.state import GlobalState
 
@@ -102,5 +104,95 @@ async def test_collect_returns_arxiv_papers_today():
         result = await collect(GlobalState())
 
     assert "arxiv_papers_today" in result
-    assert isinstance(result["arxiv_papers_today"], int)
-    assert result["arxiv_papers_today"] == 10
+    assert isinstance(result["arxiv_papers_today"], float)
+    # The value is a normalised delta, not a raw count
+
+
+# ---------------------------------------------------------------------------
+# New tests: normalized delta + rolling history
+# ---------------------------------------------------------------------------
+
+
+@pytest.mark.asyncio
+async def test_arxiv_emits_normalized_delta_above_average():
+    """history=[10,10,10], papers_today=15 → delta ≈ 0.5."""
+    now = datetime.now(timezone.utc)
+    times = [now - timedelta(minutes=i * 10) for i in range(15)]
+    payload = _make_atom(times)
+
+    original_history = arxiv_mod._count_history[:]
+    arxiv_mod._count_history.clear()
+    arxiv_mod._count_history.extend([10, 10, 10])
+
+    try:
+        with patch("collectors.arxiv.fetch_text", return_value=payload):
+            result = await collect(GlobalState())
+    finally:
+        arxiv_mod._count_history.clear()
+        arxiv_mod._count_history.extend(original_history)
+
+    assert "arxiv_papers_today" in result
+    assert isinstance(result["arxiv_papers_today"], float)
+    assert result["arxiv_papers_today"] == pytest.approx(0.5, abs=0.01)
+
+
+@pytest.mark.asyncio
+async def test_arxiv_emits_normalized_delta_below_average():
+    """history=[20,20,20], papers_today=10 → delta ≈ -0.5."""
+    now = datetime.now(timezone.utc)
+    times = [now - timedelta(minutes=i * 10) for i in range(10)]
+    payload = _make_atom(times)
+
+    original_history = arxiv_mod._count_history[:]
+    arxiv_mod._count_history.clear()
+    arxiv_mod._count_history.extend([20, 20, 20])
+
+    try:
+        with patch("collectors.arxiv.fetch_text", return_value=payload):
+            result = await collect(GlobalState())
+    finally:
+        arxiv_mod._count_history.clear()
+        arxiv_mod._count_history.extend(original_history)
+
+    assert "arxiv_papers_today" in result
+    assert result["arxiv_papers_today"] == pytest.approx(-0.5, abs=0.01)
+
+
+@pytest.mark.asyncio
+async def test_arxiv_history_is_bounded_to_7_entries():
+    """_count_history must never exceed 7 entries."""
+    now = datetime.now(timezone.utc)
+    times = [now - timedelta(minutes=i * 10) for i in range(5)]
+    payload = _make_atom(times)
+
+    original_history = arxiv_mod._count_history[:]
+    arxiv_mod._count_history.clear()
+    arxiv_mod._count_history.extend([1, 2, 3, 4, 5, 6, 7])
+
+    try:
+        with patch("collectors.arxiv.fetch_text", return_value=payload):
+            await collect(GlobalState())
+        assert len(arxiv_mod._count_history) == 7
+    finally:
+        arxiv_mod._count_history.clear()
+        arxiv_mod._count_history.extend(original_history)
+
+
+@pytest.mark.asyncio
+async def test_arxiv_empty_history_uses_count_as_denominator():
+    """With no history, avg=0 → denominator=max(0,1)=1 → delta = count."""
+    now = datetime.now(timezone.utc)
+    times = [now - timedelta(minutes=i * 10) for i in range(5)]
+    payload = _make_atom(times)
+
+    original_history = arxiv_mod._count_history[:]
+    arxiv_mod._count_history.clear()
+
+    try:
+        with patch("collectors.arxiv.fetch_text", return_value=payload):
+            result = await collect(GlobalState())
+        # delta = (5 - 0) / max(0, 1) = 5.0
+        assert result["arxiv_papers_today"] == pytest.approx(5.0, abs=0.01)
+    finally:
+        arxiv_mod._count_history.clear()
+        arxiv_mod._count_history.extend(original_history)

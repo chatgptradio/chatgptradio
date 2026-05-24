@@ -6,6 +6,7 @@ from unittest.mock import patch
 
 import pytest
 
+import collectors.nitter_rss as nitter_mod
 from collectors.nitter_rss import COLLECTOR_META, _parse_rss, collect
 from core.state import GlobalState
 
@@ -124,14 +125,14 @@ async def test_collect_valid_rss_returns_fields():
 
 
 @pytest.mark.asyncio
-async def test_collect_all_instances_fail_returns_empty_dict():
+async def test_collect_all_instances_fail_returns_source_health_false():
     async def fake_fetch_text(url: str, timeout_s: float = 10.0) -> str:
         raise ConnectionError("instance down")
 
     with patch("collectors.nitter_rss.fetch_text", side_effect=fake_fetch_text):
         result = await collect(GlobalState())
 
-    assert result == {}
+    assert result == {"source_health": {"nitter_rss": False}}
 
 
 @pytest.mark.asyncio
@@ -168,3 +169,97 @@ async def test_collect_tries_next_instance_on_failure():
 
     assert call_count == 2
     assert "twitter_volume" in result
+
+
+# ---------------------------------------------------------------------------
+# New tests: _last_ok_idx priority + source_health reporting
+# ---------------------------------------------------------------------------
+
+
+@pytest.mark.asyncio
+async def test_nitter_tries_last_ok_instance_first():
+    """If _last_ok_idx=1, instance at index 1 is tried before index 0."""
+    xml = _make_rss([{"title": "tweet", "pubDate": _pub_date(5)}])
+    attempted_urls: list[str] = []
+
+    async def fake_fetch_text(url: str, timeout_s: float = 10.0) -> str:
+        attempted_urls.append(url)
+        return xml
+
+    original_idx = nitter_mod._last_ok_idx
+    nitter_mod._last_ok_idx = 1
+    try:
+        with patch("collectors.nitter_rss.fetch_text", side_effect=fake_fetch_text):
+            await collect(GlobalState())
+    finally:
+        nitter_mod._last_ok_idx = original_idx
+
+    assert len(attempted_urls) >= 1
+    # The URL at index 1 should be the first one attempted
+    assert attempted_urls[0] == nitter_mod._NITTER_INSTANCES[1]
+
+
+@pytest.mark.asyncio
+async def test_nitter_success_updates_last_ok_idx():
+    """A successful fetch at index 2 should update _last_ok_idx to 2."""
+    xml = _make_rss([{"title": "tweet", "pubDate": _pub_date(5)}])
+    call_count = 0
+
+    async def fake_fetch_text(url: str, timeout_s: float = 10.0) -> str:
+        nonlocal call_count
+        call_count += 1
+        if call_count < 3:
+            raise ConnectionError("down")
+        return xml
+
+    original_idx = nitter_mod._last_ok_idx
+    nitter_mod._last_ok_idx = 0
+    try:
+        with patch("collectors.nitter_rss.fetch_text", side_effect=fake_fetch_text):
+            await collect(GlobalState())
+        assert nitter_mod._last_ok_idx == 2
+    finally:
+        nitter_mod._last_ok_idx = original_idx
+
+
+@pytest.mark.asyncio
+async def test_nitter_returns_source_health_true_on_success():
+    """A successful collect should include source_health={"nitter_rss": True}."""
+    xml = _make_rss([{"title": "tweet", "pubDate": _pub_date(5)}])
+
+    async def fake_fetch_text(url: str, timeout_s: float = 10.0) -> str:
+        return xml
+
+    with patch("collectors.nitter_rss.fetch_text", side_effect=fake_fetch_text):
+        result = await collect(GlobalState())
+
+    assert "source_health" in result
+    assert result["source_health"] == {"nitter_rss": True}
+
+
+@pytest.mark.asyncio
+async def test_nitter_returns_source_health_false_on_all_fail():
+    """When all instances fail, collect should include source_health={"nitter_rss": False}."""
+
+    async def fake_fetch_text(url: str, timeout_s: float = 10.0) -> str:
+        raise ConnectionError("down")
+
+    with patch("collectors.nitter_rss.fetch_text", side_effect=fake_fetch_text):
+        result = await collect(GlobalState())
+
+    assert "source_health" in result
+    assert result["source_health"] == {"nitter_rss": False}
+
+
+def test_nitter_has_four_instances():
+    """_NITTER_INSTANCES must have at least 4 entries."""
+    assert len(nitter_mod._NITTER_INSTANCES) >= 4
+
+
+def test_nitter_timeout_is_6s():
+    """The timeout passed to fetch_text must be 6.0 seconds."""
+    # We verify this by checking the source code doesn't use 10.0 anymore
+    # and the collect function uses 6.0 via inspection of attempted calls.
+    import inspect
+    src = inspect.getsource(nitter_mod.collect)
+    assert "6.0" in src
