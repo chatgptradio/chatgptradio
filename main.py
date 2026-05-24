@@ -14,7 +14,7 @@ from core.scene_rotator import run_scene_rotator
 from core.collector_runner import start_all_collectors
 from core.command_engine import CommandEngine
 from core.config import load_config
-from core.db import init_db
+from core.db import init_db, purge_old_data
 from core.dsp import run_dsp
 from core.journal import run_journal
 from core.memory import restore_self_model
@@ -46,6 +46,18 @@ async def run() -> None:
     db_conn = await init_db(config.sqlite.path)
     state = GlobalState()
 
+    # Purge old snapshots/history on startup
+    await purge_old_data(db_conn, config.sqlite.snapshot_retention_days, config.sqlite.history_retention_days)
+    await db_conn.execute("VACUUM")
+    log.info("db_purge_startup_done")
+
+    async def _periodic_purge() -> None:
+        while True:
+            await asyncio.sleep(6 * 3600)
+            await purge_old_data(db_conn, config.sqlite.snapshot_retention_days, config.sqlite.history_retention_days)
+            await db_conn.execute("VACUUM")
+            log.info("db_purge_done")
+
     # Restore self-model baselines from last session
     await restore_self_model(db_conn, state)
 
@@ -66,6 +78,7 @@ async def run() -> None:
         state, config.websocket.port, config.websocket.fps
     )
     updater_task = asyncio.create_task(updater.run())
+    purge_task = asyncio.create_task(_periodic_purge())
 
     overlay_port = int(os.environ.get("OVERLAY_HTTP_PORT", "8080"))
     overlay_app = _make_overlay_app()
@@ -103,7 +116,7 @@ async def run() -> None:
 
     log.info("chatgpt_radio_shutdown_started")
 
-    all_tasks = collector_tasks + [ws_server_task, ws_broadcast_task, updater_task, audio_task, dsp_task, journal_task, calendar_task, scene_task, browser_task]
+    all_tasks = collector_tasks + [ws_server_task, ws_broadcast_task, updater_task, purge_task, audio_task, dsp_task, journal_task, calendar_task, scene_task, browser_task]
     for task in all_tasks:
         task.cancel()
     try:
