@@ -9,7 +9,7 @@
   &nbsp;
   <img src="https://img.shields.io/badge/Python-3.12-blue?style=for-the-badge&logo=python&logoColor=white" alt="Python 3.12" />
   &nbsp;
-  <img src="https://img.shields.io/badge/License-MIT-green?style=for-the-badge" alt="MIT License" />
+  <a href="LICENSE"><img src="https://img.shields.io/badge/License-GPL%20v3-blue?style=for-the-badge" alt="GPL v3 License" /></a>
   &nbsp;
   <img src="https://img.shields.io/badge/stream-24%2F7-brightgreen?style=for-the-badge" alt="24/7 Live" />
 </p>
@@ -165,4 +165,6 @@ A collector that fails must set `source_health["my_source"] = False` and return 
 
 ## License
 
-MIT — see [LICENSE](LICENSE)
+GPL v3 — see [LICENSE](LICENSE).
+
+This program is free software: you can redistribute it and/or modify it under the terms of the GNU General Public License as published by the Free Software Foundation, version 3 or later. Forks and derivatives must remain open source under the same terms.
