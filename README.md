@@ -29,27 +29,27 @@ The system has no fixed mood or genre. It is its history of states.
 The stream is driven by a pipeline of real-world signals that flow through a central state machine:
 
 ```mermaid
-graph LR
-    subgraph src["Signal Sources (15 collectors)"]
+flowchart LR
+    subgraph Sources["Signal Sources (15 collectors)"]
         A[OpenAI Status]
-        B[HN · Reddit · X]
-        C[arXiv · Wikipedia]
-        D[yfinance · Fear&Greed]
+        B[HN / Reddit / X]
+        C[arXiv / Wikipedia]
+        D[yfinance / Markets]
         E[YouTube Chat]
         F[System metrics]
     end
 
-    src -->|normalized floats| GS["GlobalState\n(77 fields, SQLite WAL)"]
+    Sources -->|normalized signals| GS[GlobalState]
 
-    GS --> DE["Drift Engine\n(territorial momentum)"]
-    DE --> MP["Prompt Builder\n(music + mood)"]
-    MP --> SA["Stable Audio 2.5\n(fal.ai)"]
-    SA --> DSP["DSP Pipeline\n(Pedalboard · pyrubberband)"]
-    DSP --> FF["FFmpeg → RTMP"]
-    FF --> YT[("📺 YouTube Live")]
+    GS --> DE[Drift Engine]
+    DE --> MP[Music Prompt Builder]
+    MP --> SA[Stable Audio 2.5]
+    SA --> DSP[DSP Pipeline]
+    DSP --> FF[FFmpeg RTMP]
+    FF --> YT[(YouTube Live)]
 
-    GS --> WS["WebSocket\n(4 fps)"]
-    WS --> OL["Three.js Overlay\n(OBS Browser Source)"]
+    GS --> WS[WebSocket 4fps]
+    WS --> OL[Three.js Overlay]
     OL --> FF
 ```
 
