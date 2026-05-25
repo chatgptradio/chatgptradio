@@ -1,0 +1,30 @@
+collectors:
+  - name: openai_status
+    module: collectors.openai_status
+    interval_s: 30
+  - name: youtube_chat
+    module: collectors.youtube_chat
+    interval_s: 10
+  - { name: hn_algolia,       module: collectors.hn_algolia,       interval_s: 300   }
+  - { name: wikipedia,        module: collectors.wikipedia,         interval_s: 900   }
+  - { name: google_trends,    module: collectors.google_trends,     interval_s: 900   }
+  - { name: gdelt,            module: collectors.gdelt,             interval_s: 900   }
+  - { name: hedonometer,      module: collectors.hedonometer,       interval_s: 21600 }
+  - { name: yfinance_proxy,   module: collectors.yfinance_proxy,    interval_s: 14400 }
+  - { name: arxiv,            module: collectors.arxiv,             interval_s: 3600  }
+  - { name: nitter_rss,       module: collectors.nitter_rss,        interval_s: 300   }
+  - { name: github_trending,  module: collectors.github_trending,   interval_s: 3600  }
+  - { name: reddit,           module: collectors.reddit,            interval_s: 300   }
+  - { name: newsapi,          module: collectors.newsapi,           interval_s: 300   }
+  - { name: media_cloud,      module: collectors.media_cloud,       interval_s: 900   }
+  - { name: cnn_fear_greed,   module: collectors.cnn_fear_greed,    interval_s: 1800  }
+  - { name: system_metrics,  module: collectors.system_metrics,    interval_s: 60    }
+
+websocket:
+  port: 8765
+  fps: 4
+
+sqlite:
+  path: streams/state.db
+  snapshot_retention_days: 7
+  history_retention_days: 30

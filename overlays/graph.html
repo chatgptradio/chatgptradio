@@ -1,0 +1,320 @@
+<!DOCTYPE html>
+<html>
+<head>
+  <meta charset="utf-8">
+  <title>ChatGPT Radio — Computation Graph</title>
+  <style>
+    * { margin: 0; padding: 0; box-sizing: border-box; }
+    body { background: #000510; overflow: hidden; font-family: 'Courier New', monospace; }
+    canvas { display: block; }
+    #hud {
+      position: fixed; top: 0; left: 0;
+      width: 100%; height: 100%;
+      pointer-events: none;
+    }
+    #drift {
+      position: absolute; bottom: 24px; left: 24px;
+      color: #00D4FF; font-size: 13px; line-height: 1.8;
+      text-shadow: 0 0 12px #00D4FF88;
+    }
+    #drift .territory { font-size: 16px; letter-spacing: 2px; text-transform: uppercase; }
+    #drift .crisis { color: #FF4444; text-shadow: 0 0 12px #FF444488; animation: blink 1s step-end infinite; }
+    #sources {
+      position: absolute; top: 24px; right: 24px;
+      color: #556677; font-size: 11px; line-height: 1.7; text-align: right;
+    }
+    #journal {
+      position: absolute; bottom: 24px; right: 24px;
+      color: #8899BB; font-size: 11px; max-width: 380px;
+      line-height: 1.6; opacity: 0.85;
+      border-left: 1px solid #334; padding-left: 12px;
+    }
+    #ws-status {
+      position: absolute; top: 24px; left: 24px;
+      font-size: 10px; color: #334;
+    }
+    #ws-status.connected { color: #225522; }
+    @keyframes blink { 50% { opacity: 0; } }
+  </style>
+</head>
+<body>
+<div id="hud">
+  <div id="ws-status">◌ connecting…</div>
+  <div id="drift"></div>
+  <div id="sources"></div>
+  <div id="journal"></div>
+</div>
+
+<script type="importmap">
+  {"imports": {"three": "https://cdn.jsdelivr.net/npm/three@0.167/build/three.module.js"}}
+</script>
+<script type="module">
+import * as THREE from 'three';
+
+// ── Scene ────────────────────────────────────────────────────────────────────
+
+const scene = new THREE.Scene();
+scene.background = new THREE.Color(0x000510);
+scene.fog = new THREE.FogExp2(0x000510, 0.025);
+
+const camera = new THREE.PerspectiveCamera(55, innerWidth / innerHeight, 0.1, 500);
+camera.position.set(0, 0, 22);
+
+const renderer = new THREE.WebGLRenderer({ antialias: true });
+renderer.setSize(innerWidth, innerHeight);
+renderer.setPixelRatio(Math.min(devicePixelRatio, 2));
+document.body.prepend(renderer.domElement);
+
+scene.add(new THREE.AmbientLight(0x112233, 2));
+const fill = new THREE.PointLight(0x00D4FF, 3, 60);
+fill.position.set(0, 0, 15);
+scene.add(fill);
+
+// ── Node graph state ─────────────────────────────────────────────────────────
+
+const positions = {};   // name → {x, y, z, vx, vy}
+const meshes    = {};   // name → THREE.Mesh
+const labels    = {};   // name → THREE.Sprite
+const edges     = [];   // THREE.Line[]
+let nodeList    = [];
+
+function initLayout(nodes) {
+  const n = nodes.length;
+  nodes.forEach((nd, i) => {
+    const a = (i / n) * Math.PI * 2;
+    const r = 7 + Math.random() * 2;
+    positions[nd.name] = { x: Math.cos(a) * r, y: Math.sin(a) * r, z: 0, vx: 0, vy: 0 };
+  });
+}
+
+function buildScene(nodes) {
+  Object.values(meshes).forEach(m => scene.remove(m));
+  Object.values(labels).forEach(s => scene.remove(s));
+  edges.forEach(l => scene.remove(l));
+  edges.length = 0;
+
+  nodes.forEach(nd => {
+    const col = new THREE.Color(nd.color || '#00D4FF');
+    const geo = new THREE.SphereGeometry(0.35, 20, 20);
+    const mat = new THREE.MeshStandardMaterial({
+      color: col, emissive: col, emissiveIntensity: 0.6,
+      roughness: 0.2, metalness: 0.8,
+    });
+    const mesh = new THREE.Mesh(geo, mat);
+    scene.add(mesh);
+    meshes[nd.name] = mesh;
+
+    // Halo ring
+    const ring = new THREE.Mesh(
+      new THREE.RingGeometry(0.4, 0.5, 32),
+      new THREE.MeshBasicMaterial({ color: col, side: THREE.DoubleSide, transparent: true, opacity: 0.3 })
+    );
+    mesh.add(ring);
+
+    // Label sprite
+    const canvas = document.createElement('canvas');
+    canvas.width = 256; canvas.height = 64;
+    const ctx = canvas.getContext('2d');
+    ctx.fillStyle = '#00D4FF';
+    ctx.font = '20px Courier New';
+    ctx.fillText(nd.label || nd.name, 8, 42);
+    const tex = new THREE.CanvasTexture(canvas);
+    const sprite = new THREE.Sprite(new THREE.SpriteMaterial({ map: tex, transparent: true, opacity: 0.6 }));
+    sprite.scale.set(2.5, 0.6, 1);
+    sprite.position.set(0, 0.7, 0);
+    mesh.add(sprite);
+  });
+
+  // Edges
+  nodes.forEach(nd => {
+    (nd.reads || []).forEach(dep => {
+      if (!positions[dep]) return;
+      const mat = new THREE.LineBasicMaterial({ color: 0x1a3344, transparent: true, opacity: 0.5 });
+      const pts = [new THREE.Vector3(), new THREE.Vector3()];
+      const geo = new THREE.BufferGeometry().setFromPoints(pts);
+      const line = new THREE.Line(geo, mat);
+      line.userData = { from: nd.name, to: dep };
+      scene.add(line);
+      edges.push(line);
+    });
+  });
+}
+
+function stepForce(nodes) {
+  const REPULSE = 18, SPRING = 0.008, DAMP = 0.82, REST = 5;
+  nodes.forEach(nd => {
+    const p = positions[nd.name];
+    let fx = 0, fy = 0;
+    nodes.forEach(md => {
+      if (md.name === nd.name) return;
+      const q = positions[md.name];
+      const dx = p.x - q.x, dy = p.y - q.y;
+      const d2 = dx * dx + dy * dy + 0.1;
+      const inv = REPULSE / d2;
+      fx += dx * inv / Math.sqrt(d2);
+      fy += dy * inv / Math.sqrt(d2);
+    });
+    (nd.reads || []).forEach(dep => {
+      if (!positions[dep]) return;
+      const q = positions[dep];
+      const dx = q.x - p.x, dy = q.y - p.y;
+      const d = Math.sqrt(dx * dx + dy * dy) + 0.001;
+      const f = (d - REST) * SPRING;
+      fx += (dx / d) * f;
+      fy += (dy / d) * f;
+    });
+    fx -= p.x * 0.004;
+    fy -= p.y * 0.004;
+    p.vx = (p.vx + fx) * DAMP;
+    p.vy = (p.vy + fy) * DAMP;
+    p.x += p.vx;
+    p.y += p.vy;
+  });
+}
+
+// ── State ────────────────────────────────────────────────────────────────────
+
+let liveState  = {};
+let liveNodes  = '[]';
+let forceIter  = 0;
+
+// ── HUD helpers ──────────────────────────────────────────────────────────────
+
+function fmt2(v) { return v >= 0 ? ('+' + v.toFixed(2)) : v.toFixed(2); }
+
+function updateHUD(st) {
+  const crisis = st.crisis_level || 0;
+
+  // Drift panel
+  const driftEl = document.getElementById('drift');
+  const crisisHtml = crisis > 0.2
+    ? `<div class="crisis">⚠ CRISIS ${Math.round(crisis * 100)}%</div>`
+    : '';
+  driftEl.innerHTML =
+    `<div class="territory">◆ ${st.drift_territory || 'ambient'}</div>` +
+    `<div>♪ ${Math.round(st.drift_bpm || 90)} BPM · ${st.drift_key || 'C minor'}</div>` +
+    `<div>${st.drift_timbre || 'warm'}</div>` +
+    crisisHtml;
+
+  // Source health
+  const sh = st.source_health || {};
+  document.getElementById('sources').innerHTML =
+    Object.entries(sh).map(([k, v]) =>
+      `<span style="color:${v ? '#446644' : '#663333'}">${v ? '●' : '○'} ${k}</span>`
+    ).join('<br>');
+
+  // Journal
+  const jEl = document.getElementById('journal');
+  if (st.journal_text) {
+    jEl.textContent = st.journal_text;
+    jEl.style.opacity = '0.85';
+  }
+}
+
+// ── WebSocket ────────────────────────────────────────────────────────────────
+
+function connect() {
+  const ws = new WebSocket('ws://localhost:8765');
+  document.getElementById('ws-status').className = '';
+  document.getElementById('ws-status').textContent = '◌ connecting…';
+
+  ws.onopen = () => {
+    document.getElementById('ws-status').className = 'connected';
+    document.getElementById('ws-status').textContent = '● connected';
+  };
+
+  ws.onmessage = e => {
+    const msg = JSON.parse(e.data);
+    const nodesJson = JSON.stringify(msg.nodes);
+    if (nodesJson !== liveNodes) {
+      liveNodes = nodesJson;
+      nodeList = msg.nodes;
+      initLayout(nodeList);
+      buildScene(nodeList);
+      forceIter = 0;
+    }
+    liveState = msg.state;
+  };
+
+  ws.onclose = () => {
+    document.getElementById('ws-status').className = '';
+    document.getElementById('ws-status').textContent = '◌ reconnecting…';
+    setTimeout(connect, 2000);
+  };
+}
+connect();
+
+// ── Render loop ──────────────────────────────────────────────────────────────
+
+const clock = new THREE.Clock();
+
+function animate() {
+  requestAnimationFrame(animate);
+  const t = clock.getElapsedTime();
+
+  if (nodeList.length > 0) {
+    if (forceIter < 600) { stepForce(nodeList); forceIter++; }
+
+    const pe  = liveState.prediction_errors  || {};
+    const vol = liveState.signal_volatilities || {};
+    const crisis = liveState.crisis_level || 0;
+
+    nodeList.forEach(nd => {
+      const p    = positions[nd.name];
+      const mesh = meshes[nd.name];
+      if (!p || !mesh) return;
+
+      // Smooth mesh towards force position
+      mesh.position.x += (p.x - mesh.position.x) * 0.08;
+      mesh.position.y += (p.y - mesh.position.y) * 0.08;
+
+      // Pulse emissive by prediction error significance
+      const sig = Math.min(Math.abs(pe[nd.name] || 0) / Math.max(vol[nd.name] || 0.1, 0.001), 3) / 3;
+      const pulse = 0.4 + sig * 1.4;
+      mesh.material.emissiveIntensity = pulse;
+      mesh.scale.setScalar(1 + sig * 0.4 + crisis * 0.3);
+    });
+
+    edges.forEach(l => {
+      const fp = positions[l.userData.from];
+      const tp = positions[l.userData.to];
+      if (!fp || !tp) return;
+      l.geometry.setFromPoints([
+        new THREE.Vector3(fp.x, fp.y, 0),
+        new THREE.Vector3(tp.x, tp.y, 0),
+      ]);
+      l.material.opacity = 0.3 + (liveState.crisis_level || 0) * 0.4;
+    });
+
+    // Shift background red under crisis
+    const bg = new THREE.Color(
+      0.0 + crisis * 0.04,
+      0.01,
+      0.02 + (1 - crisis) * 0.03
+    );
+    scene.background = bg;
+    scene.fog.color = bg;
+
+    updateHUD(liveState);
+  }
+
+  const camX = (liveState.source_divergence || 0) * 2;
+  const camY = (liveState.crisis_level || 0) * 1;
+  camera.position.x += (camX - camera.position.x) * 0.02;
+  camera.position.y += (camY - camera.position.y) * 0.02;
+  camera.lookAt(0, 0, 0);
+
+  renderer.render(scene, camera);
+}
+animate();
+
+// ── Resize ───────────────────────────────────────────────────────────────────
+
+window.addEventListener('resize', () => {
+  camera.aspect = innerWidth / innerHeight;
+  camera.updateProjectionMatrix();
+  renderer.setSize(innerWidth, innerHeight);
+});
+</script>
+</body>
+</html>

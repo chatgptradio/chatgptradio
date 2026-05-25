@@ -1,0 +1,22 @@
+# YouTube
+google-api-python-client>=2.150.0
+google-auth-oauthlib>=1.2.0
+google-auth-httplib2>=0.2.0
+
+# Twitch
+twitchio>=2.10.0
+aiohttp>=3.10.0
+
+# Streaming utilities
+streamlink>=6.0.0
+yt-dlp>=2024.1.1
+
+# Scheduling & async
+apscheduler>=3.10.0
+asyncio-mqtt>=0.16.0
+
+# Utils
+python-dotenv>=1.0.0
+pyyaml>=6.0.2
+rich>=13.0.0
+httpx>=0.27.0

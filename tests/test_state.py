@@ -1,0 +1,148 @@
+from datetime import datetime
+
+from pydantic import BaseModel
+
+from core.state import GlobalState, MusicVector
+
+
+def test_global_state_instantiates_with_defaults():
+    state = GlobalState()
+    assert state is not None
+
+
+def test_global_state_has_77_plus_fields():
+    fields = GlobalState.model_fields
+    assert len(fields) >= 55
+
+
+def test_openai_status_defaults_operational():
+    state = GlobalState()
+    assert state.openai_status == 1.0
+    assert state.anthropic_status == 1.0
+    assert state.gemini_status == 1.0
+
+
+def test_drift_defaults():
+    state = GlobalState()
+    assert state.drift_bpm == 90.0
+    assert state.drift_key == "C minor"
+    assert state.drift_timbre == "warm"
+    assert state.drift_territory == "ambient"
+    assert state.drift_energy == 0.5
+
+
+def test_all_float_fields_default_zero_except_status():
+    state = GlobalState()
+    assert state.excitement == 0.0
+    assert state.anxiety == 0.0
+    assert state.world_temperature == 0.0
+    assert state.crisis_level == 0.0
+
+
+def test_dict_fields_default_empty():
+    state = GlobalState()
+    assert state.source_health == {}
+    assert state.signal_baselines == {}
+    assert state.drift_weights == {}
+    assert state.prediction_errors == {}
+
+
+def test_updated_at_is_datetime_utc():
+    state = GlobalState()
+    assert isinstance(state.updated_at, datetime)
+    assert state.updated_at.tzinfo is not None
+
+
+def test_model_dump_json_serializable():
+    import json
+    state = GlobalState()
+    d = state.model_dump(mode="json")
+    # Should not raise
+    dumped = json.dumps(d)
+    assert "updated_at" in dumped
+    assert "excitement" in dumped
+
+
+def test_mutate_field_and_reserialize():
+    state = GlobalState()
+    state.excitement = 0.75
+    state.signal_baselines["excitement"] = 0.43
+    state.drift_weights["bpm"] = {"excitement": 0.38}
+    d = state.model_dump(mode="json")
+    assert d["excitement"] == 0.75
+    assert d["signal_baselines"]["excitement"] == 0.43
+    assert d["drift_weights"]["bpm"]["excitement"] == 0.38
+
+
+def test_music_vector_dataclass():
+    mv = MusicVector()
+    assert mv.bpm == 90.0
+    assert mv.key == "C minor"
+    assert mv.timbre == "warm"
+    assert mv.territory == "ambient"
+
+
+def test_music_vector_custom_values():
+    mv = MusicVector(bpm=120.0, key="F# major", timbre="metallic", territory="electronic")
+    assert mv.bpm == 120.0
+    assert mv.key == "F# major"
+
+
+def test_world_event_burst_defaults_false():
+    state = GlobalState()
+    assert state.world_event_burst is False
+
+
+def test_no_business_logic_in_state():
+    # GlobalState must be a pure data model with no custom domain methods
+    pydantic_builtins = {
+        m for m in dir(BaseModel)
+        if not m.startswith("_")
+    }
+    user_methods = [
+        m for m in dir(GlobalState)
+        if not m.startswith("_")
+        and m not in GlobalState.model_fields
+        and m not in pydantic_builtins
+    ]
+    assert user_methods == [], f"Custom domain methods found — keep state.py pure: {user_methods}"
+
+
+def test_current_track_name_default():
+    state = GlobalState()
+    assert state.current_track_name == ""
+
+
+def test_current_track_name_in_serialization():
+    """Field must appear in WebSocket broadcast (orjson serialization)."""
+    import orjson
+    state = GlobalState()
+    data = orjson.loads(orjson.dumps(state.model_dump()))
+    assert "current_track_name" in data
+    assert data["current_track_name"] == ""
+
+
+def test_current_track_name_settable():
+    state = GlobalState()
+    state.current_track_name = "Void Cartographer - Cold Signal"
+    assert state.current_track_name == "Void Cartographer - Cold Signal"
+
+
+def test_wonder_melancholy_urgency_default_zero():
+    state = GlobalState()
+    assert state.wonder == 0.0
+    assert state.melancholy == 0.0
+    assert state.urgency == 0.0
+
+
+def test_wonder_melancholy_urgency_settable():
+    state = GlobalState()
+    state.wonder = 0.7
+    assert state.wonder == 0.7
+
+
+def test_wonder_melancholy_urgency_in_model_dump():
+    d = GlobalState().model_dump()
+    assert "wonder" in d
+    assert "melancholy" in d
+    assert "urgency" in d
