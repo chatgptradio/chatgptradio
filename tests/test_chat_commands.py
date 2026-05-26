@@ -53,6 +53,21 @@ async def test_mood_prefers_signal_over_counter():
 
 
 @pytest.mark.asyncio
+async def test_mood_dominant_uses_absolute_value():
+    """!mood must report the emotion with the highest absolute PE, not just positive."""
+    state, eng, q, conn = _make_deps()
+    # anxiety PE = -5.0 (strong negative signal), excitement PE = 0.1 (weak positive)
+    # Without abs fix: dominant = "excitement" (0.1 > -5.0 numerically)
+    # With abs fix: dominant = "anxiety" (abs(-5.0)=5.0 > abs(0.1)=0.1)
+    state.prediction_errors = {"anxiety": -5.0, "excitement": 0.1}
+    state.signal_volatilities = {"anxiety": 0.1, "excitement": 0.1}
+    eng.try_mood.return_value = True
+    result = await handle_command("!mood", "", state, eng, q, conn)
+    assert result is not None
+    assert "anxiety" in result
+
+
+@pytest.mark.asyncio
 async def test_request_unknown_genre():
     state, eng, q, conn = _make_deps()
     result = await handle_command("!request badgenre", "", state, eng, q, conn)
@@ -107,9 +122,9 @@ async def test_switch_advances_to_next_mode():
     eng.try_switch.return_value = True
     result = await handle_command("!switch", "", state, eng, q, conn)
     assert result is not None
-    assert "synapse" in result
+    assert "chaos" in result
     update = await asyncio.wait_for(q.get(), timeout=1.0)
-    assert update["visual_mode"] == "synapse"
+    assert update["visual_mode"] == "chaos"
 
 
 @pytest.mark.asyncio
@@ -127,11 +142,11 @@ async def test_switch_explicit_valid_mode():
 @pytest.mark.asyncio
 async def test_switch_invalid_explicit_mode_advances():
     state, eng, q, conn = _make_deps()
-    state.visual_mode = "unknown_xyz"  # not in SCENE_CYCLE → fallback to neural → next = synapse
+    state.visual_mode = "unknown_xyz"  # not in SCENE_CYCLE → fallback to neural → next = chaos
     eng.try_switch.return_value = True
     result = await handle_command("!switch badmode", "", state, eng, q, conn)
     assert result is not None
-    assert "synapse" in result
+    assert "chaos" in result
 
 
 @pytest.mark.asyncio
@@ -157,12 +172,12 @@ async def test_switch_wraps_around_from_chaos():
 
 
 @pytest.mark.asyncio
-async def test_switch_wraps_around_from_globe():
+async def test_switch_wraps_around_from_nexus():
     state, eng, q, conn = _make_deps()
-    state.visual_mode = "globe"
+    state.visual_mode = "nexus"  # last in SCENE_CYCLE → wraps back to neural
     eng.try_switch.return_value = True
     result = await handle_command("!switch", "", state, eng, q, conn)
     assert result is not None
-    assert "neural" in result  # globe wraps back to neural
+    assert "neural" in result
     update = await asyncio.wait_for(q.get(), timeout=1.0)
     assert update["visual_mode"] == "neural"

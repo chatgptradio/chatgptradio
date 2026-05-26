@@ -127,7 +127,7 @@ async def handle_command(
         vol = state.signal_volatilities
         if not pe:
             return None
-        dominant = max(pe, key=pe.__getitem__)
+        dominant = max(pe, key=lambda k: abs(pe[k]))
         s = pe[dominant] / max(vol.get(dominant, 0.1), 0.01)
         mood_str = f"mood: {dominant} ({s:.1f}σ)"
         _show(mood_str)

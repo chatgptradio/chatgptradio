@@ -43,7 +43,7 @@ def _normalise_delta(delta: float) -> float:
     label="yfinance MSFT/NVDA",
 )
 async def collect(state: GlobalState) -> dict[str, Any]:
-    loop = asyncio.get_event_loop()
+    loop = asyncio.get_running_loop()
     msft_delta = await loop.run_in_executor(None, lambda: _get_delta("MSFT"))
     nvda_delta = await loop.run_in_executor(None, lambda: _get_delta("NVDA"))
     return {

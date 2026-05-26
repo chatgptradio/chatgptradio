@@ -41,7 +41,7 @@ async def _fetch_viewer_count(video_id: str) -> int:
         import asyncio as _aio
         from googleapiclient.discovery import build  # type: ignore[import-untyped]
 
-        loop = _aio.get_event_loop()
+        loop = _aio.get_running_loop()
 
         def _call() -> int:
             svc = build("youtube", "v3", developerKey=api_key)
@@ -144,6 +144,19 @@ def make_collector(engine: Any, conn: Any) -> None:
     _engine = engine
     _conn = conn
 
+    from core.node import NODE_REGISTRY, NodeMeta
+
+    if "youtube_chat" not in NODE_REGISTRY:
+        NODE_REGISTRY["youtube_chat"] = NodeMeta(
+            name="youtube_chat",
+            produces="chat_rate",
+            color="#FF0000",
+            label="YouTube Chat",
+            fn_module=__name__,
+            fn_name="collect",
+            reads=[],
+        )
+
 
 async def collect(
     state: GlobalState,
@@ -181,7 +194,7 @@ async def collect(
 
     # chat.get() is synchronous and blocks up to ~1s — run in executor to avoid
     # freezing the event loop while waiting for the chat poll response.
-    loop = asyncio.get_event_loop()
+    loop = asyncio.get_running_loop()
     try:
         chat_data = await loop.run_in_executor(None, _chat_session.get)
     except Exception:
@@ -214,4 +227,9 @@ async def collect(
 
     viewers = await _fetch_viewer_count(video_id)
 
-    return {"chat_rate": chat_rate, "viewers": viewers}
+    from core.memory import get_active_regulars
+
+    regulars = await get_active_regulars(_conn) if _conn is not None else []
+    regulars_ratio = min(len(regulars) / max(len(_msg_times), 10), 1.0) * 0.5
+
+    return {"chat_rate": chat_rate, "viewers": viewers, "regulars_ratio": regulars_ratio}

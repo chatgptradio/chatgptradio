@@ -21,6 +21,7 @@ def _reset_module_state() -> None:
     import collectors.youtube_chat as yt
 
     yt._video_id_cache = None
+    yt._chat_session = None
     yt._msg_times.clear()
     yt._engine = None
     yt._conn = None
@@ -86,7 +87,7 @@ async def test_collect_skipped_without_credentials(monkeypatch):
 
     # pytchat is a local import inside collect(); patch at sys.modules level.
     mock_pytchat = MagicMock()
-    with patch.dict("sys.modules", {"pytchat": mock_pytchat}):
+    with patch.dict("sys.modules", {"pytchat": mock_pytchat, "pytchat.util": MagicMock()}):
         result = await collect(state, queue)
 
     mock_pytchat.create.assert_not_called()
@@ -121,6 +122,7 @@ async def test_command_parsed_and_routed(monkeypatch):
 
     with patch.dict("sys.modules", {
         "pytchat": mock_pytchat,
+        "pytchat.util": MagicMock(),
         "core.chat_commands": mock_chat_commands,
     }):
         await yt.collect(state, queue)
@@ -156,6 +158,7 @@ async def test_non_command_message_ignored(monkeypatch):
 
     with patch.dict("sys.modules", {
         "pytchat": mock_pytchat,
+        "pytchat.util": MagicMock(),
         "core.chat_commands": mock_chat_commands,
     }):
         await yt.collect(state, queue)
@@ -185,8 +188,60 @@ async def test_chat_rate_updated(monkeypatch):
     mock_pytchat = MagicMock()
     mock_pytchat.create.return_value = chat_mock
 
-    with patch.dict("sys.modules", {"pytchat": mock_pytchat}):
+    with patch.dict("sys.modules", {"pytchat": mock_pytchat, "pytchat.util": MagicMock()}):
         result = await yt.collect(state, queue)
 
     assert "chat_rate" in result
     assert result["chat_rate"] > 0.0
+
+
+@pytest.mark.asyncio
+async def test_collect_returns_regulars_ratio(monkeypatch):
+    """collect() must include regulars_ratio when active regulars exist."""
+    import time
+
+    _reset_module_state()
+
+    monkeypatch.setenv("YOUTUBE_VIDEO_ID", "vid_regulars")
+    monkeypatch.delenv("YOUTUBE_CHANNEL_ID", raising=False)
+    monkeypatch.delenv("YOUTUBE_API_KEY", raising=False)
+
+    import collectors.youtube_chat as yt
+
+    mock_engine = MagicMock()
+    mock_conn = MagicMock()
+    yt.make_collector(mock_engine, mock_conn)
+
+    # Populate msg window so len(_msg_times) > 0
+    yt._msg_times.extend([time.time()] * 5)
+
+    # Pre-set the chat session to avoid pytchat.create() call
+    chat_mock = _make_pytchat_mock([])
+    yt._chat_session = chat_mock
+
+    state = GlobalState()
+    queue: asyncio.Queue = asyncio.Queue()  # type: ignore[type-arg]
+
+    mock_pytchat = MagicMock()
+    mock_pytchat.create.return_value = chat_mock
+
+    with (
+        patch("core.memory.get_active_regulars", new_callable=AsyncMock, return_value=["viewer1", "viewer2"]),
+        patch.dict("sys.modules", {"pytchat": mock_pytchat, "pytchat.util": MagicMock()}),
+    ):
+        result = await yt.collect(state, queue)
+
+    yt._chat_session = None  # cleanup
+    assert "regulars_ratio" in result
+    assert result["regulars_ratio"] > 0.0
+
+
+def test_youtube_chat_registered_in_node_registry():
+    """make_collector() must register youtube_chat in NODE_REGISTRY."""
+    from unittest.mock import MagicMock
+
+    import collectors.youtube_chat as yt
+    from core.node import NODE_REGISTRY
+
+    yt.make_collector(MagicMock(), MagicMock())
+    assert "youtube_chat" in NODE_REGISTRY
