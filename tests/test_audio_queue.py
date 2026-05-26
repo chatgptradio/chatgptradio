@@ -167,6 +167,60 @@ async def test_empty_display_name_not_pushed(tmp_path):
     await conn.close()
 
 
+# ── _analyze_clip_async persists detected_bpm ────────────────────────────────
+
+
+@pytest.mark.asyncio
+async def test_analyze_clip_persists_detected_bpm(tmp_path):
+    """_analyze_clip_async must include detected_bpm in the mood_snapshot written to DB."""
+    import orjson
+    from unittest.mock import patch
+
+    from core.audio_queue import _analyze_clip_async
+
+    conn = await _make_conn(tmp_path)
+    path = tmp_path / "test.mp3"
+    path.touch()
+
+    await conn.execute(
+        "INSERT INTO audio_clips (path, territory, mood_snapshot) VALUES (?, ?, ?)",
+        (str(path), "ambient", '{"drift_bpm": 120}'),
+    )
+    await conn.commit()
+
+    fake_analysis = {
+        "detected_bpm": 127.5,
+        "detected_key": "C major",
+        "mfcc_fingerprint": [0.1] * 20,
+        "duration_s": 30.0,
+        "trim_start_s": 0.1,
+        "trim_end_s": 29.9,
+        "energy_rms": 0.5,
+        "fill_ratio": 0.95,
+    }
+
+    running_loop = asyncio.get_running_loop()
+    fut = running_loop.create_future()
+    fut.set_result(fake_analysis)
+
+    with (
+        patch.object(running_loop, "run_in_executor", return_value=fut),
+        patch("core.audio_queue._HAS_LIBROSA", True),
+    ):
+        await _analyze_clip_async(conn, path)
+
+    async with conn.execute(
+        "SELECT mood_snapshot FROM audio_clips WHERE path=?", (str(path),)
+    ) as cur:
+        row = await cur.fetchone()
+
+    snap = orjson.loads(row[0])
+    assert "detected_bpm" in snap
+    assert snap["detected_bpm"] == pytest.approx(127.5)
+
+    await conn.close()
+
+
 # ── find_reusable tuple unpacking ─────────────────────────────────────────────
 
 
@@ -818,6 +872,64 @@ async def test_crisis_cache_triggered_on_delta_above_threshold(tmp_path):
 
     # At minimum: startup call (1) + delta-triggered call (≥1)
     assert mock_cache.call_count >= 2
+    await conn.close()
+
+
+# ── Generated clip marked played immediately — no double-queue ───────────────
+
+
+@pytest.mark.asyncio
+async def test_generated_clip_not_double_queued(tmp_path):
+    """Generated clips must be marked played after index so find_reusable cannot
+    re-queue them on the next poll.
+
+    Regression: index_clip initialises last_played_at=0.0, which always passes
+    the 2-hour cooldown check.  Without mark_played the same clip appeared in
+    playback_queue twice, causing back-to-back identical playback.
+    """
+    from core.audio_queue import run_audio_queue
+
+    state = GlobalState()
+    state_queue: asyncio.Queue = asyncio.Queue()
+    playback_queue: asyncio.Queue = asyncio.Queue(maxsize=4)
+    conn = await _make_conn(tmp_path)
+
+    with (
+        patch("core.audio_queue._generate_audio", new_callable=AsyncMock, return_value=b"audio") as mock_gen,
+        patch("core.audio_queue.generate_track_name", new_callable=AsyncMock, return_value="Test Track"),
+        patch("core.audio_queue.find_reusable", new_callable=AsyncMock, return_value=None),
+        patch("core.audio_queue.find_reference", new_callable=AsyncMock, return_value=None),
+        patch("core.audio_queue.mark_played", new_callable=AsyncMock) as mock_mark,
+        patch("core.audio_queue._index_fallback_clips", new_callable=AsyncMock, return_value=[]),
+        patch("core.audio_queue._auto_index_references_on_startup", new_callable=AsyncMock, return_value=0),
+        patch("core.audio_queue.cleanup_ghost_paths", new_callable=AsyncMock, return_value=0),
+        patch("core.audio_queue._build_prompt", return_value="test prompt"),
+        patch("core.audio_queue._CLIPS_DIR", tmp_path),
+        patch("core.audio_queue._POLL_INTERVAL", 9999),
+        patch.dict("os.environ", {"FAL_API_KEY": "test-key"}),
+    ):
+        task = asyncio.create_task(
+            run_audio_queue(state, state_queue, conn, playback_queue)
+        )
+        await asyncio.sleep(0.1)
+        task.cancel()
+        try:
+            await task
+        except asyncio.CancelledError:
+            pass
+
+    assert mock_gen.called, "audio was generated"
+
+    # mark_played must have been called on the generated outpath (not a ref).
+    # Without this call, find_reusable() would see last_played_at=0 on the next
+    # poll and enqueue the same clip a second time.
+    marked_paths = [call.args[1] for call in mock_mark.call_args_list]
+    generated_clips = [p for p in marked_paths if "clip_" in p.name]
+    assert generated_clips, (
+        "mark_played was never called on the generated clip — "
+        "double-queue regression: find_reusable() will re-enqueue it"
+    )
+
     await conn.close()
 
 

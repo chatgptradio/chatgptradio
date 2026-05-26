@@ -89,9 +89,10 @@ async def _prestretch_reference(
         log.exception("prestretch_failed", path=str(ref_path))
         return ref_bytes
 
-_POLL_INTERVAL    = 5.0          # seconds between queue-fill attempts
-_QUEUE_TARGET     = 2            # desired minimum clips in playback_queue
-_RESCAN_INTERVAL  = 10.0         # seconds between references directory rescans
+_POLL_INTERVAL        = 5.0          # seconds between queue-fill attempts
+_QUEUE_TARGET         = 2            # desired minimum clips in playback_queue
+_RESCAN_INTERVAL      = 10.0         # seconds between references directory rescans
+_CRISIS_CACHE_COOLDOWN = 1800.0      # minimum seconds between crisis cache rebuilds
 _CLIPS_DIR        = Path("streams/audio")
 _FALLBACK_DIR     = Path("assets/fallback")
 _REFERENCES_DIR   = Path("streams/references")
@@ -129,7 +130,7 @@ async def _analyze_clip_async(conn: aiosqlite.Connection, path: Path) -> None:
             y, sr = _librosa.load(str(path), sr=44100, mono=True)  # type: ignore[possibly-unbound]
 
             tempo, _ = _librosa.beat.beat_track(y=y, sr=sr)  # type: ignore[possibly-unbound]
-            detected_bpm = float(_np.atleast_1d(tempo)[0])
+            detected_bpm = float(_np.atleast_1d(tempo)[0])  # type: ignore[possibly-unbound]
 
             chroma = _librosa.feature.chroma_cqt(y=y, sr=sr)  # type: ignore[possibly-unbound]
             pcp_mean = chroma.mean(axis=1)
@@ -181,6 +182,7 @@ async def _analyze_clip_async(conn: aiosqlite.Connection, path: Path) -> None:
             row = await cur.fetchone()
         existing = orjson.loads(row[0] or "{}") if row else {}
         existing.update({
+            "detected_bpm": detected_bpm,
             "mfcc_fingerprint": mfcc_fingerprint,
             "trim_start_s": trim_start_s,
             "trim_end_s": trim_end_s,
@@ -623,9 +625,12 @@ async def run_audio_queue(
 
     last_refs_scan = time.time()
     _prev_crisis: float = state.crisis_level
+    _last_crisis_cache_at: float = 0.0
 
-    # Pre-generate crisis clips in the background right after startup
-    asyncio.create_task(_build_crisis_cache(conn, state, _build_prompt(state)))
+    # Pre-generate crisis clips only when crisis is already active at startup
+    if state.crisis_level > 0.5:
+        asyncio.create_task(_build_crisis_cache(conn, state, _build_prompt(state)))
+        _last_crisis_cache_at = time.time()
 
     while True:
         # ── Drain CommandEngine — apply chat commands ──────────────────────────
@@ -661,9 +666,10 @@ async def run_audio_queue(
 
         # ── Crisis delta — trigger cache rebuild on rapid escalation ──────────
         crisis_delta = state.crisis_level - _prev_crisis
-        if crisis_delta > 0.15:
+        if crisis_delta > 0.15 and (now - _last_crisis_cache_at) >= _CRISIS_CACHE_COOLDOWN:
             log.info("crisis_escalation_detected", delta=crisis_delta, crisis_level=state.crisis_level)
             asyncio.create_task(_build_crisis_cache(conn, state, _build_prompt(state)))
+            _last_crisis_cache_at = now
         _prev_crisis = state.crisis_level
 
         # ── Only fill queue when below target ─────────────────────────────────
@@ -674,10 +680,11 @@ async def run_audio_queue(
             continue
 
         # ── Reuse an existing clip if available ───────────────────────────────
-        # Skip reuse when a !request is pending or when unprocessed reference files
-        # exist (play_count=0) — ensures new references are converted via A2A promptly.
+        # Skip reuse only when a !request is pending. Pending references are
+        # converted in the background via the normal generation path (find_reference)
+        # and no longer block reuse of the existing library.
         _pending_ref = await _has_pending_reference(conn)
-        result = None if (state.requested_genre or _pending_ref) else await find_reusable(conn, state)
+        result = None if state.requested_genre else await find_reusable(conn, state)
         if result is not None:
             candidate, display_name = result
             await mark_played(conn, candidate)
@@ -750,6 +757,11 @@ async def run_audio_queue(
                 display_name=display_name,
                 territory=ref_territory or state.drift_territory if ref_path else state.drift_territory,
             )
+            # Mark the generated clip as played immediately after indexing so
+            # find_reusable() cannot pick it up again on the next poll — the DB
+            # initialises last_played_at=0.0 which always passes the 2-hour
+            # cooldown, causing the same clip to be double-queued 5 s later.
+            await mark_played(conn, outpath)
             asyncio.create_task(_analyze_clip_async(conn, outpath))
 
             if ref_path and ref_territory:

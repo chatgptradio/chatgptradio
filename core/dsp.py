@@ -331,7 +331,7 @@ async def _maybe_emit_audio_feedback(
             return
         audio_key, duration_s, mood_snapshot_raw = row
         snap = orjson.loads(mood_snapshot_raw or "{}") if mood_snapshot_raw else {}
-        detected_bpm = snap.get("drift_bpm") or snap.get("audio_bpm")
+        detected_bpm = snap.get("detected_bpm") or snap.get("drift_bpm") or snap.get("audio_bpm")
         energy_rms = snap.get("energy_rms")
 
         payload: dict[str, float] = {}
@@ -386,7 +386,7 @@ async def run_dsp(
         video_input = [
             "-thread_queue_size", "64",
             "-f", "x11grab",
-            "-framerate", "10",
+            "-framerate", "30",
             "-video_size", "1280x720",
             "-draw_mouse", "0",
             "-i", f"{display}.0",
@@ -395,7 +395,7 @@ async def run_dsp(
         video_input = [
             "-re",                           # read lavfi at native rate (10fps real-time)
             "-f", "lavfi",
-            "-i", "color=c=0x0a0a1a:s=1280x720:r=10",  # static bg at 10fps
+            "-i", "color=c=0x0a0a1a:s=1280x720:r=30",  # static bg at 30fps
         ]
 
     video_encode = [
@@ -403,9 +403,9 @@ async def run_dsp(
         # nal-hrd=cbr forces filler NAL units so libx264 actually hits 2500k on static content
         # (without it, skip-heavy frames produce ~200-500 Kbps despite minrate=2500k)
         "-b:v", "2500k", "-minrate", "2500k", "-maxrate", "2500k", "-bufsize", "5000k",
-        "-vf", "fps=10",
+        "-vf", "fps=30",
         "-x264opts", "nal-hrd=cbr:force-cfr=1:threads=2",
-        "-g", "20",                        # keyframe every 2s at 10fps (YouTube ≤4s)
+        "-g", "60",                        # keyframe every 2s at 30fps (YouTube ≤4s)
         "-pix_fmt", "yuv420p",
     ]
     if not use_x11grab:
