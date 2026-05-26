@@ -656,7 +656,7 @@ async def run_audio_queue(
                     state.requested_genre = value
                 elif kind == "vibe":
                     pe_key = f"territory_{value}"
-                    state.prediction_errors[pe_key] = 2.0
+                    await state_queue.put({"prediction_errors": {pe_key: 2.0}})
 
         # ── Periodic rescan of streams/references/ for newly deposited files ──
         now = time.time()

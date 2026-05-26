@@ -48,7 +48,6 @@ def _parse_status(xml_text: str) -> tuple[float, float]:
     produces="openai_status",
     color="#10A37F",
     label="OpenAI Status RSS",
-    reads=["openai_latency_ms", "openai_incident_age_h"],
 )
 async def collect(state: GlobalState) -> dict[str, Any]:
     t0 = time.perf_counter()

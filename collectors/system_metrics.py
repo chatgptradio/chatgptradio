@@ -19,7 +19,6 @@ _start_time = time.time()
     produces="cpu_percent",
     color="#6B7280",
     label="System Metrics",
-    reads=["cpu_percent", "memory_percent", "uptime_h", "hour_utc", "day_of_week"],
 )
 async def collect(state: GlobalState) -> dict:
     now = datetime.datetime.now(datetime.timezone.utc)

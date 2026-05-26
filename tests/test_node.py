@@ -82,6 +82,28 @@ def test_registry_entry_has_correct_metadata():
     assert entry.reads == ["openai_latency_ms"]
 
 
+def test_openai_status_node_reads_is_empty():
+    """openai_status @node must not declare reads= for fields it produces, not consumes."""
+    import inspect
+
+    import collectors.openai_status as oas
+
+    src = inspect.getsource(oas)
+    assert 'reads=["openai_latency_ms' not in src
+    assert "reads=[" not in src or "openai_latency_ms" not in src
+
+
+def test_system_metrics_node_reads_is_empty():
+    """system_metrics @node must not declare reads= for fields it produces, not consumes."""
+    import inspect
+
+    import collectors.system_metrics as sm
+
+    src = inspect.getsource(sm)
+    assert 'reads=["cpu_percent' not in src
+    assert "reads=[" not in src or "cpu_percent" not in src
+
+
 def test_get_registry_is_json_serializable():
     import json
 
