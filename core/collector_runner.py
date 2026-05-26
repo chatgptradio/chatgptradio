@@ -58,7 +58,8 @@ async def run_collector(
             )
             for signal, value in updates.items():
                 await queue.put((signal, value))
-            await queue.put(("source_health", {name: True}))
+            if "source_health" not in updates:
+                await queue.put(("source_health", {name: True}))
         except Exception as exc:
             await queue.put(("source_health", {name: False}))
             log.warning("collector_error", collector=name, error=str(exc))

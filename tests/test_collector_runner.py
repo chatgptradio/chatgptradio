@@ -88,6 +88,35 @@ async def test_collector_timeout_is_treated_as_failure():
     assert len(health_false) >= 1
 
 
+async def test_source_health_false_not_overridden_by_success():
+    """A collector returning source_health: False must not be overridden by the auto-True."""
+    queue: asyncio.Queue = asyncio.Queue()
+    state = GlobalState()
+
+    async def self_reporting_collect(s):
+        return {"source_health": {"self_reporter": False}}
+
+    task = asyncio.create_task(
+        run_collector("self_reporter", self_reporting_collect, interval_s=1, queue=queue, state=state)
+    )
+    await asyncio.sleep(0.05)
+    task.cancel()
+    try:
+        await task
+    except asyncio.CancelledError:
+        pass
+
+    items = []
+    while not queue.empty():
+        items.append(await queue.get())
+
+    # There should be no True for self_reporter in the queue
+    health_true = [v for k, v in items if k == "source_health" and v == {"self_reporter": True}]
+    health_false = [v for k, v in items if k == "source_health" and v == {"self_reporter": False}]
+    assert len(health_false) >= 1
+    assert len(health_true) == 0
+
+
 async def test_one_collector_crash_does_not_affect_others():
     queue: asyncio.Queue = asyncio.Queue()
     state = GlobalState()
