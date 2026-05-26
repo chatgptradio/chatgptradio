@@ -391,6 +391,74 @@ ADR : [ADR-0007](adr/0007-emotion-synthesis.md)
 
 ---
 
+### Optimisation coûts fal.ai — 2026-05-25
+
+| Titre | Fichier(s) | État |
+|-------|------------|------|
+| **`total_seconds` T2A conservé à 180s** : clips longs = moins d'appels/h, meilleure continuité musicale. A2A : `min(ref_duration, 180)`. | `core/audio_queue.py` | ✅ |
+| **`num_inference_steps` adaptatif** : 6 par défaut / 8 uniquement si `crisis_level > 0.6` | `builders/music_prompt.py` | ✅ |
+| **Crisis cache startup conditionnel** : génération uniquement si `crisis_level > 0.5` au démarrage | `core/audio_queue.py` | ✅ |
+| **Crisis cache rebuild cooldown 30 min** : `_CRISIS_CACHE_COOLDOWN = 1800s` — empêche les rebuilds en cascade lors des montées progressives de crise | `core/audio_queue.py` | ✅ |
+| **`find_reusable` cooldown 2h** : 10h → 7 200s — clips reviennent en rotation après 2h, taux de génération réduit | `core/audio_library.py` | ✅ |
+| **`_pending_ref` bypass supprimé** : `find_reusable()` n'est plus contourné quand des références A2A non traitées existent | `core/audio_queue.py` | ✅ |
+
+---
+
+### DSP & Transitions — 2026-05-24 (commits ef0a03a, dbf4f55, db59462)
+
+| Titre | Fichier(s) | État |
+|-------|------------|------|
+| **Crossfade adaptatif 8-12s equal-power** : `_crossfade_samples()` par territoire (ambient/drone 10s, jazz 6s, industrial 3s, crisis 2s). `_crossfade_arrays()` linéaire → cos/sin (élimine le creux de volume). | `core/dsp.py` | ✅ |
+| **Reverb global réduit** : wet 0.20→0.10, room 0.60→0.40, dry 0.85→0.92. burst_reverb 0.35/0.70. Delay feedback cap 0.25, mix cap 0.15. | `core/dsp.py` | ✅ |
+| **T1 (EQ bass cut) supprimé** : LowShelfFilter statique sur la tête créait une discontinuité spectrale à la frontière xfade/body. Equal-power suffit pour éviter le doublement des basses. | `core/dsp.py` | ✅ |
+| **T3 (reverb throw) supprimé** : wet=0.5 reverb sur la queue était re-processé par la chaîne DSP principale → reverb composée, transitions boueuses. | `core/dsp.py` | ✅ |
+| **Bug tail_reserve corrigé** : réservait toujours `_CROSSFADE_SAMPLES` (12s) mais `blend_len` utilisait `_crossfade_samples(state)` (ex : 3s industrial) → 9s d'audio non jouées, silencieusement perdues. Fix : même valeur pour les deux. | `core/dsp.py` | ✅ |
+| **Gap silence fallback path supprimé** : buffer circulaire sur `_pending_tail` — boucle la queue au lieu de silence quand le chargement du clip dépasse la durée de la queue. Fallback sans time-stretch (BPM 90.0 fixe) pour éviter 10-25s de latence pyrubberband. | `core/dsp.py` | ✅ |
+
+### Ops & Robustesse — 2026-05-24 (commit ed9859c)
+
+| Titre | Fichier(s) | État |
+|-------|------------|------|
+| **Purge DB au démarrage + périodique 6h** : `purge_old_data()` dans `main.py` + tâche asyncio `VACUUM` toutes les 6h | `main.py` | ✅ |
+| **Rétention réduite** : `snapshot_retention_days` 30→7j, `history_retention_days` 90→30j | `config.yaml` | ✅ |
+| **Watchdog OOM restart** : `memory_available < 150 MB` → restart (était WARN seulement). WARN étendu à 300 MB. Rotation `ffmpeg_live.log` à 50 MB. | `scripts/watchdog.sh` | ✅ |
+
+### Fixes production — 2026-05-25
+
+| Titre | Fichier(s) | État |
+|-------|------------|------|
+| **Chromium priority nice=5** : chromium était lancé avec `nice -n 10` → préempté agressivement sur machine 2 cœurs → chutes FPS overlay. Réduit à `nice -n 5`. | `core/browser_display.py` | ✅ |
+| **Audio double-queue corrigé** : `index_clip()` initialise `last_played_at=0.0` → `find_reusable()` re-sélectionnait le clip fraîchement généré 5s plus tard → double lecture. Fix : `mark_played(conn, outpath)` immédiatement après `index_clip`. Test de régression ajouté. | `core/audio_queue.py`, `tests/test_audio_queue.py` | ✅ |
+| **Track names : 12 style hints rotatifs** — MD5(`current_track_name + territory`) sélectionne un vocabulaire orthogonal à chaque clip (haiku / géographique / biologique / cinématique / numérique / found-text / temporel / architectural / chimique / linguistique / cosmologique / taxonomique). User message enrichi : urgency, anomaly_score, style hint, interdiction de réutiliser les mots du clip précédent. | `core/track_namer.py` | ✅ |
+| **Journal : 6 system prompts + 7 angles d'observation** — 3 nouveaux prompts (`_SYSTEM_TRANSITION`, `_SYSTEM_EVENT`, `_SYSTEM_URGENCY`). Tous les prompts interdisent "I notice"/"I observe". `_OBSERVATION_ANGLES` rotatif (MD5 de la dernière entrée) ajouté au user prompt — assure qu'aucun angle n'est répété consécutivement. `_SYSTEM` alias pour test backward-compat. | `core/journal.py`, `tests/test_journal_openai.py` | ✅ |
+
+---
+
+### Correctifs pipeline — 2026-05-26 (issues #207–#213)
+
+Audit complet du pipeline — 17 bugs identifiés (B1–B17), tous corrigés en 7 commits.
+
+| Issue | Bug | Fichier(s) | Commit | État |
+|-------|-----|------------|--------|------|
+| #207 | **B1** `time_in_territory_h` jamais remis à 0 lors d'un changement de territoire | `core/updater.py` | `496a68e` | ✅ |
+| #207 | **B2** `crisis_level` / `harmonic_complexity` absents de `update_self_model` → PE toujours 0 | `core/updater.py` | `496a68e` | ✅ |
+| #207 | **B4** `field_info.annotation` comparé à string au lieu du type → 0 champs couverts par annotation check | `core/updater.py` | `496a68e` | ✅ |
+| #208 | **B6** `source_health` auto-True écrase le False auto-reporté par le collecteur | `core/collector_runner.py` | `3c4ee78` | ✅ |
+| #209 | **B3** `detected_bpm` non persisté dans `mood_snapshot` → DSP reprenait toujours `drift_bpm` | `core/audio_queue.py`, `core/dsp.py` | `511db43` | ✅ |
+| #211 | **B7** `!vibe` injectait directement dans `state.prediction_errors` (mutation hors queue) | `core/audio_queue.py` | `4c6234e` | ✅ |
+| #211 | **B8** `@node reads=` déclarait des champs produits (pas consommés) pour openai_status + system_metrics | `collectors/openai_status.py`, `collectors/system_metrics.py` | `4c6234e` | ✅ |
+| #210 | **B12** `asyncio.get_event_loop()` déprécié (Python 3.10+) → remplacé par `get_running_loop()` | `collectors/youtube_chat.py`, `collectors/yfinance_proxy.py` | `0c5793f` | ✅ |
+| #210 | **B13** `regulars_ratio` toujours 0.0 (jamais mis à jour depuis `core.memory`) | `collectors/youtube_chat.py` | `0c5793f` | ✅ |
+| #210 | **B14** `youtube_chat` absent du `NODE_REGISTRY` (make_collector ne l'enregistrait pas) | `collectors/youtube_chat.py` | `0c5793f` | ✅ |
+| #210 | **B15** `!mood` utilisait `max(PE)` au lieu de `max(abs(PE))` → signal négatif fort ignoré | `core/chat_commands.py` | `0c5793f` | ✅ |
+| #212 | **B5** `NodeMeta.produces: str` ne permet pas de déclarer plusieurs champs émis | `core/node.py` | `da1b326` | ✅ |
+| #212 | **B9** 6 collecteurs multi-champs (newsapi, reddit, gdelt, nitter_rss, google_trends, yfinance_proxy) avec `produces` incomplet | 6 fichiers collectors | `da1b326` | ✅ |
+| #213 | **B10** `wonder`/`excitement` poussés par `calendar_engine` immédiatement écrasés par `compute_derived` | `core/calendar_engine.py`, `core/updater.py` | `b28348c` | ✅ |
+| #213 | **B11** Branch `kind == "vibe"` dead code dans `audio_queue` (aucun `push("vibe", ...)` n'existe) | `core/audio_queue.py` | `b28348c` | ✅ |
+| #213 | **B17** `stream_bitrate=192.0` / `dropped_frames=0.0` hardcodés dans `run_dsp` (jamais mesurés) | `core/dsp.py` | `b28348c` | ✅ |
+
+---
+
 ## Phase 5 — Unicité Maximale
 
 - [ ] Spectrogram ARG : messages cachés dans l'audio

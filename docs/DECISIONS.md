@@ -149,6 +149,78 @@
 
 ---
 
+## Décisions 2026-05-24 — DSP & Transitions (commits ef0a03a · dbf4f55 · db59462)
+
+| Décision | Choix retenu | Alternative rejetée | Raison |
+|----------|-------------|---------------------|--------|
+| Crossfade durée | Adaptatif 8-12s par territoire, equal-power (`sqrt(t)`) | 5s fixe | 5s fixe était trop court sur ambient/drone (coupure perceptible) et trop long sur industrial/crisis. Equal-power évite la baisse de niveau au centre du fondu. |
+| Crossfade par territoire | ambient/drone 10s · jazz/electronic 6s · industrial 3s · crisis 2s | Durée unique pour tous | La nature musicale des territoires dicte la durée de transition ; appliquer la même durée à une intro de drone et à une rupture industrielle produit des transitions incorrectes. |
+| Transition T1 — EQ bass cut | Supprimée | Conserver | Le boost/cut basses sur la fenêtre de crossfade créait une discontinuité spectrale audible en début et fin de fondu. L'effet sonique ne justifiait pas l'artefact. |
+| Transition T3 — reverb throw | Supprimée | Conserver | Le reverb throw s'additionnait à la chaîne DSP principale (déjà reverb state-driven) → double-reverb et accumulation des queues sur les chunks 93ms → transitions boueuses. |
+| `tail_reserve` calcul | Basé sur les samples restants dans le buffer de sortie | Durée fixe estimée | Calcul précédent sous-estimait la réserve disponible → le tail était tronqué avant la fin de la crossfade, causant un micro-silence en bout de clip. |
+| Silence gap — fallback path | `_pending_tail` flushé via DSP vers FFmpeg pendant le chargement du clip suivant | Silence (comportement précédent) | Dans le path non-prefetch, la queue se vide 0.3–3s avant que le clip suivant soit chargé → gap silence audible. Le tail (3s finales déjà traitées) est disponible et suffisant pour couvrir la latence de chargement. |
+
+---
+
+## Décisions 2026-05-24 — Ops & Robustesse (commit ed9859c)
+
+| Décision | Choix retenu | Alternative rejetée | Raison |
+|----------|-------------|---------------------|--------|
+| Purge DB au démarrage | `DELETE` snapshots > 7j + history > 30j à chaque `run_audio_queue()` | Aucune purge au démarrage | Après plusieurs semaines de fonctionnement, la DB atteignait 800 MB+. La purge au démarrage garantit un état propre sans accumuler indéfiniment les cycles précédents. |
+| Purge périodique toutes les 6h | Tâche asyncio planifiée dans `run_audio_queue()` | Purge uniquement au démarrage | Un stream actif 72h sans redémarrage accumule ~200 MB de snapshots sans purge périodique. 6h = compromis entre fréquence et overhead I/O. |
+| Rétention snapshots | 7 jours | 30 jours (précédent) | 30j de snapshots GlobalState (toutes les 30s) = ~86 400 lignes = ~60 MB/mois avec aucune valeur analytique au-delà de 7j. |
+| Rétention history | 30 jours | 90 jours (précédent) | 90j d'historique drift/territory non consulté depuis le lancement. 30j couvre une période de changement significative tout en maintenant la DB sous 50 MB. |
+| Watchdog OOM restart | Redémarrage du service si RSS Python > 150 MB | Seuil mémoire absent (précédent) | Sans seuil, un leak mémoire progressif (librosa, asyncio tasks non collectées) déclenchait l'OOM killer du noyau → restart brutal sans cleanup des FFmpeg enfants. Le redémarrage contrôlé laisse le temps au cleanup. |
+
+---
+
+## Décisions 2026-05-25 — Optimisation coûts fal.ai
+
+| Décision | Choix retenu | Alternative rejetée | Raison |
+|----------|-------------|---------------------|--------|
+| `total_seconds` text-to-audio | 180s (conservé) | 90s | 180s × moins d'appels/h (reuse amélioré) = coût total comparable ou inférieur à 90s × appels fréquents. Clips longs = meilleure continuité musicale ; chaque clip généré est plus "rentable" en temps de lecture. Reuse cooldown réduit à 2h pour maximiser les reprises. |
+| `num_inference_steps` | 6 par défaut / 8 si `crisis_level > 0.6` | 8 fixe | 8 steps à chaque clip alors que la qualité perceptive de la musique de fond ne justifie pas le surcoût. La crise est le seul contexte où la qualité maximale est auditivement pertinente. |
+| Crisis cache au démarrage | Conditionnel : uniquement si `crisis_level > 0.5` | Inconditionnelle | 3 appels API à chaque redémarrage même quand `crisis_level=0` — coût pur sans valeur. |
+| Crisis cache rebuild cooldown | 1 800s (30 min) entre deux rebuilds | Aucun cooldown (précédent) | Si `crisis_level` monte de 0 à 0.9 progressivement (par paliers de 0.15 toutes les 5s), le rebuild se déclenchait 5× = 15 appels API en 35s. Le cooldown 30 min garantit un seul rebuild par épisode de crise. |
+| `find_reusable` cooldown | 7 200s (2h) | 36 000s (10h, précédent) | 10h de cooldown forçait la génération dès que le stock de clips était consommé (~60 clips × 180s = 3h). 2h = les clips reviennent en rotation après 2h, réduisant fortement le taux de génération. Diversité perceptive préservée sur une session d'écoute standard. |
+| `_pending_ref` bypass reuse | Supprimé | Bypass actif (précédent) | Quand des références non traitées existaient, `find_reusable()` était systématiquement bypassé → génération forcée à chaque itération au lieu de réutiliser les clips existants. Les références sont désormais converties via A2A lors du passage normal en génération (quand le reuse échoue), sans bloquer la bibliothèque. |
+
+---
+
+## Décisions 2026-05-25 — Fixes production
+
+| Décision | Choix retenu | Alternative rejetée | Raison |
+|----------|-------------|---------------------|--------|
+| Chromium `nice` value | 5 | 10 (précédent) | Sur une machine 2 vCPU, nice=10 donnait au process GPU Chromium une priorité trop faible — le scheduler le préemptait systématiquement pendant les séquences de charge FFmpeg. Chromium utilisait 170% CPU (85% des 2 cœurs) mais ses timeslices arrivaient trop tard → drops FPS perceptibles sur l'overlay. nice=5 = légère concession à FFmpeg sans starvation. |
+| `mark_played` après `index_clip` | Appelé immédiatement après `index_clip()` avant `playback_queue.put()` | Seulement en fin de lecture (précédent) | `index_clip()` initialise `last_played_at=0.0`, ce qui passe toujours le cooldown 2h de `find_reusable()`. Sans `mark_played` immédiat, le clip généré était re-sélectionné 5s plus tard par le poll suivant → même clip joué 2 fois d'affilée. Le chemin de réutilisation appelait déjà `mark_played` au bon moment ; le chemin de génération ne le faisait pas. |
+
+---
+
+## Décisions 2026-05-25 — Diversité track names + journal
+
+| Décision | Choix retenu | Alternative rejetée | Raison |
+|----------|-------------|---------------------|--------|
+| Track namer : style constraint rotatif | 12 `_STYLE_HINTS` (haiku, geographic, biologique, cinématique, numérique, found-text, temporel, architectural, chimique, linguistique, cosmologique, taxonomique) — sélectionné par MD5(`current_track_name + territory`) | Prompt statique ou random.choice | MD5 garantit la rotation déterministe à chaque nouveau clip (le hash change dès que `current_track_name` change) sans état interne ni appel à random |
+| Track namer : contexte user message enrichi | Ajout de `urgency`, `anomaly_score`, style hint, et "do not reuse words from previous track" dans le message user | Laisser le message court (territory/BPM/key/emotions) | Quand territory/BPM/key/emotions ne bougent pas, GPT-4o-mini reçoit un contexte identique → espace lexical convergent ; le style hint force un vocabulaire orthogonal à chaque clip |
+| Journal : 6 system prompts (était 3) | Ajout de `_SYSTEM_TRANSITION` (drift_velocity > 0.5), `_SYSTEM_EVENT` (event_label + intensity > 0.5), `_SYSTEM_URGENCY` (urgency > 0.7) | Garder 3 prompts | 3 prompts ne couvraient pas les états intermédiaires (montée d'urgence sans crise, transition de territoire, événement nommé) — voix uniforme quel que soit l'état |
+| Journal : anti-répétition ouvertures | Instruction explicite dans chaque system prompt : interdit "I notice"/"I observe", varie structure syntaxique (nombre, signal name, clause subordonnée) | Laisser GPT choisir librement | GPT-4o-mini avec temp par défaut converge vers "I notice X is Y" à 70%+ des entrées ; la contrainte négative suffit à forcer la variance sans changer le contenu |
+| Journal : rotation angle d'observation | 7 `_OBSERVATION_ANGLES` (deltas, émotion tracée, prediction errors, persistance temporelle, musique/territoire, signaux externes, anomalie) — MD5(`journal_text + drift_bpm`) | Laisser le modèle choisir l'angle | Sans contrainte, le modèle observe systématiquement dominant_emotion + crisis_level — 5 angles sur 7 ne sont jamais couverts |
+| `_SYSTEM = _SYSTEM_DEFAULT` alias | Alias backward-compat dans `journal.py` | Mettre à jour le test | Le test `test_system_prompt_is_english` référençait `_SYSTEM` (nom avant refactoring) — l'alias corrige sans casser l'intent du test |
+
+---
+
+## Décisions 2026-05-26 — Correctifs pipeline B1–B17
+
+| Décision | Choix retenu | Alternative rejetée | Raison |
+|----------|-------------|---------------------|--------|
+| `NodeMeta.produces` type | `str \| list[str]` | Garder `str`, dupliquer les nœuds | 6 collecteurs émettent 2+ champs — un nœud par champ multiplierait les entrées registre sans valeur. La liste est plus honnête vis-à-vis du graphe réel. |
+| B10 : `wonder`/`excitement` calendar | Retirer du payload calendar, amplifier via `event_intensity` dans `_synthesize_emotions` et calcul `wonder` | Garder le push calendar, ne pas appeler `compute_derived` après | `compute_derived` est appelé à chaque tick du StateUpdater — il écrase les valeurs poussées avant même un cycle de rendu. La seule façon de persister l'effet calendaire est de le lire depuis `event_intensity` (persisté, lui) au moment de la synthèse. |
+| B11 : dead code `!vibe` | Supprimé | Implémenter `!vibe` dans `chat_commands.py` | Aucun `push("vibe", ...)` n'existe nulle part. Le branch était mort depuis la réécriture de chat_commands. Ajouter la commande sans PRD = feature non planifiée. |
+| B17 : `stream_bitrate` / `dropped_frames` | Option A : retirer du payload DSP (valeurs restent 0.0 — honnête) | Option B : parser le stderr FFmpeg | Le parsing FFmpeg est correct mais hors scope — il appartient à un ticket moniteur FFmpeg dédié. Laisser des constantes fausses est pire que 0.0 réel. |
+| B4 : annotation check | `field_info.annotation in (float, int) or str(field_info.annotation) in ("float", "int")` | Comparaison directe `== float` | Pydantic v2 retourne parfois `"float"` comme string dans l'annotation selon le contexte de résolution du modèle. La double vérification couvre les deux formes. |
+
+---
+
 ## Décisions rejetées
 
 | Décision | Raison |
