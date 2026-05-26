@@ -129,14 +129,16 @@ def compute_derived(state: GlobalState) -> None:
     # Feed synthesized emotions + derived scalars into the self-model so drift.py
     # can read them from prediction_errors like any other signal.
     for _name, _val in (
-        ("excitement",        state.excitement),
-        ("anxiety",           state.anxiety),
-        ("frustration",       state.frustration),
-        ("curiosity",         state.curiosity),
-        ("creativity",        state.creativity),
-        ("world_temperature", state.world_temperature),
-        ("source_divergence", state.source_divergence),
-        ("audience_energy",   state.audience_energy),
+        ("excitement",         state.excitement),
+        ("anxiety",            state.anxiety),
+        ("frustration",        state.frustration),
+        ("curiosity",          state.curiosity),
+        ("creativity",         state.creativity),
+        ("world_temperature",  state.world_temperature),
+        ("source_divergence",  state.source_divergence),
+        ("audience_energy",    state.audience_energy),
+        ("crisis_level",       state.crisis_level),
+        ("harmonic_complexity", state.harmonic_complexity),
     ):
         update_self_model(state, _name, _val)
 
@@ -211,7 +213,10 @@ class StateUpdater:
         else:
             setattr(self.state, signal, value)
             field_info = GlobalState.model_fields.get(signal)
-            if field_info and field_info.annotation in (float, int):
+            if field_info and (
+                field_info.annotation in (float, int)
+                or str(field_info.annotation) in ("float", "int")
+            ):
                 update_self_model(self.state, signal, float(value))
 
     async def run(self) -> None:
@@ -235,18 +240,27 @@ class StateUpdater:
                 dt_h = (now - self._last_ts) / 3600.0
                 self._last_ts = now
 
+                prev_territory = self._vec.territory
                 self._vec = update_drift(self._vec, self.state, dt_h)
                 self.state.drift_bpm = self._vec.bpm
                 self.state.drift_key = self._vec.key
                 self.state.drift_timbre = self._vec.timbre
                 self.state.drift_territory = self._vec.territory
 
+                if self._vec.territory != prev_territory:
+                    self.state.time_in_territory_h = 0.0
+                else:
+                    self.state.time_in_territory_h += dt_h
+
                 self.state.updated_at = datetime.now(timezone.utc)
                 await persist_snapshot(self.db, self.state)
 
                 for signal, value in signals_to_persist:
                     annotation = GlobalState.model_fields.get(signal, None)
-                    if annotation and annotation.annotation in (float, int):
+                    if annotation and (
+                        annotation.annotation in (float, int)
+                        or str(annotation.annotation) in ("float", "int")
+                    ):
                         baseline = self.state.signal_baselines.get(signal, 0.0)
                         error = self.state.prediction_errors.get(signal, 0.0)
                         vol = self.state.signal_volatilities.get(signal, 0.1)

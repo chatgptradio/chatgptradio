@@ -239,6 +239,54 @@ async def test_tuple_queue_item_backward_compat(state, db):
     assert state.openai_status == pytest.approx(0.5)
 
 
+def test_crisis_level_in_prediction_errors():
+    """compute_derived must feed crisis_level into self-model; PE is non-zero when value changes."""
+    s = GlobalState(openai_status=0.0)  # → crisis_level ≈ 0.5
+    compute_derived(s)  # first call: establishes baseline = 0.5, PE = 0
+    s.openai_status = 1.0  # crisis_level drops to near 0
+    compute_derived(s)  # second call: PE = ~0 - 0.5 ≠ 0
+    assert "crisis_level" in s.prediction_errors
+    assert s.prediction_errors["crisis_level"] != 0.0
+
+
+def test_harmonic_complexity_in_prediction_errors():
+    """harmonic_complexity must appear in prediction_errors with non-zero PE after a change."""
+    s = GlobalState()
+    s.prediction_errors["arxiv_papers_today"] = 2.0
+    s.signal_volatilities["arxiv_papers_today"] = 0.1
+    s.prediction_errors["github_ai_stars"] = 2.0
+    s.signal_volatilities["github_ai_stars"] = 0.1
+    s.prediction_errors["media_cloud_ai_volume"] = 2.0
+    s.signal_volatilities["media_cloud_ai_volume"] = 0.1
+    compute_derived(s)  # establishes baseline for harmonic_complexity
+    s.prediction_errors["arxiv_papers_today"] = -2.0
+    s.prediction_errors["github_ai_stars"] = -2.0
+    s.prediction_errors["media_cloud_ai_volume"] = -2.0
+    compute_derived(s)  # harmonic_complexity changes → PE != 0
+    assert "harmonic_complexity" in s.prediction_errors
+    assert s.prediction_errors["harmonic_complexity"] != 0.0
+
+
+async def test_time_in_territory_h_increments(db):
+    """time_in_territory_h must be positive after two updater cycles in the same territory."""
+    s = GlobalState()
+    updater = StateUpdater(s, db)
+    task = asyncio.create_task(updater.run())
+
+    await updater.enqueue("excitement", 0.1)
+    await updater.queue.join()
+    await updater.enqueue("excitement", 0.2)
+    await updater.queue.join()
+
+    task.cancel()
+    try:
+        await task
+    except asyncio.CancelledError:
+        pass
+
+    assert s.time_in_territory_h > 0.0
+
+
 async def test_audio_feedback_enters_self_model(db):
     """compute_derived feeds audio_bpm_delta into the self-model when non-zero.
 
