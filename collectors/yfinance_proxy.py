@@ -38,7 +38,7 @@ def _normalise_delta(delta: float) -> float:
 
 @node(
     name="yfinance_proxy",
-    produces="msft_delta",
+    produces=["msft_delta", "nvda_delta"],
     color="#00A4EF",
     label="yfinance MSFT/NVDA",
 )

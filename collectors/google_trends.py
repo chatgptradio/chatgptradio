@@ -37,7 +37,7 @@ def _parse_trends(text: str) -> tuple[float, float]:
 
 @node(
     name="google_trends",
-    produces="google_trends_chatgpt",
+    produces=["google_trends_chatgpt", "google_trends_openai"],
     color="#4285F4",
     label="Google Trends AI",
 )

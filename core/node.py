@@ -8,7 +8,7 @@ NODE_REGISTRY: dict[str, "NodeMeta"] = {}
 @dataclass
 class NodeMeta:
     name: str
-    produces: str
+    produces: str | list[str]
     color: str
     label: str
     fn_module: str
@@ -19,7 +19,7 @@ class NodeMeta:
 def node(
     *,
     name: str,
-    produces: str,
+    produces: str | list[str],
     color: str,
     label: str,
     reads: list[str] | None = None,

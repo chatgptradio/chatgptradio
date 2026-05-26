@@ -61,7 +61,7 @@ def _parse_response(text: str) -> tuple[float, float]:
 
 @node(
     name="newsapi",
-    produces="newsapi_volume",
+    produces=["newsapi_volume", "newsapi_sentiment"],
     color="#0080FF",
     label="NewsAPI.ai Volume/Sentiment",
 )

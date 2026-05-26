@@ -86,7 +86,7 @@ def _parse_csv_bytes(raw_bytes: bytes) -> tuple[float, float]:
 
 @node(
     name="gdelt",
-    produces="gdelt_global_tone",
+    produces=["gdelt_global_tone", "gdelt_conflict_intensity"],
     color="#C0392B",
     label="GDELT Global Tone",
 )

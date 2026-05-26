@@ -42,7 +42,7 @@ def _sentiment_for_post(title: str, selftext: str) -> float:
 
 @node(
     name="reddit",
-    produces="reddit_volume",
+    produces=["reddit_volume", "reddit_sentiment"],
     color="#FF4500",
     label="Reddit Volume/Sentiment",
 )

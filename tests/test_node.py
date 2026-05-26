@@ -115,3 +115,32 @@ def test_get_registry_is_json_serializable():
     dumped = json.dumps(reg)
     assert "fn_module" in dumped
     assert "fn_name" in dumped
+
+
+def test_node_produces_accepts_list():
+    """@node must accept list[str] for produces — multi-field collectors require this."""
+    @node_module.node(name="multi", produces=["field_a", "field_b"], color="#aaa", label="Multi")
+    def fn():
+        pass
+
+    entry = node_module.NODE_REGISTRY["multi"]
+    assert entry.produces == ["field_a", "field_b"]
+
+
+@pytest.mark.parametrize("collector_module,expected_keys", [
+    ("collectors.newsapi",       ["newsapi_volume", "newsapi_sentiment"]),
+    ("collectors.reddit",        ["reddit_volume", "reddit_sentiment"]),
+    ("collectors.gdelt",         ["gdelt_global_tone", "gdelt_conflict_intensity"]),
+    ("collectors.nitter_rss",    ["twitter_volume", "twitter_sentiment"]),
+    ("collectors.google_trends", ["google_trends_chatgpt", "google_trends_openai"]),
+    ("collectors.yfinance_proxy", ["msft_delta", "nvda_delta"]),
+])
+def test_multi_field_collector_produces_list(collector_module, expected_keys):
+    """Each multi-field collector must declare all produced keys in produces=."""
+    import importlib
+    import inspect
+
+    mod = importlib.import_module(collector_module)
+    src = inspect.getsource(mod)
+    for key in expected_keys:
+        assert key in src, f"{key!r} missing from {collector_module} produces= declaration"

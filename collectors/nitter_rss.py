@@ -77,7 +77,7 @@ def _parse_rss(xml_text: str) -> tuple[float, float]:
 
 @node(
     name="nitter_rss",
-    produces="twitter_volume",
+    produces=["twitter_volume", "twitter_sentiment"],
     color="#1DA1F2",
     label="Nitter RSS (@OpenAI)",
 )
