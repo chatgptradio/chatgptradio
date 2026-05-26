@@ -62,7 +62,8 @@ def _synthesize_emotions(state: GlobalState) -> None:
     state.excitement = _clamp(
         0.25 * _z("reddit_volume") + 0.25 * _z("twitter_volume")
         + 0.2 * _z("hn_ai_score") + 0.15 * _z("hedonometer_happiness")
-        + 0.15 * _z("google_trends_chatgpt"), -1.0, 1.0
+        + 0.15 * _z("google_trends_chatgpt")
+        + state.event_intensity * 0.3, -1.0, 1.0
     )
     state.anxiety = _clamp(
         0.4 * _z("gdelt_conflict_intensity") + 0.3 * (1.0 - state.openai_status)
@@ -177,6 +178,7 @@ def compute_derived(state: GlobalState) -> None:
         + 0.3 * _z("arxiv_papers_today")
         + 0.2 * _z("github_ai_stars")
         + 0.1 * _z("hedonometer_happiness")
+        + state.event_intensity * 0.4
     ))
     state.melancholy = max(0.0, min(1.0,
         0.4 * (1.0 - state.audience_energy)

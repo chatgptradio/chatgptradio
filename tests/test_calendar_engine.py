@@ -143,3 +143,52 @@ async def test_run_calendar_resets_when_no_active_event():
     item = await queue.get()
     assert item["active_event"] == ""
     assert item["event_intensity"] == pytest.approx(0.0)
+
+
+# ── 10. run_calendar must not push wonder/excitement directly ─────────────────
+
+@pytest.mark.asyncio
+async def test_run_calendar_does_not_push_wonder_or_excitement():
+    """B10: wonder/excitement are overwritten by compute_derived every tick.
+    calendar_engine must only push event_intensity so _synthesize_emotions can apply it."""
+    state = GlobalState()
+    queue: asyncio.Queue[dict] = asyncio.Queue()
+
+    events = [CalendarEvent("test_evt", "Test", 1, 1, 0.8, 2)]
+
+    with patch("core.calendar_engine.date") as mock_date:
+        mock_date.today.return_value = date(2026, 1, 1)
+        mock_date.side_effect = lambda *a, **kw: date(*a, **kw)
+
+        task = asyncio.create_task(run_calendar(state, queue, events, check_interval_s=9999))
+        await asyncio.sleep(0.05)
+        task.cancel()
+        try:
+            await task
+        except asyncio.CancelledError:
+            pass
+
+    item = await queue.get()
+    assert "wonder" not in item, "calendar must not push wonder directly"
+    assert "excitement" not in item, "calendar must not push excitement directly"
+    assert "event_intensity" in item
+
+
+# ── 11. compute_derived amplifies wonder/excitement via event_intensity ────────
+
+def test_event_intensity_amplifies_wonder_and_excitement():
+    """B10: with event_intensity > 0, wonder and excitement must be higher than at 0."""
+    from core.updater import compute_derived
+
+    s_baseline = GlobalState()
+    s_baseline.event_intensity = 0.0
+    compute_derived(s_baseline)
+    compute_derived(s_baseline)  # second pass for stable PE baseline
+
+    s_event = GlobalState()
+    s_event.event_intensity = 1.0
+    compute_derived(s_event)
+    compute_derived(s_event)
+
+    assert s_event.wonder > s_baseline.wonder, "event_intensity must boost wonder"
+    assert s_event.excitement > s_baseline.excitement, "event_intensity must boost excitement"

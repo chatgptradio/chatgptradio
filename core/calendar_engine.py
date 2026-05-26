@@ -92,8 +92,6 @@ async def run_calendar(
                     "active_event": top.name,
                     "event_label": top.label,
                     "event_intensity": intensity,
-                    "wonder": min(1.0, state.wonder + intensity * 0.4),
-                    "excitement": min(1.0, state.excitement + intensity * 0.3),
                 }
             )
         else:

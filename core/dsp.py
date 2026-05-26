@@ -762,8 +762,6 @@ async def run_dsp(
             await state_queue.put({
                 "current_track_name": "",   # hide HUD between clips — silence is not "100%"
                 "current_song_progress": 0.0,
-                "stream_bitrate": 192.0,
-                "dropped_frames": 0.0,
                 "songs_played_today": state.songs_played_today + 1,
                 "songs_played_total": state.songs_played_total + 1,
             })

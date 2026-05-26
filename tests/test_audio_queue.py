@@ -980,3 +980,23 @@ async def test_crisis_bypasses_prompt_hash_stability_guard(tmp_path):
     # Generation must have been called despite duplicate hash, because crisis_level > 0.6
     mock_gen.assert_called()
     await conn.close()
+
+
+def test_vibe_dead_code_removed():
+    """B11: the !vibe branch (kind == 'vibe') is dead code — no push('vibe', ...) exists.
+    Verify it has been removed from audio_queue.py to avoid misleading future readers."""
+    import inspect
+    import core.audio_queue as aq
+
+    src = inspect.getsource(aq)
+    assert 'kind == "vibe"' not in src, "dead !vibe branch must be removed from audio_queue"
+
+
+def test_stream_bitrate_not_hardcoded_in_dsp():
+    """B17: stream_bitrate and dropped_frames must not be hardcoded constants in dsp.py."""
+    import inspect
+    import core.dsp as dsp_module
+
+    src = inspect.getsource(dsp_module)
+    assert '"stream_bitrate": 192' not in src, "stream_bitrate must not be hardcoded"
+    assert '"dropped_frames": 0' not in src, "dropped_frames must not be hardcoded"
