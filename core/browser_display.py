@@ -49,13 +49,12 @@ async def run_browser_display(
 
     async def _start_chromium() -> asyncio.subprocess.Process:
         return await asyncio.create_subprocess_exec(
-            "nice", "-n", "10",              # lower priority: yield CPU to FFmpeg encoder
+            "nice", "-n", "5",               # slight yield to FFmpeg; 10 was too aggressive on 2-core
             chromium_bin,
             "--no-sandbox",
-            "--disable-gpu",
-            "--enable-unsafe-swiftshader",   # software WebGL on headless Xvfb
+            "--use-gl=egl",                  # EGL via virglrenderer (virtio_gpu_dri.so) — replaces SwiftShader
+            "--enable-gpu-rasterization",    # force raster on GPU
             "--ignore-gpu-blocklist",
-            "--use-gl=swiftshader",
             "--disable-dev-shm-usage",
             "--no-first-run",
             "--test-type",                   # suppresses --no-sandbox warning bar
