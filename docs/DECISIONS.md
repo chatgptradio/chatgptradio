@@ -221,6 +221,19 @@
 
 ---
 
+## Décisions 2026-05-27 — FPS & Robustesse
+
+| Décision | Choix retenu | Alternative rejetée | Raison |
+|----------|-------------|---------------------|--------|
+| Startup VACUUM | `_periodic_purge()` — délai 90s + `wal_checkpoint(TRUNCATE)` avant VACUUM, puis toutes les 6h | VACUUM bloquant au démarrage (précédent) | Après kill -9 répétés, le WAL peut atteindre 7+ GB. VACUUM au démarrage reconstruit toute la DB depuis le WAL avant la première ligne de log → démarrage bloqué indéfiniment. Le délai 90s laisse le stream opérationnel avant toute opération DB lourde. |
+| Chromium GPU backend | SwiftShader (`--enable-unsafe-swiftshader --use-gl=swiftshader`) maintenu | EGL + virglrenderer (`--use-gl=egl --enable-gpu-rasterization`) — testé, rejeté | virglrenderer rend via `/dev/dri/renderD128` en bypassant le framebuffer Xvfb. x11grab capture l'arbre X11 du display `:99`, pas le rendu DRI. Résultat : Three.js WebGL context creation échoue sur le display X11 → overlay bloqué sur "connecting...". EGL serait compatible uniquement avec une capture DMA-BUF ou un pipeline sans x11grab. |
+| `powerPreference` WebGL | `'high-performance'` | `'low-power'` (précédent) | `'low-power'` permet au scheduler de downclockler le process GPU sur charge intermittente. Sur SwiftShader (100% CPU), downclock = chutes FPS. `'high-performance'` maintient la clock et évite les drops sur les transitions de scène. |
+| `renderer.debug.checkShaderErrors` | `false` | `true` (défaut Three.js) | La validation GLSL runtime est utile en dev, inutile en prod — les shaders sont stables. Désactiver économise ~5% CPU sur les recompilations. |
+| `-vf fps=30` FFmpeg | Supprimé | Conservé (précédent) | x11grab capture déjà à `-framerate 30`. Le filtre `-vf fps=30` appliqué en aval recalculait les timestamps inutilement. `force-cfr=1` dans `-x264opts` garantit le CFR côté encodeur. Double filtrage = travail redondant sans bénéfice. |
+| WebSocket broadcast fps | 10fps | 4fps (précédent) | À 4fps (250ms entre updates), les lerps Three.js interpolaient sur des intervalles trop longs → saccades visibles sur les transitions d'émotions. À 10fps (100ms) les animations suivent les signaux sans artefact. Coût CPU Python négligeable (JSON GlobalState ~2KB). |
+
+---
+
 ## Décisions rejetées
 
 | Décision | Raison |

@@ -3,82 +3,265 @@
 <head>
   <meta charset="utf-8">
   <title>ChatGPT Radio — Visualizer DEV</title>
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600&family=JetBrains+Mono:wght@400;500&display=swap">
   <style>
+    /* ── DEV PREVIEW — direction artistique OpenAI/ChatGPT ──────────────────── */
     * { margin:0; padding:0; box-sizing:border-box; }
-    body { background:#000000; overflow:hidden; font-family:'Courier New',monospace; }
+    body { background:#0d0d0d; overflow:hidden; font-family:'Inter',-apple-system,BlinkMacSystemFont,'Segoe UI',sans-serif; }
     canvas { display:block; }
-    #hud { position:fixed; top:0; left:0; width:100%; height:100%; pointer-events:none; }
-    #drift { position:absolute; bottom:24px; left:24px; color:#00D4FF; font-size:13px; line-height:1.8; text-shadow:0 0 14px #00D4FFcc; }
-    #track-info { position:absolute; bottom:172px; left:24px; color:#00D4FF; font-size:13px; line-height:1.8; text-shadow:0 0 14px #00D4FFcc; }
-    #track-progress-wrap { position:absolute; bottom:168px; left:24px; width:180px; height:2px; background:#1a3344; border-radius:1px; overflow:hidden; display:none; }
-    #track-progress-bar { height:100%; width:0%; background:#00D4FF; transition:width 0.25s linear; }
-    #sources { position:absolute; top:24px; right:24px; color:#AACCEE; font-size:11px; line-height:1.7; text-align:right; text-shadow:0 0 8px #4477AA66; }
-    #journal { position:absolute; bottom:24px; right:24px; color:#AABBCC; font-size:11px; max-width:380px; line-height:1.6; opacity:1; border-left:1px solid #334466; padding-left:12px; }
+    #vignette {
+      position:fixed; top:0; left:0; width:100%; height:100%; pointer-events:none; z-index:1;
+      background:radial-gradient(ellipse at 50% 50%, transparent 38%, rgba(0,0,0,0.54) 100%);
+    }
+    #hud { position:fixed; top:0; left:0; width:100%; height:100%; pointer-events:none; z-index:2; }
+
+    /* ── Drift panel (bottom-left) ───────────────────────────────────────────── */
+    #drift {
+      position:absolute; bottom:24px; left:24px;
+      color:#ececf1; font-size:12px; line-height:1.75; letter-spacing:0.02em;
+      background:rgba(250,250,250,0.06);
+      backdrop-filter:blur(16px) saturate(160%); -webkit-backdrop-filter:blur(16px) saturate(160%);
+      border:1px solid rgba(255,255,255,0.10); border-radius:10px; padding:12px 16px;
+    }
+
+    /* ── Track info — intégré dans le drift panel ───────────────────────────── */
+    #drift-track {
+      padding-bottom:8px; margin-bottom:8px;
+      border-bottom:1px solid rgba(255,255,255,0.06);
+    }
+    #drift-track-name {
+      color:#ececf1; font-size:12px; line-height:1.6; margin-bottom:6px;
+      white-space:nowrap; overflow:hidden; text-overflow:ellipsis; max-width:220px;
+    }
+    #track-progress-wrap {
+      width:100%; height:2px; background:rgba(255,255,255,0.10);
+      border-radius:2px; overflow:hidden;
+    }
+    #track-progress-bar { height:100%; width:0%; background:#10A37F; transition:width 0.3s ease; }
+
+    /* ── Sources panel (top-right) — accordéon 2min/15min ───────────────────── */
+    #sources {
+      position:absolute; top:24px; right:24px;
+      color:#9aa0a6; font-size:11px; letter-spacing:0.03em;
+      background:rgba(250,250,250,0.06);
+      backdrop-filter:blur(16px) saturate(160%); -webkit-backdrop-filter:blur(16px) saturate(160%);
+      border:1px solid rgba(255,255,255,0.10); border-radius:10px;
+      overflow:hidden; min-width:130px;
+    }
+    #sources-summary {
+      display:flex; align-items:center; justify-content:flex-end; gap:7px;
+      padding:8px 14px; line-height:1;
+    }
+    #sources-detail {
+      max-height:0; overflow:hidden;
+      transition:max-height 0.55s ease, padding 0.45s ease;
+      padding:0 14px; text-align:right; line-height:1.8;
+      border-top:0px solid rgba(255,255,255,0.06);
+    }
+    #sources.expanded #sources-detail {
+      max-height:400px; padding:6px 14px 10px;
+      border-top:1px solid rgba(255,255,255,0.06);
+    }
+
+    /* ── Shared CSS dot for health indicators ────────────────────────────────── */
+    .status-dot {
+      display:inline-block; width:6px; height:6px; border-radius:50%;
+      flex-shrink:0; vertical-align:middle; position:relative; top:-1px;
+    }
+    .dot-ok   { background:#10A37F; }
+    .dot-warn { background:#d97706; }
+    .dot-err  { background:#ef4444; }
+    .dot-live { background:#d97706; }
+    .dot-off  { background:#4b5563; }
+    @keyframes health-pulse {
+      0%,100% { box-shadow:0 0 0 0 rgba(16,163,127,0.5); }
+      50%      { box-shadow:0 0 0 3px rgba(16,163,127,0); }
+    }
+    .dot-pulse { animation:health-pulse 2.8s ease-in-out infinite; }
+
+    /* ── Journal (bottom-right) — ChatGPT thinking UI ───────────────────────── */
+    #journal {
+      position:absolute; bottom:24px; right:24px;
+      max-width:172px; /* collapsed: juste le header */
+      overflow:hidden;
+      transition:max-width 0.45s cubic-bezier(0.4,0,0.2,1);
+      background:rgba(250,250,250,0.06);
+      backdrop-filter:blur(16px) saturate(160%); -webkit-backdrop-filter:blur(16px) saturate(160%);
+      border:1px solid rgba(255,255,255,0.10);
+      border-left:2px solid #10A37F;
+      border-radius:10px;
+    }
+    #journal.expanded { max-width:360px; }
+    #journal-header {
+      display:flex; align-items:center; gap:8px;
+      padding:10px 14px 10px;
+      border-bottom:1px solid transparent;
+      transition:border-bottom-color 0.35s ease;
+    }
+    #journal.expanded #journal-header { border-bottom-color:rgba(255,255,255,0.06); }
+    .think-dots { display:flex; align-items:center; gap:3px; }
+    .think-dots span {
+      display:inline-block; width:4px; height:4px; border-radius:50%;
+      background:#10A37F;
+      animation:think-dot 1.4s ease-in-out infinite;
+    }
+    .think-dots span:nth-child(2) { animation-delay:0.2s; }
+    .think-dots span:nth-child(3) { animation-delay:0.4s; }
+    @keyframes think-dot {
+      0%,80%,100% { transform:translateY(0); opacity:0.3; }
+      40% { transform:translateY(-3px); opacity:1; }
+    }
+    #journal-think-label {
+      font-size:11px; font-weight:500; color:#9aa0a6; letter-spacing:0.05em;
+      white-space:nowrap;
+    }
+    /* Corps caché par défaut — expand sur nouveau message journal */
+    #journal-body {
+      max-height:0; overflow:hidden; padding:0 14px;
+      color:#9aa0a6; font-size:11px; line-height:1.65; letter-spacing:0.02em;
+      transition:max-height 0.5s ease, padding 0.4s ease;
+    }
+    #journal.expanded #journal-body {
+      max-height:160px; padding:8px 14px 12px;
+      mask-image:linear-gradient(to top, black 70%, transparent 100%);
+      -webkit-mask-image:linear-gradient(to top, black 70%, transparent 100%);
+    }
+    #journal-body::after {
+      content:'▋'; color:#10A37F; margin-left:2px;
+      animation:cursor-blink 1s step-end infinite;
+      opacity:0; transition:opacity 0.3s ease;
+    }
+    #journal.expanded #journal-body::after { opacity:1; }
+    @keyframes cursor-blink { 50% { opacity:0; } }
+
+    /* ── ON AIR badge ────────────────────────────────────────────────────────── */
     #on-air {
       position:absolute; top:0; left:0;
-      padding:7px 14px 7px 11px;
-      background:rgba(160,0,0,0.13);
-      border-right:1px solid #ff222222;
-      border-bottom:1px solid #ff222222;
-      border-radius:0 0 7px 0;
-      display:flex; align-items:center; gap:8px;
+      padding:7px 16px 7px 12px;
+      background:rgba(24,4,4,0.68);
+      backdrop-filter:blur(14px); -webkit-backdrop-filter:blur(14px);
+      border-right:1px solid rgba(255,34,34,0.18);
+      border-bottom:1px solid rgba(255,34,34,0.18);
+      box-shadow:0 2px 20px rgba(255,34,34,0.10), inset 0 1px 0 rgba(255,255,255,0.06);
+      border-radius:0 0 10px 0; display:flex; align-items:center; gap:8px;
     }
     #on-air-dot {
-      width:8px; height:8px;
-      background:#ff2222; border-radius:50%;
-      box-shadow:0 0 7px #ff2222cc;
-      animation:on-air-pulse 1.5s ease-in-out infinite;
-      flex-shrink:0;
+      width:7px; height:7px; background:#ff2222; border-radius:50%;
+      box-shadow:0 0 6px #ff222299;
+      animation:on-air-pulse 2s ease-in-out infinite; flex-shrink:0;
     }
     #on-air-label {
-      font-size:11px; font-weight:bold; letter-spacing:2.5px;
-      color:#ff3333; text-shadow:0 0 10px #ff3333bb;
+      font-size:10px; font-weight:500; letter-spacing:0.12em;
+      text-transform:uppercase; color:#ececf1;
     }
-    #on-air-uptime { font-size:10px; color:#CC3333; letter-spacing:1px; }
-    @keyframes on-air-pulse { 0%,100%{opacity:1;box-shadow:0 0 7px #ff2222cc} 50%{opacity:0.15;box-shadow:0 0 2px #ff222244} }
-    #mode-indicator { position:absolute; top:40px; left:24px; font-size:10px; color:#55BB88; }
-    #ws-status { position:absolute; top:54px; left:24px; font-size:10px; color:#55BB88; }
-    #chat-status { position:absolute; top:68px; left:24px; font-size:10px; color:#7799BB; }
-    #chat-status.live { color:#FF9944; }
+    #on-air-uptime {
+      font-size:10px; color:#6b7280;
+      font-family:'JetBrains Mono',monospace; letter-spacing:0.05em;
+    }
+    @keyframes on-air-pulse {
+      0%,100%{opacity:1;box-shadow:0 0 6px #ff222299}
+      50%{opacity:0.25;box-shadow:0 0 2px #ff222233}
+    }
+
+    /* ── Status panel (top-left) — glassmorphism OpenAI ─────────────────────── */
+    #status-panel {
+      position:absolute; top:40px; left:24px;
+      background:rgba(250,250,250,0.06);
+      backdrop-filter:blur(16px) saturate(160%); -webkit-backdrop-filter:blur(16px) saturate(160%);
+      border:1px solid rgba(255,255,255,0.10); border-radius:10px;
+      padding:10px 14px; display:flex; flex-direction:column; gap:5px;
+      min-width:130px;
+    }
+    #mode-indicator {
+      font-family:'Inter',-apple-system,BlinkMacSystemFont,'Segoe UI',sans-serif;
+      font-size:11px; font-weight:500; letter-spacing:0.12em; text-transform:uppercase;
+      color:#9aa0a6; display:flex; align-items:center; gap:6px;
+    }
+    #mode-indicator::before {
+      content:''; display:inline-block; width:5px; height:5px;
+      border-radius:50%; background:#10A37F; flex-shrink:0;
+    }
+    #ws-status  { font-size:10px; color:#6b7280; letter-spacing:0.04em; }
+    #ws-status.connected  { color:#10A37F; }
+    #ws-status.restarting { color:#d97706; }
+    #chat-status { font-size:10px; color:#6b7280; letter-spacing:0.03em; }
+    #chat-status.live { color:#d97706; }
     #reddit-status { display:none; }
+
+    /* ── Event banner ────────────────────────────────────────────────────────── */
     #event-banner {
-      position: absolute;
-      top: 84px; left: 50%; transform: translateX(-50%);
-      color: #FFD700;
-      font-size: 18px; letter-spacing: 3px; text-transform: uppercase;
-      text-shadow: 0 0 22px #FFD700cc, 0 0 40px #FFD70055;
-      opacity: 0;
-      transition: opacity 2s;
-      pointer-events: none;
+      position:absolute; top:24px; left:50%; transform:translateX(-50%);
+      text-align:center; white-space:nowrap;
+      background:rgba(250,250,250,0.06);
+      backdrop-filter:blur(20px) saturate(160%); -webkit-backdrop-filter:blur(20px) saturate(160%);
+      border:1px solid rgba(16,163,127,0.32);
+      box-shadow:inset 0 1px 0 rgba(255,255,255,0.07), 0 8px 32px rgba(0,0,0,0.4), 0 0 0 1px rgba(16,163,127,0.08);
+      border-radius:12px; padding:12px 28px 14px;
+      opacity:0; transition:opacity 1.8s ease; pointer-events:none;
+      will-change:opacity;
     }
-    #ws-status.connected  { color:#44DD88; }
-    #ws-status.restarting { color:#FF9944; }
+    #event-label-above {
+      font-size:10px; font-weight:400; color:#9aa0a6;
+      letter-spacing:0.14em; text-transform:uppercase; margin-bottom:6px;
+    }
+    #event-label-main {
+      font-size:20px; font-weight:600; color:#ececf1;
+      letter-spacing:0.18em; text-transform:uppercase;
+    }
+
+    /* ── Drift panel — header "signals" ─────────────────────────────────────── */
+    #drift-header {
+      display:flex; align-items:center; gap:6px;
+      font-size:10px; font-weight:500; color:#6b7280; letter-spacing:0.08em;
+      padding-bottom:8px; margin-bottom:8px;
+      border-bottom:1px solid rgba(255,255,255,0.06);
+    }
+    #drift-header::before {
+      content:''; display:inline-block; width:4px; height:4px;
+      border-radius:50%; background:#74aa9c; flex-shrink:0;
+    }
+
+    /* ── Viewer command — glassmorphism pill ─────────────────────────────────── */
     #viewer-cmd {
       position:absolute; bottom:205px; left:24px;
-      font-size:11px; color:#AACCAA; letter-spacing:0.5px;
-      text-shadow:0 0 8px #99BB7799;
-      opacity:0; transition:opacity 0.6s ease;
+      font-size:11px; color:#ececf1; letter-spacing:0.03em;
+      background:rgba(250,250,250,0.06);
+      backdrop-filter:blur(16px) saturate(160%); -webkit-backdrop-filter:blur(16px) saturate(160%);
+      border:1px solid rgba(255,255,255,0.08);
+      border-radius:20px; padding:5px 12px 5px 10px;
+      display:flex; align-items:center; gap:7px;
+      opacity:0; transition:opacity 0.5s ease;
+    }
+    #viewer-cmd::before {
+      content:''; display:inline-block; width:5px; height:5px;
+      border-radius:50%; background:#ab68ff; flex-shrink:0;
     }
     #viewer-cmd.active { opacity:1; }
+
+    /* ── Mono utility — valeurs numériques JetBrains Mono ───────────────────── */
+    .mono { font-family:'JetBrains Mono',monospace; }
+
     #fade { position:fixed; top:0; left:0; width:100%; height:100%; background:#000; pointer-events:none; opacity:0; transition:opacity 1.5s; z-index:10; }
     @keyframes blink { 50% { opacity:0; } }
   </style>
 </head>
 <body>
 <div id="fade"></div>
+<div id="vignette"></div>
 <div id="hud">
   <div id="on-air"><div id="on-air-dot"></div><span id="on-air-label">ON AIR</span><span id="on-air-uptime"></span></div>
-  <div id="mode-indicator">◆ NEURAL</div>
-  <div id="ws-status">◌ connecting…</div>
-  <div id="chat-status"></div>
-  <div id="reddit-status"></div>
-  <div id="event-banner"></div>
-  <div id="drift"></div>
+  <div id="status-panel">
+    <div id="mode-indicator">neural</div>
+    <div id="ws-status"></div>
+    <div id="chat-status"></div>
+    <div id="reddit-status"></div>
+  </div>
+  <div id="event-banner"><div id="event-label-above">Today we celebrate</div><div id="event-label-main"></div></div>
+  <div id="drift"><div id="drift-header">signals</div><div id="drift-track" style="display:none"><div id="drift-track-name"></div><div id="track-progress-wrap"><div id="track-progress-bar"></div></div></div><div id="drift-signals"></div></div>
   <div id="viewer-cmd"></div>
-  <div id="track-info" style="display:none"></div>
-  <div id="track-progress-wrap"><div id="track-progress-bar"></div></div>
-  <div id="sources"></div>
-  <div id="journal"></div>
+  <div id="sources"><div id="sources-summary"><span id="sources-count"></span><span id="sources-dot" class="status-dot"></span></div><div id="sources-detail"></div></div>
+  <div id="journal"><div id="journal-header"><div class="think-dots"><span></span><span></span><span></span></div><span id="journal-think-label">thinking</span></div><div id="journal-body"></div></div>
 </div>
 
 <script type="importmap">
@@ -90,9 +273,6 @@
 <script type="module">
 import * as THREE from 'three';
 import { OrbitControls } from 'three/addons/controls/OrbitControls.js';
-import { EffectComposer }  from 'three/addons/postprocessing/EffectComposer.js';
-import { RenderPass }      from 'three/addons/postprocessing/RenderPass.js';
-import { UnrealBloomPass } from 'three/addons/postprocessing/UnrealBloomPass.js';
 
 // ── Setup Three.js ────────────────────────────────────────────────────────────
 
@@ -105,8 +285,8 @@ renderer.setSize(innerWidth, innerHeight);
 renderer.setPixelRatio(1.0);
 renderer.debug.checkShaderErrors = false;  // disable runtime GLSL validation — ~5% CPU saving
 document.body.prepend(renderer.domElement);
-scene.add(new THREE.AmbientLight(0x112233, 2));
-const fill = new THREE.PointLight(0x00D4FF, 3, 60);
+scene.add(new THREE.AmbientLight(0x223344, 3.5));
+const fill = new THREE.PointLight(0x00D4FF, 5, 80);
 fill.position.set(0,0,15);
 scene.add(fill);
 const clock = new THREE.Clock();
@@ -155,12 +335,15 @@ void main(){
   vec2 c=2.0*gl_PointCoord-1.0; float d=length(c); if(d>1.0)discard;
   float g=pow(1.0-smoothstep(0.0,1.0,d),1.6);
   float ring=smoothstep(0.55,0.65,d)*smoothstep(0.9,0.65,d)*vSig;
-  vec3 col=vColor*(0.7+0.3*sin(uTime*0.6+d*3.0)*min(1.0,vSig*2.0));
+  vec3 col=vColor*(0.9+0.3*sin(uTime*0.6+d*3.0)*min(1.0,vSig*2.0));
   col=mix(col,vec3(1.0),vSig*0.35*g)+vec3(1.0)*ring*0.6;
   if(vPulse>0.0)col=mix(col,vec3(1.0),vPulse*0.55);
   col=mix(col,vec3(0.7,1.0,1.9),vFlash*0.85);
-  float alpha=g*(0.92-0.45*d)*smoothstep(90.0,8.0,length(vWorldPos-cameraPosition));
-  gl_FragColor=vec4(col,alpha*(1.0+vPulse*0.4+vFlash*0.25));
+  // Flash ring — anneau qui s'allume quand un paquet arrive (porteur conditionnel: vFlash>0)
+  float flashRing=smoothstep(0.68,0.73,d)*smoothstep(0.93,0.79,d)*vFlash;
+  col=mix(col,vec3(0.4,0.90,1.8),flashRing*0.90);
+  float alpha=g*(1.1-0.35*d)*smoothstep(90.0,8.0,length(vWorldPos-cameraPosition));
+  gl_FragColor=vec4(col,alpha*(1.0+vPulse*0.4+vFlash*0.25)+flashRing*vFlash*0.65);
 }`;
 const _NN_CONN_VS = `
 attribute vec3 startPt; attribute vec3 endPt; attribute float connStr;
@@ -206,11 +389,20 @@ void main(){
   float flow=uFlowSpeed>0.0?(sin(vT*18.0-uTime*uFlowSpeed)*0.5+0.5):0.0;
   vec3 col=vColor*(0.90+0.35*flow*vStr)*(1.0+smoothstep(0.3,0.7,flow)*vStr*0.5);
   if(vPulse>0.0)col=mix(col,vec3(1.0),vPulse*0.5);
+  // Paquet primaire
   float env=sin(vPF*3.14159)*vPA;
-  float pCore=smoothstep(0.05,0.0,abs(vT-vPF))*env;
-  float pHalo=smoothstep(0.22,0.05,abs(vT-vPF))*env*0.35;
-  col=mix(col,vec3(0.5,0.85,1.8),pCore*0.90+pHalo*0.50);
-  float alpha=(0.80*vStr+0.2*flow+vPulse*0.3+pCore*0.70+pHalo*0.50)*smoothstep(0.0,0.06,vT)*smoothstep(1.0,0.94,vT);
+  float pCore=smoothstep(0.06,0.0,abs(vT-vPF))*env;
+  float pHalo=smoothstep(0.26,0.06,abs(vT-vPF))*env*0.42;
+  // Traîne derrière le paquet (porteur conditionnel: vPA)
+  float wakeD=clamp(vPF-vT,0.0,0.18);
+  float wake=wakeD*(1.0/0.18)*vPA*0.28;
+  // Second paquet — décalé de 0.5 phase, visible seulement si arête très active (porteur conditionnel)
+  float pF2=fract(vPF+0.5);
+  float env2=sin(pF2*3.14159)*max(0.0,(vPA-0.38)*2.6);
+  float pCore2=smoothstep(0.06,0.0,abs(vT-pF2))*env2;
+  float pHalo2=smoothstep(0.22,0.06,abs(vT-pF2))*env2*0.32;
+  col=mix(col,vec3(0.5,0.85,1.8),pCore*1.20+pHalo*0.65+pCore2*0.80+pHalo2*0.40);
+  float alpha=(max(0.32,0.80*vStr)+0.25*flow+vPulse*0.3+pCore*0.90+pHalo*0.55+wake+pCore2*0.62+pHalo2*0.35)*smoothstep(0.0,0.06,vT)*smoothstep(1.0,0.94,vT);
   float tube=pow(max(0.0,1.0-abs(vSide)),0.40);
   col*=(0.80+tube*0.70);
   alpha=alpha*(0.25+tube);
@@ -234,7 +426,6 @@ class NeuralMode {
     this._nodeData=[]; this._built=false; this._clock=new THREE.Clock(); this._clock.start();
     this._lastSig=0; this._lastPulse=0; this._sprites=[];
     this._bgColor=new THREE.Color(0,0,0);
-    this._composer=null;
     this._nodeColorAttr=null;
     this._connStrAttr=null; this._connStrData=null; this._edges=null;
     this._pulseT=null; this._pulsePrevT=null;
@@ -483,16 +674,13 @@ class NeuralMode {
     if(this._cam.aspect!==innerWidth/innerHeight){
       this._cam.aspect=innerWidth/innerHeight;
       this._cam.updateProjectionMatrix();
-      if(this._composer)this._composer.setSize(innerWidth,innerHeight);
     }
     scene.background=this._bgColor;
-    if(this._composer)this._composer.render();
-    else renderer.render(scene,this._cam);
+    renderer.render(scene,this._cam);
     return true;
   }
 
   dispose(sc){
-    if(this._composer){this._composer.dispose();this._composer=null;}
     if(this._nMesh){sc.remove(this._nMesh);this._nMesh.geometry.dispose();this._nMesh.material.dispose();this._nMesh=null;}
     if(this._cMesh){sc.remove(this._cMesh);this._cMesh.geometry.dispose();this._cMesh.material.dispose();this._cMesh=null;}
     if(this._starField){sc.remove(this._starField);this._starField.geometry.dispose();this._starField=null;}
@@ -569,17 +757,20 @@ void main(){
   vec3 col = vColor;
   col = mix(col, vec3(1.0),          spec   * vActivity * 0.95); // porteur conditionnel — zéro si signal nul
   col = mix(col, vec3(1.0),          rim    * vActivity * 0.50); // porteur conditionnel
-  col = mix(col, vec3(1.0, 0.94, 0.6), corona * cAct     * 0.80); // corona dorée — porteur sur activité élevée
+  col = mix(col, vec3(0.67, 0.41, 1.0), corona * cAct     * 0.80); // corona violette OpenAI #ab68ff
   if(vPulse > 0.0) col = mix(col, vec3(1.0), vPulse * 0.75);
-  // Blue-white flash when node receives a synapse pulse (NO_FAKE: driven by incoming edge signal)
-  col = mix(col, vec3(0.7, 1.0, 1.9), vFlash * 0.85);
-  // base floor 8% du range sur le disque uniquement — évite écran mort
-  float alpha  = disc  * (0.08 + vActivity * 0.42 + vFlash * 0.30)
+  col = mix(col, vec3(0.25, 1.0, 0.72), vFlash * 0.85); // flash vert #10A37F boosted
+  // Flash ring — anneau lumineux à la réception d'un signal (porteur conditionnel: vFlash)
+  float flashRing = smoothstep(0.70, 0.76, d) * smoothstep(0.93, 0.80, d) * vFlash;
+  col = mix(col, vec3(0.25, 0.90, 0.65), flashRing * 0.88); // ring vert OpenAI
+  // base floor 55% au centre — aligne avec NexusMode scene 5 (user request)
+  float alpha  = disc  * (0.55 + vActivity * 0.35 + vFlash * 0.30)
                + spec  * (vActivity * 0.28 + vFlash * 0.20)
-               + glow  * (vActivity * 0.18)
-               + rim   * (vActivity * 0.14)
-               + corona * cAct * 0.35             // porteur conditionnel
-               + vPulse * 0.25;
+               + glow  * (vActivity * 0.18 + vFlash * 0.32)
+               + rim   * (vActivity * 0.14 + vFlash * 0.22)
+               + corona * cAct * 0.35
+               + vPulse * 0.25
+               + flashRing * vFlash * 0.62;
   gl_FragColor = vec4(col, clamp(alpha, 0.0, 1.0));
 }`;
 
@@ -652,20 +843,30 @@ varying float vPA;
 varying float vSide;
 void main(){
   float flow = uFlowSpeed > 0.0 ? (sin(vT * 18.0 - uTime * uFlowSpeed) * 0.5 + 0.5) : 0.0; // porteur conditionnel
-  // Teinte crise orange-rouge portée par connStr (arêtes actives s'embrasent en crise)
-  vec3 crisisCol = vec3(1.0, 0.28, 0.04);
+  // Teinte crise rouge OpenAI #ef4444 portée par connStr
+  vec3 crisisCol = vec3(0.94, 0.27, 0.27);
   vec3 baseCol   = mix(vColor, crisisCol, uCrisis * vStr * 0.65);
   vec3 col = baseCol * (1.0 + 0.20 * flow * vStr);
-  // Éclat chaud en crise — mix vers blanc chaud (vs blanc froid sans crise)
-  vec3 flashCol = mix(vec3(1.0), vec3(1.0, 0.8, 0.5), uCrisis);
+  // Éclat en crise — mix vers blanc légèrement rosé (OpenAI error tone)
+  vec3 flashCol = mix(vec3(1.0), vec3(1.0, 0.90, 0.90), uCrisis);
   col = mix(col, flashCol, vStr * flow * 0.55); // porteur conditionnel
   if(vPulse > 0.0) col = mix(col, vec3(1.0), vPulse * 0.7);
-  // Traveling synapse pulse (NO_FAKE: speed=f(excitement,bpm), intensity=f(prediction_errors))
+  // Paquet primaire
   float pulseEnv  = sin(vPF * 3.14159) * 0.80 + 0.20;
-  float pulseCore = smoothstep(0.05, 0.0, abs(vT - vPF)) * pulseEnv * vPA;
-  float pulseHalo = smoothstep(0.22, 0.05, abs(vT - vPF)) * pulseEnv * vPA * 0.35;
-  col = mix(col, vec3(0.5, 0.85, 1.8), pulseCore * 0.90 + pulseHalo * 0.50);
-  float alpha = (0.60 * vStr + 0.15 * flow * vStr + vPulse * 0.25 + pulseCore * 0.60 + pulseHalo * 0.45)
+  float pulseCore = smoothstep(0.07, 0.0, abs(vT - vPF)) * pulseEnv * vPA;
+  float pulseHalo = smoothstep(0.26, 0.07, abs(vT - vPF)) * pulseEnv * vPA * 0.42;
+  // Traîne derrière le paquet primaire (porteur conditionnel: vPA)
+  float wakeD = clamp(vPF - vT, 0.0, 0.18);
+  float wake  = wakeD * (1.0/0.18) * vPA * 0.26;
+  // Second paquet — seulement sur synapses très actives (porteur conditionnel vPA>0.42)
+  float pF2   = fract(vPF + 0.5);
+  float env2  = (sin(pF2 * 3.14159) * 0.80 + 0.20) * max(0.0, (vPA - 0.42) * 2.4);
+  float pCore2 = smoothstep(0.06, 0.0, abs(vT - pF2)) * env2;
+  float pHalo2 = smoothstep(0.22, 0.06, abs(vT - pF2)) * env2 * 0.32;
+  // Paquets de données : vert OpenAI #10A37F boosted pour blending additif
+  col = mix(col, vec3(0.25, 1.20, 0.72), pulseCore * 1.12 + pulseHalo * 0.62 + pCore2 * 0.72 + pHalo2 * 0.36);
+  float alpha = (max(0.22, 0.60 * vStr) + 0.15 * flow * vStr + vPulse * 0.25
+               + pulseCore * 0.82 + pulseHalo * 0.52 + wake + pCore2 * 0.52 + pHalo2 * 0.30)
     * smoothstep(0.0, 0.05, vT) * smoothstep(1.0, 0.95, vT);
   float tube = pow(max(0.0, 1.0 - abs(vSide)), 0.40);
   col  *= (0.80 + tube * 0.70);
@@ -675,20 +876,25 @@ void main(){
 
 // Color palettes: indexed by formation quartile
 const _SYN_PALETTES = [
-  [new THREE.Color(0x00D4FF), new THREE.Color(0x0099CC), new THREE.Color(0x66EEFF)],
+  // Globe (formation 0) — OpenAI greens: #10A37F, #74aa9c, near-white
+  [new THREE.Color(0x10A37F), new THREE.Color(0x74aa9c), new THREE.Color(0xd4ede8)],
+  // Euphoric/clusters — warm oranges (unchanged)
   [new THREE.Color(0xFF8C00), new THREE.Color(0xFFAA44), new THREE.Color(0xCC6600)],
-  [new THREE.Color(0xEC4899), new THREE.Color(0xA855F7), new THREE.Color(0x6366F1)],
+  // Tense/industrial — OpenAI purple spectrum
+  [new THREE.Color(0xab68ff), new THREE.Color(0x7c3aed), new THREE.Color(0xd8b4fe)],
+  // DNA/complex — keep greens (close to OpenAI)
   [new THREE.Color(0x10B981), new THREE.Color(0xA3E635), new THREE.Color(0xFACC15)],
 ];
 
 // Teinte fond sombre par territoire — module-scope pour éviter alloc/frame
+// Palette OpenAI : fond très sombre avec micro-teinte de la couleur dominante
 const _SYN_BG_COLORS = {
-  tense:       new THREE.Color(0x050008),
-  wonder:      new THREE.Color(0x000a12),
-  euphoric:    new THREE.Color(0x080400),
-  melancholic: new THREE.Color(0x020210),
+  tense:       new THREE.Color(0x030508),  // trace bleue froide
+  wonder:      new THREE.Color(0x010a07),  // trace verte OpenAI
+  euphoric:    new THREE.Color(0x03080a),  // trace vert-teal
+  melancholic: new THREE.Color(0x020210),  // sombre froid (inchangé)
 };
-const _SYN_BG_DEFAULT = new THREE.Color(0x000000);
+const _SYN_BG_DEFAULT = new THREE.Color(0x020403); // fond avec micro-teinte verte #0d0d0d-ish
 
 // ── Shaders étoiles — scintillement data-driven ───────────────────────────────
 // aTwinklePhase/Freq aléatoires à l'init (jamais dans RAF).
@@ -728,7 +934,6 @@ class SynapseMode {
     this._lastPulseTime = -1000;
     this._lastBurst = 0;
     this._animId = null;
-    this._composer = null;
     // B2+B3+B6 — attributs GPU dynamiques
     this._nodeColorAttr = null;
     this._connStrAttr = null; this._connStrData = null;
@@ -1247,7 +1452,7 @@ class SynapseMode {
       const peArr = Object.values(predErrors);
       const maxPE2 = Math.max(0.01, ...peArr.map(v => Math.abs(Number(v)||0)));
       const excite = Math.max(0, Math.min(1, state.excitement || 0));
-      const pulseSpd = 0.025 + excite * 0.25 + ((state.audio_bpm||90) / 60) * 0.010;
+      const pulseSpd = 0.025 + excite * 0.25 + ((state.drift_bpm || state.audio_bpm || 90) / 60) * 0.025;
       const E2 = this._edges.length;
       for (let ei = 0; ei < E2; ei++) {
         const e = this._edges[ei];
@@ -1331,15 +1536,12 @@ class SynapseMode {
     if (this._cam.aspect !== innerWidth / innerHeight) {
       this._cam.aspect = innerWidth / innerHeight;
       this._cam.updateProjectionMatrix();
-      if (this._composer) this._composer.setSize(innerWidth, innerHeight);
     }
-    if (this._composer) this._composer.render();
-    else renderer.render(scene, this._cam);
+    renderer.render(scene, this._cam);
     return true;
   }
 
   dispose(sc) {
-    if (this._composer) { this._composer.dispose(); this._composer = null; }
     if (this._nMesh) { sc.remove(this._nMesh); this._nMesh.geometry.dispose(); this._nMesh.material.dispose(); this._nMesh = null; }
     if (this._cMesh) { sc.remove(this._cMesh); this._cMesh.geometry.dispose(); this._cMesh.material.dispose(); this._cMesh = null; }
     if (this._starField) { sc.remove(this._starField); this._starField.geometry.dispose(); this._starField.material.dispose(); this._starField = null; }
@@ -1504,11 +1706,17 @@ class ChaosMode {
         uCrisisLevel: { value: 0 },
         uMelancholy:  { value: 0 },
         uDriftEnergy: { value: 0 },
+        uExcitement:  { value: 0 },
+        uUrgency:     { value: 0 },
+        uBPMRate:     { value: 1.0 },
       },
       vertexShader: `
 uniform float time;
 uniform float uAnomalyScore;
 uniform float uDriftEnergy;
+uniform float uExcitement;
+uniform float uUrgency;
+uniform float uBPMRate;
 attribute float size;
 attribute vec3 random;
 varying vec3 vCol;
@@ -1516,15 +1724,19 @@ varying float vR;
 void main(){
   vCol = color; vR = random.z;
   vec3 p = position;
-  float t = time * 0.15 * random.z;
-  float ax = t + random.y, ay = t * 0.75 + random.x;
-  // floor 1.5% du range 0.315 — anti-dead-screen sur forme attractor data-driven
-  float amp = (0.015 + uAnomalyScore * 0.30) * random.z;
+  // Speed modulated by excitement — base 0.15 est le floor anti-dead-screen
+  float speed = 0.15 * (1.0 + uExcitement * 2.2);
+  float tx = time * speed * random.z;
+  float ax = tx + random.y, ay = tx * 0.75 + random.x;
+  // floor 1.5% du range — anti-dead-screen sur forme attractor data-driven
+  float amp = (0.015 + uAnomalyScore * 0.30 + uUrgency * 0.22) * random.z;
   p.x += sin(ax + p.y * 0.04 + random.x * 0.1) * amp;
   p.y += cos(ay + p.z * 0.04 + random.y * 0.1) * amp;
   p.z += sin(ax * 0.85 + p.x * 0.04 + random.z * 0.1) * amp;
   vec4 mv = modelViewMatrix * vec4(p, 1.0);
-  gl_PointSize = size * (350.0 / -mv.z) * (0.85 + uDriftEnergy * 0.40);
+  // BPM size pulse par particule — porteur conditionnel: zéro si excitement = 0
+  float bpmPulse = sin(time * uBPMRate * 1.8 + random.y * 6.2832) * max(0.0, uExcitement - 0.08) * 0.65;
+  gl_PointSize = size * (350.0 / -mv.z) * (1.25 + uDriftEnergy * 0.40 + bpmPulse);
   gl_Position = projectionMatrix * mv;
 }`,
       fragmentShader: `
@@ -1532,6 +1744,8 @@ uniform float time;
 uniform float uWonder;
 uniform float uCrisisLevel;
 uniform float uMelancholy;
+uniform float uExcitement;
+uniform float uUrgency;
 varying vec3 vCol;
 varying float vR;
 vec3 hueShift(vec3 c, float h){
@@ -1542,11 +1756,19 @@ vec3 hueShift(vec3 c, float h){
 void main(){
   vec2 uv = gl_PointCoord - 0.5;
   float d = length(uv);
-  float glow = smoothstep(0.4, 0.1, d);
+  // Glow radius se resserre avec excitement → apparence plus lumineuse
+  float glowR = 0.40 - uExcitement * 0.12;
+  float glow = smoothstep(glowR, 0.08, d);
   float core = smoothstep(0.05, 0.0, d);
-  float alpha = core + glow * 0.2;
+  // Urgency spark sur particules "rapides" (vR > 0.72) — porteur conditionnel
+  float spark = step(0.72, vR) * smoothstep(0.08, 0.0, d) * uUrgency * 1.10;
+  float alpha = core + glow * (0.58 + uExcitement * 0.32) + spark;
   if(alpha < 0.01) discard;
   vec3 col = mix(hueShift(vCol, time * 0.06 * uWonder), vec3(1.0), core);
+  // Excitement : brightening vers blanc — porteur conditionnel
+  col = mix(col, vec3(1.0), uExcitement * 0.25 * core);
+  // Urgency spark : teinte dorée — porteur conditionnel
+  col = mix(col, vec3(1.0, 0.85, 0.3), spark * 0.80);
   // Crisis : tinte rouge — porteur conditionnel
   col = mix(col, vec3(1.0,0.15,0.1), uCrisisLevel * 0.45);
   // Melancholy : désaturation — porteur conditionnel
@@ -1596,6 +1818,7 @@ void main(){
     this._applyPattern(initPts);
     this._fromPts = this._particles.geometry.attributes.position.array.slice();
     this._clock.start();
+
   }
 
   update(state, dt) {
@@ -1645,6 +1868,9 @@ void main(){
       mat.uniforms.uCrisisLevel.value  = Math.max(0, Math.min(1, state.crisis_level  || 0));
       mat.uniforms.uMelancholy.value   = Math.max(0, Math.min(1, state.melancholy    || 0));
       mat.uniforms.uDriftEnergy.value  = Math.max(0, Math.min(1, state.drift_energy  || 0));
+      mat.uniforms.uExcitement.value   = Math.max(0, Math.min(1, state.excitement   || 0));
+      mat.uniforms.uUrgency.value      = Math.max(0, Math.min(1, state.urgency      || 0));
+      mat.uniforms.uBPMRate.value      = ((state.drift_bpm || 90) / 90);
     }
 
     // Vitesse rotation : excitement booste jusqu'à ×6 — porteur conditionnel
@@ -1727,7 +1953,7 @@ void main(){
   float pulse = pow(max(0.0, sin(vT * 6.28318 - uTime * vFlow)), 8.0) * amp;
   // Ligne lumineuse + flash blanc au pic
   vec3  col   = vColor * (0.90 + 0.10 * amp) + vec3(pulse * 3.0);
-  float alpha = max(0.28, vStr) * (0.80 + pulse * 0.20)
+  float alpha = max(0.48, vStr) * (0.88 + pulse * 0.12)
     * smoothstep(0.0, 0.03, vT) * smoothstep(1.0, 0.97, vT);
   if(alpha < 0.004) discard;
   gl_FragColor = vec4(col, alpha);
@@ -1745,7 +1971,7 @@ void main(){
   vColor = catColor;
   // porteur conditionnel : pulsation taille uniquement si urgency > 0
   float pulse = 1.0 + sin(uTime * uUrgency * 10.0) * uUrgency * 0.3;
-  vGlow = 0.35 + activityVal * 0.50 + surpriseVal * 0.45;
+  vGlow = 0.55 + activityVal * 0.50 + surpriseVal * 0.45;
   float sz = (7.0 + activityVal * 10.0 + surpriseVal * 20.0) * pulse;
   vec4 mv = modelViewMatrix * vec4(position, 1.0);
   gl_PointSize = sz * (1200.0 / -mv.z);
@@ -1769,7 +1995,6 @@ class NetworkMode {
   constructor(){
     this._cam=null; this._group=null; this._starField=null;
     this._pointMat=null; this._connMat=null; this._connStrAttr=null;
-    this._composer=null;
     this._pointCloud=null; this._linesMesh=null; this._boxHelper=null;
     this._clock=new THREE.Clock();
     this._ROTATION_SPEED=0.08; // rad/s — constant, user-approved
@@ -1808,6 +2033,7 @@ class NetworkMode {
       {cat:'world',   key:'media_cloud_ai_volume', max:1   },
       {cat:'world',   key:'arxiv_papers_today',    max:2   },
       {cat:'world',   key:'github_ai_stars',       max:1   },
+      // INFRA (orange) — 8 signaux
       // INFRA (orange) — 6 signaux
       {cat:'infra',   key:'openai_status',         max:1   },
       {cat:'infra',   key:'openai_latency_ms',     max:2000},
@@ -2012,11 +2238,9 @@ class NetworkMode {
       this._pointMat.uniforms.uUrgency.value=urgency;
     }
     if(this._connMat) this._connMat.uniforms.uTime.value=t;
-    // Resize composer si la fenêtre a changé
     if(this._cam.aspect!==innerWidth/innerHeight){
       this._cam.aspect=innerWidth/innerHeight;
       this._cam.updateProjectionMatrix();
-      if(this._composer)this._composer.setSize(innerWidth,innerHeight);
     }
 
     // Wonder → légère variation d'opacité du fond étoilé
@@ -2116,13 +2340,11 @@ class NetworkMode {
     this._pointCloud.geometry.attributes.position.needsUpdate=true;
 
     scene.background=new THREE.Color(0,0,0);
-    if(this._composer) this._composer.render();
-    else renderer.render(scene,this._cam);
+    renderer.render(scene,this._cam);
     return true;
   }
 
   dispose(sc){
-    if(this._composer){this._composer.dispose();this._composer=null;}
     if(this._group){sc.remove(this._group);this._group=null;}
     if(this._starField){sc.remove(this._starField);this._starField.geometry.dispose();this._starField=null;}
     scene.background=new THREE.Color(0x000000);
@@ -2236,8 +2458,11 @@ void main(){
   if(r>0.5)discard;
   float core=smoothstep(0.5,0.05,r);
   float halo=smoothstep(0.5,0.20,r)*vAct*0.7;
+  // Flash ring — anneau fin à réception (porteur conditionnel: vFlash)
+  float flashRing=smoothstep(0.36,0.40,r)*smoothstep(0.48,0.42,r)*vFlash;
   vec3 col=mix(uColor*(0.55+uAudioLevel*0.50+vAct*0.35),vec3(0.7,1.0,1.9),vFlash*0.85);
-  gl_FragColor=vec4(col,(core+halo)*(1.0+vFlash*0.40));
+  col=mix(col,vec3(0.4,0.95,1.8),flashRing*0.90);
+  gl_FragColor=vec4(col,(core+halo+flashRing*vFlash*0.78)*(1.0+vFlash*0.40));
 }`;
 
 // Subdivided edge — aT static, aPulseT+aActivation dynamic (NO_FAKE: BPM+PE-driven)
@@ -2245,15 +2470,22 @@ const _NX_EDGE_VS = `
 attribute float aT;
 attribute float aPulseT;
 attribute float aActivation;
-attribute vec3  aEdgeDir;    // normalized edge direction — billboard expansion
-attribute float aSide;       // quad expansion: -1 or +1
+attribute vec3  aEdgeDir;
+attribute float aSide;
 uniform float uLineWidth;
 uniform vec2  uResolution;
 varying float vT; varying float vPulse; varying float vPulseH; varying float vAct;
+varying float vPulse2; varying float vPulseH2;
 void main(){
   float d=abs(aT-aPulseT); d=min(d,1.0-d);
-  vPulse =exp(-d*d*120.0);  // tight core gaussian
-  vPulseH=exp(-d*d*15.0);   // wide halo gaussian
+  vPulse =exp(-d*d*120.0);
+  vPulseH=exp(-d*d*15.0);
+  // Second data packet — phase +0.5, porteur conditionnel sur aActivation > 0.3
+  float pT2=fract(aPulseT+0.5);
+  float d2=abs(aT-pT2); d2=min(d2,1.0-d2);
+  float gate=clamp((aActivation-0.30)*3.33,0.0,1.0);
+  vPulse2 =exp(-d2*d2*120.0)*gate;
+  vPulseH2=exp(-d2*d2*15.0)*gate;
   vT=aT; vAct=aActivation;
   vec4 clip    =projectionMatrix*modelViewMatrix*vec4(position,1.0);
   vec4 clipRef =projectionMatrix*modelViewMatrix*vec4(position+aEdgeDir*0.5,1.0);
@@ -2265,13 +2497,16 @@ void main(){
 const _NX_EDGE_FS = `
 uniform vec3 uColor; uniform float uAudioLevel; uniform float uAnomalyScore;
 varying float vT; varying float vPulse; varying float vPulseH; varying float vAct;
+varying float vPulse2; varying float vPulseH2;
 void main(){
   float center=max(0.0,1.0-abs(vT-0.5)*1.8);
   float base=max(0.10,vAct*0.60+uAnomalyScore*0.40)*center;
-  float alpha=base+vPulse*uAudioLevel*1.1+vPulseH*uAudioLevel*0.35;
+  float alpha=base+vPulse*uAudioLevel*1.1+vPulseH*uAudioLevel*0.35
+             +vPulse2*uAudioLevel*0.70+vPulseH2*uAudioLevel*0.22;
   if(alpha<0.015)discard;
   vec3 col=mix(uColor,vec3(1.3,1.3,1.6),vPulse*uAudioLevel*0.80);
   col=mix(col,vec3(0.5,0.85,1.8),vPulseH*uAudioLevel*0.20);
+  col=mix(col,vec3(1.4,1.2,1.6),vPulse2*uAudioLevel*0.60);
   gl_FragColor=vec4(col,alpha);
 }`;
 
@@ -2560,8 +2795,10 @@ class WarpMode {
   static _D   = 3.0;  // ring Z-spacing
   static _CH  = ['excitement','anxiety','frustration','curiosity',
                   'crisis_level','audience_energy','drift_velocity','anomaly_score'];
-  static _COL = [0xFF8844, 0x4488FF, 0xFF4466, 0x44FFCC,
-                 0xFF2222, 0xFF44AA, 0xFFDD44, 0xFF6622];
+  // Couleurs par canal — palette OpenAI/ChatGPT
+  // excitement, anxiety, frustration, curiosity, crisis_level, audience_energy, drift_velocity, anomaly_score
+  static _COL = [0x10A37F, 0x74aa9c, 0xef4444, 0xab68ff,
+                 0xd97706, 0xececf1, 0x10B981, 0x6366f1];
 
   constructor() {
     this._group    = null;
@@ -2581,7 +2818,7 @@ class WarpMode {
   init(sc, cam) {
     cam.position.set(0, 0, 9);
     cam.lookAt(0, 0, 0);
-    sc.fog = new THREE.FogExp2(0x010306, 0.022);
+    sc.fog = new THREE.FogExp2(0x000402, 0.022); // micro-teinte verte OpenAI
     this._group = new THREE.Group();
     sc.add(this._group);
 
@@ -2705,6 +2942,7 @@ class WarpMode {
 // ── Système de modes ──────────────────────────────────────────────────────────
 
 const MODES = { neural: NeuralMode, chaos: ChaosMode, globe: GlobeMode, network: NetworkMode, nexus: NexusMode, warp: WarpMode };
+const _SCENE_NAMES = { neural: 'neural', chaos: 'spectre', globe: 'globe', network: 'network', nexus: 'nexus', warp: 'warp' };
 
 // Declared early — NeuralMode.init() reads liveNodes (let TDZ would crash otherwise)
 let liveState = {};
@@ -2729,7 +2967,7 @@ async function switchMode(name) {
     activeModeName = name;
     activeMode = new MODES[name]();
     activeMode.init(scene, camera);
-    document.getElementById('mode-indicator').textContent = '◆ ' + name.toUpperCase();
+    document.getElementById('mode-indicator').textContent = _SCENE_NAMES[name] || name;
   } catch(err) {
     console.error('switchMode failed for', name, err);
     fade.style.opacity = '0';
@@ -2747,6 +2985,28 @@ async function switchMode(name) {
 window.switchMode = switchMode;
 
 // ── HUD ───────────────────────────────────────────────────────────────────────
+
+// Maps real self-model signals to a -ing label — NO_FAKE, all fields from GlobalState
+function getThinkingLabel(st) {
+  if (st.active_event) return 'celebrating';
+  const crisis  = st.crisis_level  || 0;
+  const wt      = st.world_temperature || 0;
+  const anomaly = st.anomaly_score  || 0;
+  const velocity= st.drift_velocity || 0;
+  const peVals  = st.prediction_errors   ? Object.values(st.prediction_errors)   : [];
+  const volVals = st.signal_volatilities ? Object.values(st.signal_volatilities) : [];
+  const maxPE   = peVals.length  ? Math.max(...peVals)  : 0;
+  const maxVol  = volVals.length ? Math.max(...volVals) : 0;
+  if (crisis  > 0.65) return 'processing';
+  if (crisis  > 0.35) return 'analyzing';
+  if (anomaly > 0.60) return 'recalibrating';
+  if (maxPE   > 0.40) return 'learning';
+  if (maxVol  > 0.45 || velocity > 0.40) return 'adapting';
+  if (wt > 0.70) return 'evolving';
+  if (wt > 0.40) return 'creating';
+  if ((st.drift_territory || '') === 'ambient' && crisis < 0.10) return 'dreaming';
+  return 'thinking';
+}
 
 function updateHUD(st) {
   const crisis = st.crisis_level || 0;
@@ -2768,63 +3028,69 @@ function updateHUD(st) {
   const um = Math.floor((uptime - uh) * 60);
   const uptimeStr = uh > 0 ? `${uh}h${String(um).padStart(2,'0')}` : um > 0 ? `${um}m` : '';
 
-  document.getElementById('drift').innerHTML =
-    `<div>♪ ${Math.round(st.drift_bpm||90)} BPM · ${st.drift_key||'C minor'} · ${st.drift_timbre||'warm'}</div>` +
-    `<div style="color:${crisisColor};${crisisBlink}">◈ CRISIS_LEVEL ${Math.round(crisis*100)}%</div>` +
-    `<div style="color:${wtColor}">⬤ TEMP ${Math.round(wt*100)}%</div>` +
-    (qlen > 0 ? `<div style="color:#556677">⏎ ${qlen} in queue</div>` : '');
+  document.getElementById('drift-signals').innerHTML =
+    `<div>♪ <span class="mono">${Math.round(st.drift_bpm||90)}</span> BPM · ${st.drift_key||'C minor'} · ${st.drift_timbre||'warm'}</div>` +
+    `<div style="color:${crisisColor};${crisisBlink}">◈ CRISIS_LEVEL <span class="mono">${Math.round(crisis*100)}%</span></div>` +
+    `<div style="color:${wtColor}">⬤ TEMP <span class="mono">${Math.round(wt*100)}%</span></div>` +
+    (qlen > 0 ? `<div style="color:#556677">⏎ <span class="mono">${qlen}</span> in queue</div>` : '');
 
   document.getElementById('on-air-uptime').textContent = uptimeStr;
 
-  // Track name + progress bar: stable DOM elements — never rebuilt, only updated in place
-  const trackEl = document.getElementById('track-info');
-  const wrapEl = document.getElementById('track-progress-wrap');
+  // Track name + progress bar — intégrés dans le drift panel
+  const driftTrackEl = document.getElementById('drift-track');
   const barEl = document.getElementById('track-progress-bar');
   if (st.current_track_name) {
-    trackEl.textContent = '♫ ' + st.current_track_name;
-    trackEl.style.display = '';
-    wrapEl.style.display = 'block';
+    document.getElementById('drift-track-name').textContent = '♫ ' + st.current_track_name;
+    driftTrackEl.style.display = '';
     barEl.style.width = Math.round(progress * 100) + '%';
   } else {
-    trackEl.style.display = 'none';
-    wrapEl.style.display = 'none';
+    driftTrackEl.style.display = 'none';
     barEl.style.width = '0%';
   }
 
   // viewer command notification
   const vcEl = document.getElementById('viewer-cmd');
   if (st.viewer_cmd_label) {
-    vcEl.textContent = '◈ ' + st.viewer_cmd_label;
+    vcEl.textContent = st.viewer_cmd_label;
     vcEl.classList.add('active');
   } else {
     vcEl.classList.remove('active');
   }
 
-  // sources: compact count + detail
+  // sources: summary dot + expandable detail
   const sh = st.source_health || {};
   const entries = Object.entries(sh);
   const ok = entries.filter(([,v]) => v).length;
   const total = entries.length;
-  const countColor = ok === total ? '#446644' : ok > total * 0.5 ? '#886633' : '#663333';
-  const detail = entries.map(([k,v]) =>
-    `<span style="color:${v?'#446644':'#663333'}">${v?'●':'○'} ${k}</span>`
-  ).join('<br>');
-  document.getElementById('sources').innerHTML =
-    (total > 0 ? `<div style="color:${countColor};margin-bottom:4px">✓ ${ok}/${total} sources</div>` : '') +
-    detail;
+  const summaryDotCls = ok === total ? 'dot-ok' : ok > total * 0.5 ? 'dot-warn' : 'dot-err';
+  const sdot = document.getElementById('sources-dot');
+  sdot.className = 'status-dot ' + summaryDotCls + (ok === total && total > 0 ? ' dot-pulse' : '');
+  document.getElementById('sources-count').innerHTML =
+    `<span style="font-family:'JetBrains Mono',monospace">${ok}/${total}</span> sources`;
+  document.getElementById('sources-detail').innerHTML = entries.map(([k,v]) =>
+    `<div>${k} <span class="status-dot ${v ? 'dot-ok' : 'dot-err'}" style="margin-left:4px"></span></div>`
+  ).join('');
 
-  if (st.journal_text) document.getElementById('journal').textContent = st.journal_text;
+  if (st.journal_text && st.journal_text !== _lastJournalText) {
+    _lastJournalText = st.journal_text;
+    document.getElementById('journal-body').textContent = st.journal_text;
+    const jEl = document.getElementById('journal');
+    jEl.classList.add('expanded');
+    clearTimeout(_journalTimer);
+    _journalTimer = setTimeout(() => jEl.classList.remove('expanded'), JOURNAL_SHOW_MS);
+  }
+  document.getElementById('journal-think-label').textContent = getThinkingLabel(st);
 
   const chatEl = document.getElementById('chat-status');
   const chatRate = (st.chat_rate || 0).toFixed(1);
   const chatHealth = (st.source_health || {}).youtube_chat;
   const chatLive = chatHealth === true || (chatHealth === undefined && parseFloat(chatRate) > 0);
   chatEl.className = chatLive ? 'live' : '';
-  chatEl.textContent = (chatLive ? '◉' : '◌') + ' chat · ' + chatRate + '/min · ' + (st.viewers || 0) + ' viewers';
+  chatEl.innerHTML = `<span class="status-dot ${chatLive ? 'dot-live' : 'dot-off'}" style="margin-right:5px"></span>chat · ${chatRate}/min · ${st.viewers || 0} viewers`;
 
   const evtEl = document.getElementById('event-banner');
   if (st.active_event && st.event_intensity > 0) {
-    evtEl.textContent = st.event_label;
+    document.getElementById('event-label-main').textContent = st.event_label;
     evtEl.style.opacity = String(0.4 + st.event_intensity * 0.6);
   } else {
     evtEl.style.opacity = '0';
@@ -2842,13 +3108,18 @@ let _hudDirty = false;
 let _isRestarting = false;
 let _restartingTimer = null;
 
+// Journal accordion — expand 10s sur nouveau message, puis replie
+let _lastJournalText = '';
+let _journalTimer = null;
+const JOURNAL_SHOW_MS = 10000;
+
 function connect() {
   const ws = new WebSocket('ws://localhost:8765');
   ws.onopen = () => {
     _isRestarting = false;
     clearTimeout(_restartingTimer);
     document.getElementById('ws-status').className = 'connected';
-    document.getElementById('ws-status').textContent = '● connected';
+    document.getElementById('ws-status').innerHTML = '<span class="status-dot dot-ok" style="margin-right:5px"></span>connected';
     updateHUD(liveState);  // preserve last known state on reconnect — avoids track name flash
     // Don't force neural here — wait for first WS message so user keeps current mode on reconnect
   };
@@ -2859,7 +3130,7 @@ function connect() {
       clearTimeout(_restartingTimer);
       _restartingTimer = setTimeout(() => { _isRestarting = false; }, 90000); // 90s fallback
       document.getElementById('ws-status').className = 'restarting';
-      document.getElementById('ws-status').textContent = '⟳ Mise à jour en cours…';
+      document.getElementById('ws-status').innerHTML = '<span class="status-dot dot-warn" style="margin-right:5px"></span>updating…';
     }
     const st = msg.state || {};
     const newMode = st.visual_mode || 'neural';
@@ -2875,13 +3146,27 @@ function connect() {
   };
   ws.onclose = () => {
     document.getElementById('ws-status').className = _isRestarting ? 'restarting' : '';
-    document.getElementById('ws-status').textContent = _isRestarting ? '⟳ Mise à jour en cours…' : '◌ reconnecting…';
+    document.getElementById('ws-status').innerHTML = _isRestarting
+      ? '<span class="status-dot dot-warn" style="margin-right:5px"></span>updating…'
+      : '<span class="status-dot dot-off" style="margin-right:5px"></span>reconnecting…';
     setTimeout(connect, 2000);
   };
-  document.getElementById('ws-status').textContent = '◌ connecting…';
+  document.getElementById('ws-status').innerHTML = '<span class="status-dot dot-off" style="margin-right:5px"></span>connecting…';
 }
 
 connect();
+
+// ── Sources accordion (show 2min every 15min) ─────────────────────────────────
+const SOURCES_SHOW_MS = 2 * 60 * 1000;
+const SOURCES_HIDE_MS = 15 * 60 * 1000;
+function sourcesAccordionCycle() {
+  document.getElementById('sources').classList.add('expanded');
+  setTimeout(() => {
+    document.getElementById('sources').classList.remove('expanded');
+    setTimeout(sourcesAccordionCycle, SOURCES_HIDE_MS);
+  }, SOURCES_SHOW_MS);
+}
+sourcesAccordionCycle();
 
 // ── Render loop ───────────────────────────────────────────────────────────────
 const _FRAME_MS = 1000 / 30;  // 30fps — bloom removed, setTimeout loop

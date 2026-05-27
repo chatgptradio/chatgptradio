@@ -403,8 +403,7 @@ async def run_dsp(
         # nal-hrd=cbr forces filler NAL units so libx264 actually hits 2500k on static content
         # (without it, skip-heavy frames produce ~200-500 Kbps despite minrate=2500k)
         "-b:v", "2500k", "-minrate", "2500k", "-maxrate", "2500k", "-bufsize", "5000k",
-        "-vf", "fps=30",
-        "-x264opts", "nal-hrd=cbr:force-cfr=1:threads=2",
+        "-x264opts", "nal-hrd=cbr:force-cfr=1:threads=2",  # force-cfr=1 ensures 30fps CFR — -vf fps=30 removed (redundant)
         "-g", "60",                        # keyframe every 2s at 30fps (YouTube ≤4s)
         "-pix_fmt", "yuv420p",
     ]

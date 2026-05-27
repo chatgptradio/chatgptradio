@@ -56,6 +56,8 @@ Remplacer les flags SwiftShader :
 **Rollback** : remettre les 3 lignes supprimées. Détection en <10s via log `chromium_died`.  
 **Risque** : virglrenderer peut ne pas exposer WebGL2 → Three.js refuse → rollback immédiat.
 
+> **⚠️ TESTÉ ET REJETÉ (2026-05-27)** : EGL via virglrenderer rend sur `/dev/dri/renderD128` en bypassant le framebuffer Xvfb. x11grab ne capture que l'arbre X11 du display `:99` → overlay bloqué sur "connecting...", FFmpeg capture uniquement la couche HTML/CSS. Compatible uniquement avec un pipeline DMA-BUF ou sans x11grab. SwiftShader maintenu. Voir DECISIONS.md 2026-05-27.
+
 ### 2. Renderer Three.js — `overlays/visualizer.html` + `overlays/visualizer_dev.html`
 
 ```js

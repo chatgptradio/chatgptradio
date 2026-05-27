@@ -459,6 +459,20 @@ Audit complet du pipeline — 17 bugs identifiés (B1–B17), tous corrigés en 
 
 ---
 
+### Optimisation FPS & Robustesse — 2026-05-27
+
+| Titre | Fichier(s) | État |
+|-------|------------|------|
+| **WAL VACUUM déplacé en tâche de fond** : startup VACUUM bloquait le démarrage quand le WAL dépassait 1 GB (cas extrême : 7.8 GB après kill -9 répétés). Déplacé dans `_periodic_purge()` avec délai 90s + `PRAGMA wal_checkpoint(TRUNCATE)` avant chaque VACUUM. Tâche tourne ensuite toutes les 6h. | `main.py` | ✅ (commit `7464e4c`) |
+| **EGL testé et rejeté** : switch `--use-gl=egl` + `--enable-gpu-rasterization` testé — virglrenderer rend via `/dev/dri` en bypassant le framebuffer Xvfb → x11grab capturait uniquement la couche HTML/CSS → overlay bloqué sur "connecting...". Reverted. SwiftShader maintenu avec commentaire explicatif. | `core/browser_display.py` | ✅ (commit `8888a94`) |
+| **UnrealBloomPass dead code supprimé** de `visualizer_dev.html` : 3 imports (EffectComposer, RenderPass, UnrealBloomPass) + `this._composer=null` dans 3 constructeurs + guards `if(_composer)` dans resize/render/dispose — jamais instancié dans aucun mode. | `overlays/visualizer_dev.html` | ✅ |
+| **`powerPreference:'high-performance'`** : était `'low-power'` dans les deux overlays — signale au scheduler CPU/GPU de maintenir la clock. Gain : évite les downclock SwiftShader sur charge intermittente. | `overlays/visualizer.html`, `overlays/visualizer_dev.html` | ✅ |
+| **`renderer.debug.checkShaderErrors = false`** : désactive la validation GLSL runtime dans les deux overlays. ~5% CPU saving sur les recompilations de shaders. | `overlays/visualizer.html`, `overlays/visualizer_dev.html` | ✅ |
+| **`-vf fps=30` supprimé de FFmpeg** : filtre redondant — x11grab capture déjà à `-framerate 30` et `force-cfr=1` dans `-x264opts` garantit le CFR. | `core/dsp.py` | ✅ |
+| **WebSocket 10fps** (était 4fps) : à 4fps (250ms entre updates), les lerps Three.js produisaient des sauts visibles malgré un render loop à 30fps. À 10fps (100ms), les animations suivent les signaux avec une fluidité perceptible. Coût négligeable (~2KB/s JSON). | `config.yaml` | ✅ (actif au prochain redémarrage) |
+
+---
+
 ## Phase 5 — Unicité Maximale
 
 - [ ] Spectrogram ARG : messages cachés dans l'audio
