@@ -52,9 +52,10 @@ async def run_browser_display(
             "nice", "-n", "5",               # slight yield to FFmpeg; 10 was too aggressive on 2-core
             chromium_bin,
             "--no-sandbox",
-            "--use-gl=egl",                  # EGL via virglrenderer (virtio_gpu_dri.so) — replaces SwiftShader
-            "--enable-gpu-rasterization",    # force raster on GPU
+            "--disable-gpu",
+            "--enable-unsafe-swiftshader",   # software WebGL — EGL+virgl incompatible with Xvfb/x11grab
             "--ignore-gpu-blocklist",
+            "--use-gl=swiftshader",
             "--disable-dev-shm-usage",
             "--no-first-run",
             "--test-type",                   # suppresses --no-sandbox warning bar
