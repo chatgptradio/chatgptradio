@@ -22,6 +22,7 @@ from core.state import GlobalState
 from core.updater import StateUpdater
 from core.browser_display import run_browser_display
 from core.websocket_server import start_websocket_server
+import builders.music_prompt as _  # registers @node(music_prompt) into NODE_REGISTRY at startup
 
 load_dotenv()  # loads .env from cwd or any parent directory
 
@@ -41,20 +42,30 @@ def _make_overlay_app() -> web.Application:
 
 
 async def run() -> None:
+    # Clear stale restart flag from previous session
+    try:
+        os.unlink("/tmp/stream_restarting")
+    except FileNotFoundError:
+        pass
+
     config = load_config("config.yaml")
 
     db_conn = await init_db(config.sqlite.path)
     state = GlobalState()
 
-    # Purge old snapshots/history on startup
-    await purge_old_data(db_conn, config.sqlite.snapshot_retention_days, config.sqlite.history_retention_days)
-    await db_conn.execute("VACUUM")
-    log.info("db_purge_startup_done")
-
     async def _periodic_purge() -> None:
+        # First run: wait 90s after startup so the stream is fully operational
+        # before touching the DB. Avoids blocking startup on VACUUM of a large WAL.
+        await asyncio.sleep(90)
+        await purge_old_data(db_conn, config.sqlite.snapshot_retention_days, config.sqlite.history_retention_days)
+        await db_conn.execute("PRAGMA wal_checkpoint(TRUNCATE)")
+        await db_conn.execute("VACUUM")
+        log.info("db_purge_startup_done")
+        # Subsequent runs: every 6h
         while True:
             await asyncio.sleep(6 * 3600)
             await purge_old_data(db_conn, config.sqlite.snapshot_retention_days, config.sqlite.history_retention_days)
+            await db_conn.execute("PRAGMA wal_checkpoint(TRUNCATE)")
             await db_conn.execute("VACUUM")
             log.info("db_purge_done")
 
