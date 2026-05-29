@@ -7,7 +7,8 @@ collectors:
     interval_s: 10
   - { name: hn_algolia,       module: collectors.hn_algolia,       interval_s: 300   }
   - { name: wikipedia,        module: collectors.wikipedia,         interval_s: 900   }
-  - { name: google_trends,    module: collectors.google_trends,     interval_s: 900   }
+  # google_trends disabled — all Google Trends public endpoints (RSS, JSON) return HTTP 404 as of 2026-05
+  # - { name: google_trends,    module: collectors.google_trends,     interval_s: 900   }
   - { name: gdelt,            module: collectors.gdelt,             interval_s: 900   }
   - { name: hedonometer,      module: collectors.hedonometer,       interval_s: 21600 }
   - { name: yfinance_proxy,   module: collectors.yfinance_proxy,    interval_s: 14400 }

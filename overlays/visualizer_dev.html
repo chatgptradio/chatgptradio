@@ -20,9 +20,10 @@
     #drift {
       position:absolute; bottom:24px; left:24px;
       color:#ececf1; font-size:12px; line-height:1.75; letter-spacing:0.02em;
-      background:rgba(250,250,250,0.06);
-      backdrop-filter:blur(16px) saturate(160%); -webkit-backdrop-filter:blur(16px) saturate(160%);
-      border:1px solid rgba(255,255,255,0.10); border-radius:10px; padding:12px 16px;
+      background:linear-gradient(135deg,rgba(255,255,255,0.08) 0%,rgba(255,255,255,0.03) 100%);
+      backdrop-filter:blur(20px) saturate(180%); -webkit-backdrop-filter:blur(20px) saturate(180%);
+      border:1px solid rgba(255,255,255,0.12); border-radius:10px; padding:10px 14px;
+      box-shadow:inset 0 1px 0 rgba(255,255,255,0.08),0 8px 32px rgba(0,0,0,0.24);
     }
 
     /* ── Track info — intégré dans le drift panel ───────────────────────────── */
@@ -44,9 +45,10 @@
     #sources {
       position:absolute; top:24px; right:24px;
       color:#9aa0a6; font-size:11px; letter-spacing:0.03em;
-      background:rgba(250,250,250,0.06);
-      backdrop-filter:blur(16px) saturate(160%); -webkit-backdrop-filter:blur(16px) saturate(160%);
-      border:1px solid rgba(255,255,255,0.10); border-radius:10px;
+      background:linear-gradient(135deg,rgba(255,255,255,0.08) 0%,rgba(255,255,255,0.03) 100%);
+      backdrop-filter:blur(20px) saturate(180%); -webkit-backdrop-filter:blur(20px) saturate(180%);
+      border:1px solid rgba(255,255,255,0.12); border-radius:10px;
+      box-shadow:inset 0 1px 0 rgba(255,255,255,0.08),0 8px 32px rgba(0,0,0,0.24);
       overflow:hidden; min-width:130px;
     }
     #sources-summary {
@@ -86,11 +88,12 @@
       max-width:172px; /* collapsed: juste le header */
       overflow:hidden;
       transition:max-width 0.45s cubic-bezier(0.4,0,0.2,1);
-      background:rgba(250,250,250,0.06);
-      backdrop-filter:blur(16px) saturate(160%); -webkit-backdrop-filter:blur(16px) saturate(160%);
-      border:1px solid rgba(255,255,255,0.10);
+      background:linear-gradient(135deg,rgba(255,255,255,0.08) 0%,rgba(255,255,255,0.03) 100%);
+      backdrop-filter:blur(20px) saturate(180%); -webkit-backdrop-filter:blur(20px) saturate(180%);
+      border:1px solid rgba(255,255,255,0.12);
       border-left:2px solid #10A37F;
       border-radius:10px;
+      box-shadow:inset 0 1px 0 rgba(255,255,255,0.08),0 8px 32px rgba(0,0,0,0.24);
     }
     #journal.expanded { max-width:360px; }
     #journal-header {
@@ -167,10 +170,11 @@
     /* ── Status panel (top-left) — glassmorphism OpenAI ─────────────────────── */
     #status-panel {
       position:absolute; top:40px; left:24px;
-      background:rgba(250,250,250,0.06);
-      backdrop-filter:blur(16px) saturate(160%); -webkit-backdrop-filter:blur(16px) saturate(160%);
-      border:1px solid rgba(255,255,255,0.10); border-radius:10px;
-      padding:10px 14px; display:flex; flex-direction:column; gap:5px;
+      background:linear-gradient(135deg,rgba(255,255,255,0.08) 0%,rgba(255,255,255,0.03) 100%);
+      backdrop-filter:blur(20px) saturate(180%); -webkit-backdrop-filter:blur(20px) saturate(180%);
+      border:1px solid rgba(255,255,255,0.12); border-radius:10px;
+      box-shadow:inset 0 1px 0 rgba(255,255,255,0.08),0 8px 32px rgba(0,0,0,0.24);
+      padding:8px 12px; display:flex; flex-direction:column; gap:4px;
       min-width:130px;
     }
     #mode-indicator {
@@ -193,10 +197,10 @@
     #event-banner {
       position:absolute; top:24px; left:50%; transform:translateX(-50%);
       text-align:center; white-space:nowrap;
-      background:rgba(250,250,250,0.06);
-      backdrop-filter:blur(20px) saturate(160%); -webkit-backdrop-filter:blur(20px) saturate(160%);
-      border:1px solid rgba(16,163,127,0.32);
-      box-shadow:inset 0 1px 0 rgba(255,255,255,0.07), 0 8px 32px rgba(0,0,0,0.4), 0 0 0 1px rgba(16,163,127,0.08);
+      background:linear-gradient(135deg,rgba(255,255,255,0.08) 0%,rgba(255,255,255,0.03) 100%);
+      backdrop-filter:blur(20px) saturate(180%); -webkit-backdrop-filter:blur(20px) saturate(180%);
+      border:1px solid rgba(16,163,127,0.40);
+      box-shadow:inset 0 1px 0 rgba(255,255,255,0.10), 0 8px 32px rgba(0,0,0,0.36), 0 0 20px rgba(16,163,127,0.12);
       border-radius:12px; padding:12px 28px 14px;
       opacity:0; transition:opacity 1.8s ease; pointer-events:none;
       will-change:opacity;
@@ -210,25 +214,14 @@
       letter-spacing:0.18em; text-transform:uppercase;
     }
 
-    /* ── Drift panel — header "signals" ─────────────────────────────────────── */
-    #drift-header {
-      display:flex; align-items:center; gap:6px;
-      font-size:10px; font-weight:500; color:#6b7280; letter-spacing:0.08em;
-      padding-bottom:8px; margin-bottom:8px;
-      border-bottom:1px solid rgba(255,255,255,0.06);
-    }
-    #drift-header::before {
-      content:''; display:inline-block; width:4px; height:4px;
-      border-radius:50%; background:#74aa9c; flex-shrink:0;
-    }
-
-    /* ── Viewer command — glassmorphism pill ─────────────────────────────────── */
+    /* ── Viewer command — glassmorphism pill (center-bottom) ─────────────────── */
     #viewer-cmd {
-      position:absolute; bottom:205px; left:24px;
-      font-size:11px; color:#ececf1; letter-spacing:0.03em;
-      background:rgba(250,250,250,0.06);
-      backdrop-filter:blur(16px) saturate(160%); -webkit-backdrop-filter:blur(16px) saturate(160%);
-      border:1px solid rgba(255,255,255,0.08);
+      position:absolute; bottom:28px; left:50%; transform:translateX(-50%);
+      font-size:11px; color:#ececf1; letter-spacing:0.03em; white-space:nowrap;
+      background:linear-gradient(135deg,rgba(255,255,255,0.08) 0%,rgba(255,255,255,0.03) 100%);
+      backdrop-filter:blur(20px) saturate(180%); -webkit-backdrop-filter:blur(20px) saturate(180%);
+      border:1px solid rgba(255,255,255,0.12);
+      box-shadow:inset 0 1px 0 rgba(255,255,255,0.08),0 4px 20px rgba(0,0,0,0.24);
       border-radius:20px; padding:5px 12px 5px 10px;
       display:flex; align-items:center; gap:7px;
       opacity:0; transition:opacity 0.5s ease;
@@ -239,35 +232,59 @@
     }
     #viewer-cmd.active { opacity:1; }
 
+    /* ── Emotion Wheel panel (bottom-left, drop-in) ──────────────────────────── */
+    #emotion-wheel {
+      position:absolute; bottom:178px; left:24px;
+      background:linear-gradient(135deg,rgba(255,255,255,0.08) 0%,rgba(255,255,255,0.03) 100%);
+      backdrop-filter:blur(20px) saturate(180%); -webkit-backdrop-filter:blur(20px) saturate(180%);
+      border:1px solid rgba(255,255,255,0.12); border-radius:10px;
+      box-shadow:inset 0 1px 0 rgba(255,255,255,0.08),0 8px 32px rgba(0,0,0,0.24);
+      padding:10px 14px 8px;
+      transform:translateX(calc(-100% - 32px));
+      opacity:0;
+      transition:transform 0.65s cubic-bezier(0.22,1,0.36,1), opacity 0.45s ease;
+      pointer-events:none;
+    }
+    #emotion-wheel.visible { transform:translateX(0); opacity:1; }
+    /* ── Drift progress bars ─────────────────────────────────────────────────── */
+    .drift-bar-row { display:flex; align-items:center; gap:8px; margin-bottom:4px; }
+    .drift-bar-label { font-size:9px; font-weight:500; letter-spacing:0.07em; text-transform:uppercase; color:#6b7280; min-width:36px; flex-shrink:0; }
+    .drift-bar-track { flex:1; height:2px; background:rgba(255,255,255,0.08); border-radius:2px; overflow:hidden; }
+    .drift-bar-fill { display:block; height:100%; border-radius:2px; }
+    .drift-bar-val { font-family:'JetBrains Mono',monospace; font-size:9px; min-width:26px; text-align:right; flex-shrink:0; }
+
     /* ── Mono utility — valeurs numériques JetBrains Mono ───────────────────── */
     .mono { font-family:'JetBrains Mono',monospace; }
 
     #fade { position:fixed; top:0; left:0; width:100%; height:100%; background:#000; pointer-events:none; opacity:0; transition:opacity 1.5s; z-index:10; }
     @keyframes blink { 50% { opacity:0; } }
 
-    /* ── OpenAI News panel (top-left, below #status-panel) ───────────────────── */
+    /* ── OpenAI News panel (top-left, drop-in from left every 5min) ─────────── */
     #news {
       position:absolute; top:130px; left:24px;
-      background:rgba(250,250,250,0.06);
-      backdrop-filter:blur(16px) saturate(160%); -webkit-backdrop-filter:blur(16px) saturate(160%);
-      border:1px solid rgba(255,255,255,0.10); border-radius:10px;
-      overflow:hidden; min-width:200px; max-width:240px;
+      background:linear-gradient(135deg,rgba(255,255,255,0.08) 0%,rgba(255,255,255,0.03) 100%);
+      backdrop-filter:blur(20px) saturate(180%); -webkit-backdrop-filter:blur(20px) saturate(180%);
+      border:1px solid rgba(255,255,255,0.12); border-radius:10px;
+      box-shadow:inset 0 1px 0 rgba(255,255,255,0.08),0 8px 32px rgba(0,0,0,0.24);
+      min-width:200px; max-width:240px;
+      transform:translateX(calc(-100% - 32px));
+      opacity:0;
+      transition:transform 0.65s cubic-bezier(0.22,1,0.36,1), opacity 0.45s ease;
+      pointer-events:none;
     }
+    #news.visible { transform:translateX(0); opacity:1; }
     #news-summary {
       display:flex; align-items:center; gap:7px;
-      padding:8px 14px; line-height:1;
+      padding:8px 14px 6px; line-height:1;
       font-size:10px; font-weight:500; color:#9aa0a6; letter-spacing:0.06em;
+      border-bottom:1px solid rgba(255,255,255,0.06);
+    }
+    #news-summary::before {
+      content:''; display:inline-block; width:4px; height:4px;
+      border-radius:50%; background:#10a37f; flex-shrink:0;
     }
     #news-age { color:#6b7280; font-size:9px; margin-left:auto; }
-    #news-detail {
-      max-height:0; overflow:hidden;
-      transition:max-height 0.55s ease, padding 0.45s ease;
-      padding:0 14px;
-    }
-    #news.expanded #news-detail {
-      max-height:400px; padding:6px 14px 10px;
-      border-top:1px solid rgba(255,255,255,0.06);
-    }
+    #news-detail { padding:6px 14px 10px; }
     .news-item {
       display:flex; gap:8px; align-items:flex-start;
       padding:5px 0; border-bottom:1px solid rgba(255,255,255,0.04);
@@ -298,14 +315,14 @@
   </div>
   <div id="news">
     <div id="news-summary">
-      <span class="status-dot dot-ok"></span>
-      <span>openai news</span>
+      <span>OpenAI Latest News</span>
       <span id="news-age"></span>
     </div>
     <div id="news-detail"></div>
   </div>
   <div id="event-banner"><div id="event-label-above">Today we celebrate</div><div id="event-label-main"></div></div>
-  <div id="drift"><div id="drift-header">signals</div><div id="drift-track" style="display:none"><div id="drift-track-name"></div><div id="track-progress-wrap"><div id="track-progress-bar"></div></div></div><div id="drift-signals"></div></div>
+  <div id="emotion-wheel"><svg id="emotion-wheel-svg" width="160" height="160" viewBox="0 0 160 160"></svg></div>
+  <div id="drift"><div id="drift-track" style="display:none"><div id="drift-track-name"></div><div id="track-progress-wrap"><div id="track-progress-bar"></div></div></div><div id="drift-signals"></div></div>
   <div id="viewer-cmd"></div>
   <div id="sources"><div id="sources-summary"><span id="sources-count"></span><span id="sources-dot" class="status-dot"></span></div><div id="sources-detail"></div></div>
   <div id="journal"><div id="journal-header"><div class="think-dots"><span></span><span></span><span></span></div><span id="journal-think-label">thinking</span></div><div id="journal-body"></div></div>
@@ -3033,27 +3050,128 @@ window.switchMode = switchMode;
 
 // ── HUD ───────────────────────────────────────────────────────────────────────
 
-// Maps real self-model signals to a -ing label — NO_FAKE, all fields from GlobalState
-function getThinkingLabel(st) {
-  if (st.active_event) return 'celebrating';
-  const crisis  = st.crisis_level  || 0;
-  const wt      = st.world_temperature || 0;
-  const anomaly = st.anomaly_score  || 0;
-  const velocity= st.drift_velocity || 0;
-  const peVals  = st.prediction_errors   ? Object.values(st.prediction_errors)   : [];
-  const volVals = st.signal_volatilities ? Object.values(st.signal_volatilities) : [];
-  const maxPE   = peVals.length  ? Math.max(...peVals)  : 0;
-  const maxVol  = volVals.length ? Math.max(...volVals) : 0;
-  if (crisis  > 0.65) return 'processing';
-  if (crisis  > 0.35) return 'analyzing';
-  if (anomaly > 0.60) return 'recalibrating';
-  if (maxPE   > 0.40) return 'learning';
-  if (maxVol  > 0.45 || velocity > 0.40) return 'adapting';
-  if (wt > 0.70) return 'evolving';
-  if (wt > 0.40) return 'creating';
-  if ((st.drift_territory || '') === 'ambient' && crisis < 0.10) return 'dreaming';
-  return 'thinking';
+// Thinking verbs — 30 -ing words cycling like Claude's UI (visual decoration, not data)
+const _THINKING_VERBS = [
+  'thinking','processing','analyzing','creating','exploring',
+  'learning','evolving','adapting','wondering','discovering',
+  'contemplating','observing','listening','calculating','composing',
+  'synthesizing','imagining','resonating','reflecting','connecting',
+  'modeling','predicting','sensing','flowing','harmonizing',
+  'dreaming','searching','awakening','celebrating','breathing',
+];
+let _thinkVerbIdx = Math.floor(Math.random() * _THINKING_VERBS.length);
+setInterval(() => {
+  _thinkVerbIdx = (_thinkVerbIdx + 1) % _THINKING_VERBS.length;
+  document.getElementById('journal-think-label').textContent = _THINKING_VERBS[_thinkVerbIdx];
+}, 3200);
+
+// Event TTL — 12h client-side guard (prevents same event label from showing indefinitely)
+let _eventLabel = '';
+let _eventFirstSeen = 0;
+const _EVENT_TTL_MS = 12 * 60 * 60 * 1000;
+
+// ── Emotion Wheel ─────────────────────────────────────────────────────────────
+const _EW_EMOTIONS = [
+  { key:'excitement',      label:'EXCITE',   color:'#f59e0b', angle:-90  },
+  { key:'curiosity',       label:'CURIOUS',  color:'#06b6d4', angle:-30  },
+  { key:'audience_energy', label:'AUDIENCE', color:'#10a37f', angle:30   },
+  { key:'frustration',     label:'FRUSTRAT', color:'#8b5cf6', angle:90   },
+  { key:'anxiety',         label:'ANXIETY',  color:'#ef4444', angle:150  },
+  { key:'musical_tension', label:'TENSION',  color:'#6366f1', angle:-150 },
+];
+const _ewVals = new Float32Array(6); // lerped display values 0-1
+
+function _updateEmotionWheel(dt) {
+  if (!document.getElementById('emotion-wheel').classList.contains('visible')) return;
+  const LERP = 1 - Math.pow(0.05, dt); // ~0.95s time-constant toward target
+  let dirty = false;
+  _EW_EMOTIONS.forEach((em, i) => {
+    const target = Math.max(0, Math.min(1, liveState[em.key] || 0));
+    const prev = _ewVals[i];
+    _ewVals[i] = prev + (target - prev) * LERP;
+    if (Math.abs(_ewVals[i] - prev) > 0.0005) dirty = true;
+  });
+  if (dirty) _drawEmotionWheel();
 }
+
+function _drawEmotionWheel() {
+  const svg = document.getElementById('emotion-wheel-svg');
+  if (!svg) return;
+  const NS = 'http://www.w3.org/2000/svg';
+  const mk = (tag, attrs) => {
+    const e = document.createElementNS(NS, tag);
+    for (const [k, v] of Object.entries(attrs)) e.setAttribute(k, v);
+    return e;
+  };
+  const CX = 80, CY = 80, R = 54, LR = 70;
+  svg.innerHTML = '';
+
+  // Gradient fill
+  const defs = mk('defs', {});
+  const grd  = mk('radialGradient', { id:'ewG', cx:'50%', cy:'50%', r:'50%' });
+  grd.appendChild(mk('stop', { offset:'0%',   'stop-color':'#10a37f', 'stop-opacity':'0.28' }));
+  grd.appendChild(mk('stop', { offset:'100%', 'stop-color':'#10a37f', 'stop-opacity':'0.04' }));
+  defs.appendChild(grd);
+  svg.appendChild(defs);
+
+  // Grid rings
+  [0.25, 0.5, 0.75, 1.0].forEach(r =>
+    svg.appendChild(mk('circle', { cx:CX, cy:CY, r:R*r, fill:'none', stroke:'rgba(255,255,255,0.07)', 'stroke-width':'1' }))
+  );
+
+  // Axes
+  _EW_EMOTIONS.forEach(em => {
+    const rad = em.angle * Math.PI / 180;
+    svg.appendChild(mk('line', {
+      x1:CX, y1:CY,
+      x2:CX + R * Math.cos(rad), y2:CY + R * Math.sin(rad),
+      stroke:em.color, 'stroke-width':'1', opacity:'0.3'
+    }));
+  });
+
+  // Data polygon
+  const pts = _EW_EMOTIONS.map((em, i) => {
+    const rad = em.angle * Math.PI / 180;
+    const r = _ewVals[i] * R;
+    return [CX + r * Math.cos(rad), CY + r * Math.sin(rad)];
+  });
+  svg.appendChild(mk('polygon', {
+    points: pts.map(p => p.join(',')).join(' '),
+    fill:'url(#ewG)', stroke:'#10a37f', 'stroke-width':'1.5', 'stroke-linejoin':'round'
+  }));
+
+  // Vertex dots + perimeter labels
+  _EW_EMOTIONS.forEach((em, i) => {
+    const rad = em.angle * Math.PI / 180;
+    const val = _ewVals[i];
+    if (val > 0.02) {
+      const [px, py] = pts[i];
+      svg.appendChild(mk('circle', {
+        cx:px, cy:py, r:'2.5', fill:em.color,
+        filter:`drop-shadow(0 0 3px ${em.color})`
+      }));
+    }
+    const lx = CX + LR * Math.cos(rad), ly = CY + LR * Math.sin(rad);
+    const txt = mk('text', {
+      x:lx, y:ly, fill:em.color,
+      'font-size':'7', 'font-family':'Inter,sans-serif', 'font-weight':'600',
+      'text-anchor':'middle', 'dominant-baseline':'middle',
+      'letter-spacing':'0.06em', opacity: val > 0.05 ? '1' : '0.3'
+    });
+    txt.textContent = em.label;
+    svg.appendChild(txt);
+  });
+}
+
+// Timer: visible 30s toutes les 5min — NO_FAKE: timer UI seulement, contenu 100% data-driven
+const _EW_CYCLE_MS = 5 * 60 * 1000;
+const _EW_SHOW_MS  = 30 * 1000;
+function _ewCycle() {
+  document.getElementById('emotion-wheel').classList.add('visible');
+  setTimeout(() => document.getElementById('emotion-wheel').classList.remove('visible'), _EW_SHOW_MS);
+}
+_ewCycle();  // affiché immédiatement au démarrage
+setInterval(_ewCycle, _EW_CYCLE_MS);
 
 function updateHUD(st) {
   const crisis = st.crisis_level || 0;
@@ -3062,24 +3180,23 @@ function updateHUD(st) {
   const qlen = st.queue_length || 0;
   const uptime = st.uptime_h || 0;
 
-  // world_temperature → hue interpolation cold(180°)→warm(0°) via green
-  const wtHue = Math.round(180 - wt * 180);
-  const wtColor = `hsl(${wtHue},70%,55%)`;
-
-  // crisis color + blink
-  const crisisColor = crisis > 0.5 ? '#FF4444' : crisis > 0.2 ? '#FF8844' : '#558866';
-  const crisisBlink = crisis > 0.5 ? 'animation:blink 1s step-end infinite' : '';
-
   // uptime formatting
   const uh = Math.floor(uptime);
   const um = Math.floor((uptime - uh) * 60);
   const uptimeStr = uh > 0 ? `${uh}h${String(um).padStart(2,'0')}` : um > 0 ? `${um}m` : '';
 
+  // Crisis bar: green→amber→red
+  const crisisPct = Math.round(crisis * 100);
+  const crisisBarColor = crisis > 0.5 ? '#ef4444' : crisis > 0.2 ? '#f59e0b' : '#10a37f';
+  // Temp bar: hue cold(180°)→warm(0°)
+  const tempPct = Math.round(wt * 100);
+  const tempBarColor = `hsl(${Math.round(180 - wt * 180)},65%,52%)`;
+
   document.getElementById('drift-signals').innerHTML =
-    `<div>♪ <span class="mono">${Math.round(st.drift_bpm||90)}</span> BPM · ${st.drift_key||'C minor'} · ${st.drift_timbre||'warm'}</div>` +
-    `<div style="color:${crisisColor};${crisisBlink}">◈ CRISIS_LEVEL <span class="mono">${Math.round(crisis*100)}%</span></div>` +
-    `<div style="color:${wtColor}">⬤ TEMP <span class="mono">${Math.round(wt*100)}%</span></div>` +
-    (qlen > 0 ? `<div style="color:#556677">⏎ <span class="mono">${qlen}</span> in queue</div>` : '');
+    `<div style="font-size:11px;color:#9aa0a6;margin-bottom:5px">♪ <span class="mono">${Math.round(st.drift_bpm||90)}</span> BPM · ${st.drift_key||'C minor'} · ${st.drift_timbre||'warm'}</div>` +
+    `<div class="drift-bar-row"><span class="drift-bar-label">crisis</span><span class="drift-bar-track"><span class="drift-bar-fill" style="width:${crisisPct}%;background:${crisisBarColor}"></span></span><span class="drift-bar-val" style="color:${crisisBarColor}">${crisisPct}%</span></div>` +
+    `<div class="drift-bar-row"><span class="drift-bar-label">temp</span><span class="drift-bar-track"><span class="drift-bar-fill" style="width:${tempPct}%;background:${tempBarColor}"></span></span><span class="drift-bar-val" style="color:${tempBarColor}">${tempPct}%</span></div>` +
+    (qlen > 0 ? `<div style="color:#556677;font-size:10px;margin-top:3px">⏎ <span class="mono">${qlen}</span> in queue</div>` : '');
 
   document.getElementById('on-air-uptime').textContent = uptimeStr;
 
@@ -3126,8 +3243,6 @@ function updateHUD(st) {
     clearTimeout(_journalTimer);
     _journalTimer = setTimeout(() => jEl.classList.remove('expanded'), JOURNAL_SHOW_MS);
   }
-  document.getElementById('journal-think-label').textContent = getThinkingLabel(st);
-
   const chatEl = document.getElementById('chat-status');
   const chatRate = (st.chat_rate || 0).toFixed(1);
   const chatHealth = (st.source_health || {}).youtube_chat;
@@ -3137,9 +3252,15 @@ function updateHUD(st) {
 
   const evtEl = document.getElementById('event-banner');
   if (st.active_event && st.event_intensity > 0) {
-    document.getElementById('event-label-main').textContent = st.event_label;
-    evtEl.style.opacity = String(0.4 + st.event_intensity * 0.6);
+    if (st.event_label !== _eventLabel) { _eventLabel = st.event_label; _eventFirstSeen = Date.now(); }
+    if (Date.now() - _eventFirstSeen < _EVENT_TTL_MS) {
+      document.getElementById('event-label-main').textContent = st.event_label;
+      evtEl.style.opacity = String(0.4 + st.event_intensity * 0.6);
+    } else {
+      evtEl.style.opacity = '0';
+    }
   } else {
+    _eventLabel = '';
     evtEl.style.opacity = '0';
   }
 }
@@ -3215,10 +3336,10 @@ function sourcesAccordionCycle() {
 }
 sourcesAccordionCycle();
 
-// ── OpenAI News panel — fetch RSS via rss2json, accordion 2min/15min ─────────
+// ── OpenAI News panel — fetch RSS via rss2json, drop-in 30s every 5min ───────
 const _NEWS_API = 'https://api.rss2json.com/v1/api.json?rss_url=https%3A%2F%2Fopenai.com%2Fblog%2Frss.xml&count=3';
-const NEWS_SHOW_MS = 2 * 60 * 1000;
-const NEWS_HIDE_MS = 15 * 60 * 1000;
+const _NEWS_CYCLE_MS = 5 * 60 * 1000;
+const _NEWS_SHOW_MS  = 30 * 1000;
 
 function _relDate(s) {
   const d = new Date(s);
@@ -3249,15 +3370,14 @@ async function fetchNews() {
   } catch(e) { console.warn('news fetch', e); }
 }
 
-function newsAccordionCycle() {
+function _newsCycle() {
   fetchNews();
-  document.getElementById('news').classList.add('expanded');
-  setTimeout(() => {
-    document.getElementById('news').classList.remove('expanded');
-    setTimeout(newsAccordionCycle, NEWS_HIDE_MS);
-  }, NEWS_SHOW_MS);
+  const el = document.getElementById('news');
+  el.classList.add('visible');
+  setTimeout(() => el.classList.remove('visible'), _NEWS_SHOW_MS);
 }
-newsAccordionCycle();
+_newsCycle();  // show immediately on load
+setTimeout(() => setInterval(_newsCycle, _NEWS_CYCLE_MS), _NEWS_CYCLE_MS);
 
 // ── Render loop ───────────────────────────────────────────────────────────────
 const _FRAME_MS = 1000 / 40;  // 40fps — matches x11grab capture rate
@@ -3269,6 +3389,7 @@ function animate() {
   const dt = Math.min((now - _lastFrameTime) * 0.001, 0.05); // capped at 50ms — prevents jump on lag spike
   _lastFrameTime = now;
   if (_hudDirty) { updateHUD(liveState); _hudDirty = false; }
+  _updateEmotionWheel(dt);
   let handled = false;
   if (activeMode) handled = activeMode.update(liveState, dt) === true;
   if (!handled) {

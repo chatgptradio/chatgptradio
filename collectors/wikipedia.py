@@ -1,39 +1,28 @@
 """Wikipedia pageviews collector — ChatGPT, OpenAI, GPT-4.
 
-Uses the MediaWiki pageviews API to sum the most recent daily view counts
-for the three pages, then normalises to [0, 1] over 0–50 000 views.
+Uses the Wikimedia REST v1 pageviews API (requires User-Agent per Wikimedia policy).
+Sums yesterday's page views for the three articles, normalised to [0, 1].
 """
 
+from datetime import date, timedelta
 from typing import Any
 
-import orjson
-
-from collectors.utils import fetch_text, normalize
+from collectors.utils import fetch_json, normalize
 from core.node import node
 from core.state import GlobalState
 
 COLLECTOR_META = {"name": "wikipedia", "interval_s": 900}
 
-_URL = (
-    "https://en.wikipedia.org/w/api.php"
-    "?action=query&prop=pageviews&titles=ChatGPT|OpenAI|GPT-4&format=json"
-)
-_VIEWS_LOW = 0.0
-_VIEWS_HIGH = 50_000.0
+_TITLES = ["ChatGPT", "OpenAI", "GPT-4"]
+_VIEWS_HIGH = 150_000.0
+_HEADERS = {"User-Agent": "ChatGPTRadio/1.0 (https://github.com/x230png/chatgptradio)"}
 
 
-def _parse_views(text: str) -> float:
-    data = orjson.loads(text)
-    pages = data.get("query", {}).get("pages", {})
-    total = 0
-    for page in pages.values():
-        pv = page.get("pageviews") or {}
-        # pageviews is a dict of date→count; take the most recent non-None value
-        for count in reversed(list(pv.values())):
-            if count is not None:
-                total += int(count)
-                break
-    return normalize(float(total), _VIEWS_LOW, _VIEWS_HIGH)
+def _views_url(title: str, day: str) -> str:
+    return (
+        "https://wikimedia.org/api/rest_v1/metrics/pageviews/per-article"
+        f"/en.wikipedia/all-access/user/{title}/daily/{day}/{day}"
+    )
 
 
 @node(
@@ -43,5 +32,13 @@ def _parse_views(text: str) -> float:
     label="Wikipedia AI Page Views",
 )
 async def collect(state: GlobalState) -> dict[str, Any]:
-    text = await fetch_text(_URL, timeout_s=15.0)
-    return {"wikipedia_views_ai": _parse_views(text)}
+    day = (date.today() - timedelta(days=1)).strftime("%Y%m%d")
+    total = 0
+    for title in _TITLES:
+        try:
+            data = await fetch_json(_views_url(title, day), timeout_s=10.0, headers=_HEADERS)
+            for item in data.get("items", []):
+                total += int(item.get("views", 0))
+        except Exception:
+            pass
+    return {"wikipedia_views_ai": normalize(float(total), 0.0, _VIEWS_HIGH)}
