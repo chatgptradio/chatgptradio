@@ -44,7 +44,7 @@
     /* ── Sources panel (top-right) — accordéon 2min/15min ───────────────────── */
     #sources {
       position:absolute; top:24px; right:24px;
-      color:#9aa0a6; font-size:11px; letter-spacing:0.03em;
+      color:#c4c7cc; font-size:11px; letter-spacing:0.03em;
       background:linear-gradient(135deg,rgba(255,255,255,0.08) 0%,rgba(255,255,255,0.03) 100%);
       backdrop-filter:blur(20px) saturate(180%); -webkit-backdrop-filter:blur(20px) saturate(180%);
       border:1px solid rgba(255,255,255,0.12); border-radius:10px;
@@ -116,13 +116,13 @@
       40% { transform:translateY(-3px); opacity:1; }
     }
     #journal-think-label {
-      font-size:11px; font-weight:500; color:#9aa0a6; letter-spacing:0.05em;
+      font-size:11px; font-weight:500; color:#c4c7cc; letter-spacing:0.05em;
       white-space:nowrap;
     }
     /* Corps caché par défaut — expand sur nouveau message journal */
     #journal-body {
       max-height:0; overflow:hidden; padding:0 14px;
-      color:#9aa0a6; font-size:11px; line-height:1.65; letter-spacing:0.02em;
+      color:#c4c7cc; font-size:11px; line-height:1.65; letter-spacing:0.02em;
       transition:max-height 0.5s ease, padding 0.4s ease;
     }
     #journal.expanded #journal-body {
@@ -180,16 +180,16 @@
     #mode-indicator {
       font-family:'Inter',-apple-system,BlinkMacSystemFont,'Segoe UI',sans-serif;
       font-size:11px; font-weight:500; letter-spacing:0.12em; text-transform:uppercase;
-      color:#9aa0a6; display:flex; align-items:center; gap:6px;
+      color:#c4c7cc; display:flex; align-items:center; gap:6px;
     }
     #mode-indicator::before {
       content:''; display:inline-block; width:5px; height:5px;
       border-radius:50%; background:#10A37F; flex-shrink:0;
     }
-    #ws-status  { font-size:10px; color:#6b7280; letter-spacing:0.04em; }
+    #ws-status  { font-size:10px; color:#9aa0a6; letter-spacing:0.04em; }
     #ws-status.connected  { color:#10A37F; }
     #ws-status.restarting { color:#d97706; }
-    #chat-status { font-size:10px; color:#6b7280; letter-spacing:0.03em; }
+    #chat-status { font-size:10px; color:#9aa0a6; letter-spacing:0.03em; }
     #chat-status.live { color:#d97706; }
     #reddit-status { display:none; }
 
@@ -248,7 +248,7 @@
     #emotion-wheel.visible { transform:translateX(0); opacity:1; }
     /* ── Drift progress bars ─────────────────────────────────────────────────── */
     .drift-bar-row { display:flex; align-items:center; gap:8px; margin-bottom:4px; }
-    .drift-bar-label { font-size:9px; font-weight:500; letter-spacing:0.07em; text-transform:uppercase; color:#6b7280; min-width:36px; flex-shrink:0; }
+    .drift-bar-label { font-size:9px; font-weight:500; letter-spacing:0.07em; text-transform:uppercase; color:#9aa0a6; min-width:36px; flex-shrink:0; }
     .drift-bar-track { flex:1; height:2px; background:rgba(255,255,255,0.08); border-radius:2px; overflow:hidden; }
     .drift-bar-fill { display:block; height:100%; border-radius:2px; }
     .drift-bar-val { font-family:'JetBrains Mono',monospace; font-size:9px; min-width:26px; text-align:right; flex-shrink:0; }
@@ -276,14 +276,14 @@
     #news-summary {
       display:flex; align-items:center; gap:7px;
       padding:8px 14px 6px; line-height:1;
-      font-size:10px; font-weight:500; color:#9aa0a6; letter-spacing:0.06em;
+      font-size:10px; font-weight:500; color:#c4c7cc; letter-spacing:0.06em;
       border-bottom:1px solid rgba(255,255,255,0.06);
     }
     #news-summary::before {
       content:''; display:inline-block; width:4px; height:4px;
       border-radius:50%; background:#10a37f; flex-shrink:0;
     }
-    #news-age { color:#6b7280; font-size:9px; margin-left:auto; }
+    #news-age { color:#9aa0a6; font-size:9px; margin-left:auto; }
     #news-detail { padding:6px 14px 10px; }
     .news-item {
       display:flex; gap:8px; align-items:flex-start;
@@ -299,7 +299,7 @@
       font-size:10px; color:#ececf1; line-height:1.4;
       white-space:nowrap; overflow:hidden; text-overflow:ellipsis;
     }
-    .news-date { font-size:9px; color:#6b7280; margin-top:2px; }
+    .news-date { font-size:9px; color:#9aa0a6; margin-top:2px; }
   </style>
 </head>
 <body>
@@ -3072,12 +3072,12 @@ const _EVENT_TTL_MS = 12 * 60 * 60 * 1000;
 
 // ── Emotion Wheel ─────────────────────────────────────────────────────────────
 const _EW_EMOTIONS = [
-  { key:'excitement',      label:'EXCITE',   color:'#f59e0b', angle:-90  },
-  { key:'curiosity',       label:'CURIOUS',  color:'#06b6d4', angle:-30  },
-  { key:'audience_energy', label:'AUDIENCE', color:'#10a37f', angle:30   },
-  { key:'frustration',     label:'FRUSTRAT', color:'#8b5cf6', angle:90   },
-  { key:'anxiety',         label:'ANXIETY',  color:'#ef4444', angle:150  },
-  { key:'musical_tension', label:'TENSION',  color:'#6366f1', angle:-150 },
+  { key:'excitement',      label:'excitement',  color:'#f59e0b', angle:-90  },
+  { key:'curiosity',       label:'curiosity',   color:'#06b6d4', angle:-30  },
+  { key:'audience_energy', label:'energy',      color:'#10a37f', angle:30   },
+  { key:'frustration',     label:'frustration', color:'#8b5cf6', angle:90   },
+  { key:'anxiety',         label:'anxiety',     color:'#ef4444', angle:150  },
+  { key:'musical_tension', label:'tension',     color:'#6366f1', angle:-150 },
 ];
 const _ewVals = new Float32Array(6); // lerped display values 0-1
 
@@ -3152,11 +3152,13 @@ function _drawEmotionWheel() {
       }));
     }
     const lx = CX + LR * Math.cos(rad), ly = CY + LR * Math.sin(rad);
+    const cosA = Math.cos(rad);
+    const anchor = cosA > 0.2 ? 'start' : cosA < -0.2 ? 'end' : 'middle';
     const txt = mk('text', {
       x:lx, y:ly, fill:em.color,
-      'font-size':'7', 'font-family':'Inter,sans-serif', 'font-weight':'600',
-      'text-anchor':'middle', 'dominant-baseline':'middle',
-      'letter-spacing':'0.06em', opacity: val > 0.05 ? '1' : '0.3'
+      'font-size':'7', 'font-family':'Inter,sans-serif', 'font-weight':'500',
+      'text-anchor':anchor, 'dominant-baseline':'middle',
+      'letter-spacing':'0', opacity: val > 0.05 ? '1' : '0.3'
     });
     txt.textContent = em.label;
     svg.appendChild(txt);
@@ -3193,7 +3195,7 @@ function updateHUD(st) {
   const tempBarColor = `hsl(${Math.round(180 - wt * 180)},65%,52%)`;
 
   document.getElementById('drift-signals').innerHTML =
-    `<div style="font-size:11px;color:#9aa0a6;margin-bottom:5px">♪ <span class="mono">${Math.round(st.drift_bpm||90)}</span> BPM · ${st.drift_key||'C minor'} · ${st.drift_timbre||'warm'}</div>` +
+    `<div style="font-size:11px;color:#c4c7cc;margin-bottom:5px">♪ <span class="mono">${Math.round(st.drift_bpm||90)}</span> BPM · ${st.drift_key||'C minor'} · ${st.drift_timbre||'warm'}</div>` +
     `<div class="drift-bar-row"><span class="drift-bar-label">crisis</span><span class="drift-bar-track"><span class="drift-bar-fill" style="width:${crisisPct}%;background:${crisisBarColor}"></span></span><span class="drift-bar-val" style="color:${crisisBarColor}">${crisisPct}%</span></div>` +
     `<div class="drift-bar-row"><span class="drift-bar-label">temp</span><span class="drift-bar-track"><span class="drift-bar-fill" style="width:${tempPct}%;background:${tempBarColor}"></span></span><span class="drift-bar-val" style="color:${tempBarColor}">${tempPct}%</span></div>` +
     (qlen > 0 ? `<div style="color:#556677;font-size:10px;margin-top:3px">⏎ <span class="mono">${qlen}</span> in queue</div>` : '');
