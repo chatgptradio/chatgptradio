@@ -51,13 +51,15 @@ async def test_allowlist_passes_correct_chat_id():
 
 @pytest.mark.asyncio
 async def test_cmd_status_with_cache(monkeypatch):
-    """Status reply includes uptime, bitrate, and dropped frames from cache."""
+    """Status reply includes uptime, songs played and world state from cache."""
     import telegram_bot as tb
 
     monkeypatch.setattr(tb, "_state_cache", {
         "uptime_h": 3.5,
-        "stream_bitrate": 4500.0,
-        "dropped_frames": 2.0,
+        "songs_played_today": 42,
+        "songs_played_total": 300,
+        "world_temperature": 0.65,
+        "crisis_level": 0.12,
     })
 
     mock_proc = AsyncMock()
@@ -71,7 +73,7 @@ async def test_cmd_status_with_cache(monkeypatch):
     update.message.reply_text.assert_called_once()
     text = update.message.reply_text.call_args[0][0]
     assert "3.5" in text
-    assert "4500" in text
+    assert "42" in text
 
 
 # ---------------------------------------------------------------------------
@@ -255,8 +257,8 @@ async def test_cmd_health_shows_collectors(monkeypatch):
     import telegram_bot as tb
 
     monkeypatch.setattr(tb, "_state_cache", {
-        "cpu_percent": 45.2,
-        "memory_percent": 62.0,
+        "cpu_percent": 0.452,   # stored as fraction 0.0–1.0
+        "memory_percent": 0.620,
         "source_health": {
             "openai_status": True,
             "reddit": False,
@@ -311,14 +313,16 @@ async def test_cmd_ping_returns_pong():
 
 @pytest.mark.asyncio
 async def test_cmd_music_with_cache(monkeypatch):
-    """Music reply includes track name, territory, BPM and energy."""
+    """Music reply includes track name, territory, BPM and world state."""
     import telegram_bot as tb
 
     monkeypatch.setattr(tb, "_state_cache", {
         "current_track_name": "Midnight Drift",
         "drift_territory": "deep_focus",
         "drift_bpm": 92.0,
-        "drift_energy": 0.73,
+        "world_temperature": 0.54,
+        "crisis_level": 0.05,
+        "wonder": 0.32,
     })
 
     update = MagicMock()

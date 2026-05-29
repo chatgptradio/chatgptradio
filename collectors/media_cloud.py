@@ -33,7 +33,8 @@ def _story_count_sync(api_key: str, start: date, end: date) -> int:
     from mediacloud.api import SearchApi  # local import — optional dependency
 
     mc = SearchApi(api_key)
-    result = mc.story_count(_QUERY, start, end)
+    # collection_ids=[34412234] = global online news (requis par l'API v4 — 422 sans ça)
+    result = mc.story_count(_QUERY, start, end, collection_ids=[34412234])
     # StoryCount is a TypedDict / dict subclass with a "count" key
     if isinstance(result, dict):
         return int(result.get("count", 0))

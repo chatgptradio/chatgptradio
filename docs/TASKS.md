@@ -473,6 +473,24 @@ Audit complet du pipeline — 17 bugs identifiés (B1–B17), tous corrigés en 
 
 ---
 
+---
+
+## Bot Telegram — Monitoring & Contrôle (TERMINÉ ✅ — 2026-05-28)
+
+PRD : `.claude/prds/telegram-bot.md` | Plan : `.claude/plans/telegram-bot.md`
+Spec : `docs/specs/2026-05-28-telegram-bot-design.md`
+13 tests verts. Service systemd indépendant de `main.py`.
+
+| Issue | Titre | Fichier(s) | PR | État |
+|-------|-------|------------|-----|------|
+| #214 | Skeleton + dépendances + middleware allowlist | `pyproject.toml`, `telegram_bot.py`, `.env.example` | #219 | ✅ |
+| #215 | WebSocket client + cache état + AlertWatcher (debounce 30s) | `telegram_bot.py` | #220 | ✅ |
+| #216 | Command handlers (/status /music /viewers /health /restart) | `telegram_bot.py` | #224 | ✅ |
+| #217 | Service systemd + script d'installation | `scripts/install_tg_service.sh` | #224 | ✅ |
+| #218 | Tests (13 tests) | `tests/test_telegram_bot.py` | #224 | ✅ |
+
+---
+
 ## Phase 5 — Unicité Maximale
 
 - [ ] Spectrogram ARG : messages cachés dans l'audio

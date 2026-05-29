@@ -234,6 +234,20 @@
 
 ---
 
+## Décisions 2026-05-28 — Bot Telegram bidirectionnel
+
+| Décision | Choix retenu | Alternative rejetée | Raison |
+|----------|-------------|---------------------|--------|
+| Architecture bot | Processus séparé (`chatgpt-radio-tg.service`) lisant le WebSocket | Bot intégré dans `main.py` via `asyncio.create_task` | Si `main.py` crashe, le bot intégré crashe aussi — impossible d'alerter sur les pannes. Le processus séparé survit au crash et détecte le DOWN via déconnexion WebSocket. |
+| Framework bot | `python-telegram-bot` v20 (PTB) — natif asyncio | `aiogram` / `telebot` | PTB v20 est l'implémentation de référence Telegram pour Python asyncio ; `ApplicationBuilder` + `post_init` = lifecycle clean sans thread séparé. |
+| Détection DOWN | Debounce 30s via `time.monotonic()` | `asyncio.sleep(30)` bloquant | `asyncio.sleep` bloquant suspendrait la reconnexion pendant 30s — l'alerte arriverait jusqu'à 60s après la panne. Le timestamp permet de tenter la reconnexion immédiatement tout en respectant le debounce. |
+| Backoff reconnexion | Exponentiel 1→2→4→8→16→30s (cap 30s) | Intervalle fixe | Un intervalle fixe court (1s) génère des logs parasites et charge inutilement le processus principal s'il essaie de redémarrer. Le backoff réduit la pression tout en restant réactif à la reconnexion rapide. |
+| Allowlist | `filters.Chat(CHAT_ID)` PTB + `_allowlist_filter` silencieux | Pas d'allowlist (bot public) | Le bot contrôle `systemctl restart` — accès à n'importe quel chat_id = vecteur d'attaque. Un seul CHAT_ID, messages inconnus ignorés sans réponse (pas de signal d'existence). |
+| `/restart` — injection | `asyncio.create_subprocess_exec("bash", RESTART_SCRIPT, ...)` | `subprocess.run(shell=True, cmd=f"bash {script}")` | `shell=True` avec chemin variable = injection de commande possible. La liste d'args explicite élimine le risque à la source. |
+| Source de données commandes | `_state_cache` global mis à jour par le WebSocket | Requêtes directes à `state.db` | SQLite direct = couplage fort au schéma DB interne + contention d'écriture. Le WebSocket expose déjà l'état sérialisé ; le bot est un client de monitoring, pas un composant du pipeline. |
+
+---
+
 ## Décisions rejetées
 
 | Décision | Raison |

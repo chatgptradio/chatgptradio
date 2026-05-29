@@ -29,7 +29,6 @@ async def run_browser_display(
         return
 
     import time as _time
-    overlay_url = f"http://localhost:{port}/visualizer.html?v={int(_time.time())}"
 
     # Start Xvfb
     xvfb = await asyncio.create_subprocess_exec(
@@ -48,14 +47,15 @@ async def run_browser_display(
         return
 
     async def _start_chromium() -> asyncio.subprocess.Process:
+        overlay_url = f"http://localhost:{port}/visualizer.html?v={int(_time.time())}"
         return await asyncio.create_subprocess_exec(
-            "nice", "-n", "5",               # slight yield to FFmpeg; 10 was too aggressive on 2-core
             chromium_bin,
             "--no-sandbox",
             "--disable-gpu",
-            "--enable-unsafe-swiftshader",   # software WebGL — EGL+virgl incompatible with Xvfb/x11grab
+            "--enable-unsafe-swiftshader",   # software WebGL — EGL+virgl incompatible avec Xvfb/x11grab
             "--ignore-gpu-blocklist",
             "--use-gl=swiftshader",
+            "--disable-gpu-vsync",           # évite l'auto-throttle SwiftShader
             "--disable-dev-shm-usage",
             "--no-first-run",
             "--test-type",                   # suppresses --no-sandbox warning bar
@@ -80,7 +80,7 @@ async def run_browser_display(
         )
 
     chrome = await _start_chromium()
-    log.info("chromium_started", url=overlay_url)
+    log.info("chromium_started", url=f"http://localhost:{port}/visualizer.html")
     await asyncio.sleep(3.0)
     ready_event.set()
     log.info("browser_display_ready")

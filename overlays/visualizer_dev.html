@@ -244,6 +244,45 @@
 
     #fade { position:fixed; top:0; left:0; width:100%; height:100%; background:#000; pointer-events:none; opacity:0; transition:opacity 1.5s; z-index:10; }
     @keyframes blink { 50% { opacity:0; } }
+
+    /* ── OpenAI News panel (top-left, below #status-panel) ───────────────────── */
+    #news {
+      position:absolute; top:130px; left:24px;
+      background:rgba(250,250,250,0.06);
+      backdrop-filter:blur(16px) saturate(160%); -webkit-backdrop-filter:blur(16px) saturate(160%);
+      border:1px solid rgba(255,255,255,0.10); border-radius:10px;
+      overflow:hidden; min-width:200px; max-width:240px;
+    }
+    #news-summary {
+      display:flex; align-items:center; gap:7px;
+      padding:8px 14px; line-height:1;
+      font-size:10px; font-weight:500; color:#9aa0a6; letter-spacing:0.06em;
+    }
+    #news-age { color:#6b7280; font-size:9px; margin-left:auto; }
+    #news-detail {
+      max-height:0; overflow:hidden;
+      transition:max-height 0.55s ease, padding 0.45s ease;
+      padding:0 14px;
+    }
+    #news.expanded #news-detail {
+      max-height:400px; padding:6px 14px 10px;
+      border-top:1px solid rgba(255,255,255,0.06);
+    }
+    .news-item {
+      display:flex; gap:8px; align-items:flex-start;
+      padding:5px 0; border-bottom:1px solid rgba(255,255,255,0.04);
+    }
+    .news-item:last-child { border-bottom:none; }
+    .news-thumb {
+      width:34px; height:34px; border-radius:5px; object-fit:cover; flex-shrink:0;
+      background:linear-gradient(135deg,#1a1a2e,#0d3342);
+    }
+    .news-text { flex:1; min-width:0; }
+    .news-title {
+      font-size:10px; color:#ececf1; line-height:1.4;
+      white-space:nowrap; overflow:hidden; text-overflow:ellipsis;
+    }
+    .news-date { font-size:9px; color:#6b7280; margin-top:2px; }
   </style>
 </head>
 <body>
@@ -256,6 +295,14 @@
     <div id="ws-status"></div>
     <div id="chat-status"></div>
     <div id="reddit-status"></div>
+  </div>
+  <div id="news">
+    <div id="news-summary">
+      <span class="status-dot dot-ok"></span>
+      <span>openai news</span>
+      <span id="news-age"></span>
+    </div>
+    <div id="news-detail"></div>
   </div>
   <div id="event-banner"><div id="event-label-above">Today we celebrate</div><div id="event-label-main"></div></div>
   <div id="drift"><div id="drift-header">signals</div><div id="drift-track" style="display:none"><div id="drift-track-name"></div><div id="track-progress-wrap"><div id="track-progress-bar"></div></div></div><div id="drift-signals"></div></div>
@@ -3168,8 +3215,52 @@ function sourcesAccordionCycle() {
 }
 sourcesAccordionCycle();
 
+// ── OpenAI News panel — fetch RSS via rss2json, accordion 2min/15min ─────────
+const _NEWS_API = 'https://api.rss2json.com/v1/api.json?rss_url=https%3A%2F%2Fopenai.com%2Fblog%2Frss.xml&count=3';
+const NEWS_SHOW_MS = 2 * 60 * 1000;
+const NEWS_HIDE_MS = 15 * 60 * 1000;
+
+function _relDate(s) {
+  const d = new Date(s);
+  if (isNaN(d)) return '';
+  const m = Math.floor((Date.now() - d) / 60000);
+  if (m < 60) return `${m}m`;
+  const h = Math.floor(m / 60);
+  if (h < 24) return `${h}h`;
+  return `${Math.floor(h / 24)}d`;
+}
+
+async function fetchNews() {
+  try {
+    const r = await fetch(_NEWS_API);
+    if (!r.ok) return;
+    const data = await r.json();
+    const items = (data.items || []).slice(0, 3);
+    if (!items.length) return;
+    document.getElementById('news-detail').innerHTML = items.map(it => {
+      const title = (it.title || '').replace(/&/g,'&amp;').replace(/</g,'&lt;');
+      const age = _relDate(it.pubDate);
+      const thumb = it.thumbnail
+        ? `<img class="news-thumb" src="${it.thumbnail}" alt="" onerror="this.style.visibility='hidden'">`
+        : `<div class="news-thumb"></div>`;
+      return `<div class="news-item">${thumb}<div class="news-text"><div class="news-title">${title}</div><div class="news-date">${age}</div></div></div>`;
+    }).join('');
+    document.getElementById('news-age').textContent = _relDate(items[0].pubDate);
+  } catch(e) { console.warn('news fetch', e); }
+}
+
+function newsAccordionCycle() {
+  fetchNews();
+  document.getElementById('news').classList.add('expanded');
+  setTimeout(() => {
+    document.getElementById('news').classList.remove('expanded');
+    setTimeout(newsAccordionCycle, NEWS_HIDE_MS);
+  }, NEWS_SHOW_MS);
+}
+newsAccordionCycle();
+
 // ── Render loop ───────────────────────────────────────────────────────────────
-const _FRAME_MS = 1000 / 30;  // 30fps — bloom removed, setTimeout loop
+const _FRAME_MS = 1000 / 40;  // 40fps — matches x11grab capture rate
 let _lastFrameTime = 0;
 
 function animate() {

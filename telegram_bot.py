@@ -90,8 +90,9 @@ async def cmd_status(update: Update, context: ContextTypes.DEFAULT_TYPE) -> None
     lines = [
         "🟢 Stream actif" if svc_status == "active" else f"🔴 Service: {svc_status}",
         f"⏱ Uptime: {_state_cache.get('uptime_h', 0):.1f}h",
-        f"📡 Bitrate: {_state_cache.get('stream_bitrate', 0):.0f} kbps",
-        f"🖼 Dropped frames: {_state_cache.get('dropped_frames', 0):.0f}",
+        f"🎵 Titres aujourd'hui: {_state_cache.get('songs_played_today', 0)} ({_state_cache.get('songs_played_total', 0)} total)",
+        f"🌡 Température monde: {_state_cache.get('world_temperature', 0):.2f}",
+        f"⚠️ Crise: {_state_cache.get('crisis_level', 0):.2f}",
     ]
     await update.message.reply_text("\n".join(lines))
 
@@ -103,10 +104,11 @@ async def cmd_music(update: Update, context: ContextTypes.DEFAULT_TYPE) -> None:
         await update.message.reply_text("⚠️ WebSocket indisponible")
         return
     lines = [
-        f"🎵 {_state_cache.get('current_track_name', '—')}",
+        f"🎵 {_state_cache.get('current_track_name') or '—'}",
         f"🗺 Territoire: {_state_cache.get('drift_territory', '—')}",
         f"🥁 BPM: {_state_cache.get('drift_bpm', 0):.0f}",
-        f"⚡ Énergie: {_state_cache.get('drift_energy', 0):.2f}",
+        f"🌡 Température: {_state_cache.get('world_temperature', 0):.2f}",
+        f"😱 Crise: {_state_cache.get('crisis_level', 0):.2f}  Wonder: {_state_cache.get('wonder', 0):.2f}",
     ]
     await update.message.reply_text("\n".join(lines))
 
@@ -137,8 +139,8 @@ async def cmd_health(update: Update, context: ContextTypes.DEFAULT_TYPE) -> None
         for name, ok in sorted(source_health.items())
     ]
     lines = [
-        f"🖥 CPU: {_state_cache.get('cpu_percent', 0):.1f}%",
-        f"💾 Mémoire: {_state_cache.get('memory_percent', 0):.1f}%",
+        f"🖥 CPU: {_state_cache.get('cpu_percent', 0) * 100:.1f}%",
+        f"💾 Mémoire: {_state_cache.get('memory_percent', 0) * 100:.1f}%",
         "",
         "Collecteurs:",
         *collector_lines,

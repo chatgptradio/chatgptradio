@@ -386,7 +386,7 @@ async def run_dsp(
         video_input = [
             "-thread_queue_size", "64",
             "-f", "x11grab",
-            "-framerate", "30",
+            "-framerate", "40",
             "-video_size", "1280x720",
             "-draw_mouse", "0",
             "-i", f"{display}.0",
@@ -395,7 +395,7 @@ async def run_dsp(
         video_input = [
             "-re",                           # read lavfi at native rate (10fps real-time)
             "-f", "lavfi",
-            "-i", "color=c=0x0a0a1a:s=1280x720:r=30",  # static bg at 30fps
+            "-i", "color=c=0x0a0a1a:s=1280x720:r=40",  # static bg at 40fps
         ]
 
     video_encode = [
@@ -403,8 +403,8 @@ async def run_dsp(
         # nal-hrd=cbr forces filler NAL units so libx264 actually hits 2500k on static content
         # (without it, skip-heavy frames produce ~200-500 Kbps despite minrate=2500k)
         "-b:v", "2500k", "-minrate", "2500k", "-maxrate", "2500k", "-bufsize", "5000k",
-        "-x264opts", "nal-hrd=cbr:force-cfr=1:threads=2",  # force-cfr=1 ensures 30fps CFR — -vf fps=30 removed (redundant)
-        "-g", "60",                        # keyframe every 2s at 30fps (YouTube ≤4s)
+        "-x264opts", "nal-hrd=cbr:force-cfr=1:threads=2",  # force-cfr=1 ensures 40fps CFR
+        "-g", "80",                        # keyframe every 2s at 40fps (YouTube ≤4s)
         "-pix_fmt", "yuv420p",
     ]
     if not use_x11grab:
