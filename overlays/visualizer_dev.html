@@ -337,6 +337,7 @@
 <script type="module">
 import * as THREE from 'three';
 import { OrbitControls } from 'three/addons/controls/OrbitControls.js';
+import { mergeGeometries } from 'three/addons/utils/BufferGeometryUtils.js';
 
 // ── Setup Three.js ────────────────────────────────────────────────────────────
 
@@ -3003,10 +3004,328 @@ class WarpMode {
   }
 }
 
+// ── Mode LOGO — ChatGPT logo, vertex shader deformation ──────────────────────
+
+// Simplex noise helpers (verbatim from _NX_OUTER_VS)
+const _LM_SNOISE_GLSL = `
+vec3 lm289(vec3 x){return x-floor(x*(1.0/289.0))*289.0;}
+vec4 lm289v(vec4 x){return x-floor(x*(1.0/289.0))*289.0;}
+vec4 lmperm(vec4 x){return lm289v(((x*34.0)+1.0)*x);}
+vec4 lmtis(vec4 r){return 1.79284291400159-0.85373472095314*r;}
+float snoise(vec3 v){
+  const vec2 C=vec2(1.0/6.0,1.0/3.0);const vec4 D=vec4(0.0,0.5,1.0,2.0);
+  vec3 i=floor(v+dot(v,C.yyy));vec3 x0=v-i+dot(i,C.xxx);
+  vec3 g=step(x0.yzx,x0.xyz);vec3 l=1.0-g;
+  vec3 i1=min(g.xyz,l.zxy);vec3 i2=max(g.xyz,l.zxy);
+  vec3 x1=x0-i1+C.xxx;vec3 x2=x0-i2+C.yyy;vec3 x3=x0-D.yyy;
+  i=lm289(i);
+  vec4 p=lmperm(lmperm(lmperm(i.z+vec4(0.0,i1.z,i2.z,1.0))+i.y+vec4(0.0,i1.y,i2.y,1.0))+i.x+vec4(0.0,i1.x,i2.x,1.0));
+  float n_=0.142857142857;vec3 ns=n_*D.wyz-D.xzx;
+  vec4 j=p-49.0*floor(p*ns.z*ns.z);
+  vec4 x_=floor(j*ns.z);vec4 y_=floor(j-7.0*x_);
+  vec4 x=x_*ns.x+ns.yyyy;vec4 y=y_*ns.x+ns.yyyy;vec4 h=1.0-abs(x)-abs(y);
+  vec4 b0=vec4(x.xy,y.xy);vec4 b1=vec4(x.zw,y.zw);
+  vec4 s0=floor(b0)*2.0+1.0;vec4 s1=floor(b1)*2.0+1.0;vec4 sh=-step(h,vec4(0.0));
+  vec4 a0=b0.xzyw+s0.xzyw*sh.xxyy;vec4 a1=b1.xzyw+s1.xzyw*sh.zzww;
+  vec3 p0=vec3(a0.xy,h.x);vec3 p1=vec3(a0.zw,h.y);vec3 p2=vec3(a1.xy,h.z);vec3 p3=vec3(a1.zw,h.w);
+  vec4 norm=lmtis(vec4(dot(p0,p0),dot(p1,p1),dot(p2,p2),dot(p3,p3)));
+  p0*=norm.x;p1*=norm.y;p2*=norm.z;p3*=norm.w;
+  vec4 m=max(0.6-vec4(dot(x0,x0),dot(x1,x1),dot(x2,x2),dot(x3,x3)),0.0);m=m*m;
+  return 42.0*dot(m*m,vec4(dot(p0,x0),dot(p1,x1),dot(p2,x2),dot(p3,x3)));
+}`;
+
+// Logo vertex shader — displacement driven entirely by uDeformAmp (0 at rest = NO_FAKE)
+const _LM_VS = `
+${_LM_SNOISE_GLSL}
+uniform float uTime;
+uniform float uDeformAmp;
+uniform float uTimeScale;
+void main(){
+  vec3 pos=position;
+  float n1=snoise(vec3(pos.xy*0.55,uTime*uTimeScale*0.12));
+  float n2=snoise(vec3(pos.xy*1.1+4.3,uTime*uTimeScale*0.08));
+  pos.xy+=vec2(n1,n2)*uDeformAmp*0.38;
+  pos.z+=snoise(vec3(pos.xy*0.4,uTime*uTimeScale*0.06))*uDeformAmp*0.22;
+  gl_Position=projectionMatrix*modelViewMatrix*vec4(pos,1.0);
+}`;
+
+const _LM_FS = `
+uniform vec3 uColor;
+uniform float uAlpha;
+void main(){gl_FragColor=vec4(uColor,uAlpha);}`;
+
+const _LM_GLOW_FS = `
+uniform vec3 uGlowColor;
+uniform float uGlowAlpha;
+void main(){gl_FragColor=vec4(uGlowColor,uGlowAlpha);}`;
+
+const _LM_SPARK_VS = `
+attribute float aLife;
+varying float vLife;
+void main(){
+  vLife=aLife;
+  vec4 mvPos=modelViewMatrix*vec4(position,1.0);
+  gl_PointSize=3.0*vLife;
+  gl_Position=projectionMatrix*mvPos;
+}`;
+
+const _LM_SPARK_FS = `
+varying float vLife;
+uniform vec3 uSparkColor;
+void main(){
+  float d=length(gl_PointCoord-0.5)*2.0;
+  if(d>1.0) discard;
+  gl_FragColor=vec4(uSparkColor,vLife*(1.0-d));
+}`;
+
+// Helper: build 6-petal logo geometry merged into one BufferGeometry (≥2000 vertices)
+function _buildLogoGeometry() {
+  const geos = [];
+  for (let i = 0; i < 6; i++) {
+    const shape = new THREE.Shape();
+    shape.absellipse(0, 0, 0.275, 1.0, 0, Math.PI * 2, false, 0);
+    const geo = new THREE.ShapeGeometry(shape, 128);
+    geo.applyMatrix4(new THREE.Matrix4().makeRotationZ(i * Math.PI / 3));
+    geos.push(geo);
+  }
+  return mergeGeometries(geos, false);
+}
+
+class LogoMode {
+  constructor() {
+    this._logoMesh     = null;
+    this._glowMesh     = null;
+    this._sparkMesh    = null;
+    this._sparkGeo     = null;
+    this._sparkMat     = null;
+    this._sparkLifeAttr= null;
+    this._sparkPos     = new Float32Array(600 * 3);
+    this._sparkVel     = new Float32Array(600);
+    this._sparkLat     = new Float32Array(600);   // lateral drift velocity
+    this._sparkLife    = new Float32Array(600);
+    this._sparkActive  = new Uint8Array(600);
+    this._sparkEmitAccum = 0;
+    this._sparkHomePos = null;
+    this._uTime        = 0;
+    this._sigSmooth    = 0;
+    this._logoGeo      = null;
+    this._logoMat      = null;
+    this._glowMat      = null;
+    this._colorBase    = new THREE.Color(0x10A37F);
+    this._colorCrisis  = new THREE.Color(0xef4444);
+    this._colorCur     = new THREE.Color(0x10A37F);
+  }
+
+  init(sc, cam) {
+    cam.position.set(0, 0, 7);
+    cam.lookAt(0, 0, 0);
+    sc.fog  = null;
+    sc.background = new THREE.Color(0x000000);
+
+    this._logoGeo = _buildLogoGeometry();
+    this._buildLogo(sc);
+    this._buildGlow(sc, this._logoGeo);
+    this._initSparks(sc, this._logoGeo);
+  }
+
+  _buildLogo(sc) {
+    this._logoMat = new THREE.ShaderMaterial({
+      uniforms: {
+        uTime:       { value: 0 },
+        uDeformAmp:  { value: 0 },
+        uTimeScale:  { value: 1.0 },
+        uColor:      { value: new THREE.Color(0x10A37F) },
+        uAlpha:      { value: 1.0 },
+      },
+      vertexShader:   _LM_VS,
+      fragmentShader: _LM_FS,
+      transparent: true,
+      side: THREE.DoubleSide,
+    });
+    this._logoMesh = new THREE.Mesh(this._logoGeo, this._logoMat);
+    sc.add(this._logoMesh);
+  }
+
+  _buildGlow(sc, logoGeo) {
+    this._glowMat = new THREE.ShaderMaterial({
+      uniforms: {
+        uTime:      { value: 0 },
+        uDeformAmp: { value: 0 },
+        uTimeScale: { value: 1.0 },
+        uGlowColor: { value: new THREE.Color(0x10A37F) },
+        uGlowAlpha: { value: 0.0 },
+      },
+      vertexShader:   _LM_VS,
+      fragmentShader: _LM_GLOW_FS,
+      transparent:  true,
+      depthWrite:   false,
+      blending:     THREE.AdditiveBlending,
+      side:         THREE.DoubleSide,
+    });
+    this._glowMesh = new THREE.Mesh(logoGeo, this._glowMat);
+    this._glowMesh.scale.set(1.04, 1.04, 1.04);
+    sc.add(this._glowMesh);
+  }
+
+  _initSparks(sc, logoGeo) {
+    const COUNT = 600;
+    // Sample home positions from logo geometry vertices
+    const srcPos = logoGeo.attributes.position;
+    const nVerts  = srcPos.count;
+    this._sparkHomePos = new Float32Array(nVerts * 3);
+    for (let i = 0; i < nVerts; i++) {
+      this._sparkHomePos[i * 3]     = srcPos.getX(i);
+      this._sparkHomePos[i * 3 + 1] = srcPos.getY(i);
+      this._sparkHomePos[i * 3 + 2] = srcPos.getZ(i);
+    }
+
+    // Initialize spark arrays to zero (all inactive at rest)
+    this._sparkPos.fill(0);
+    this._sparkLife.fill(0);
+    this._sparkActive.fill(0);
+
+    // Random upward velocities (set once at init — not in animation loop)
+    for (let i = 0; i < COUNT; i++) {
+      // Seed velocities at init time only — these are fixed per-particle constants
+      this._sparkVel[i] = 0.8 + (i * 0.000493) % 0.3;      // 0.8..1.1 deterministic spread
+      this._sparkLat[i] = ((i * 0.001739) % 0.4) - 0.2;     // ±0.2 deterministic lateral
+    }
+
+    const lifeArr = new Float32Array(COUNT).fill(0);
+    const posAttr  = new THREE.BufferAttribute(this._sparkPos, 3);
+    posAttr.setUsage(THREE.DynamicDrawUsage);
+    const lifeAttr = new THREE.BufferAttribute(lifeArr, 1);
+    lifeAttr.setUsage(THREE.DynamicDrawUsage);
+    this._sparkLifeAttr = lifeAttr;
+
+    this._sparkGeo = new THREE.BufferGeometry();
+    this._sparkGeo.setAttribute('position', posAttr);
+    this._sparkGeo.setAttribute('aLife',    lifeAttr);
+
+    this._sparkMat = new THREE.ShaderMaterial({
+      uniforms: { uSparkColor: { value: new THREE.Color(0x10A37F) } },
+      vertexShader:   _LM_SPARK_VS,
+      fragmentShader: _LM_SPARK_FS,
+      transparent: true,
+      depthWrite:  false,
+      blending:    THREE.AdditiveBlending,
+    });
+
+    this._sparkMesh = new THREE.Points(this._sparkGeo, this._sparkMat);
+    sc.add(this._sparkMesh);
+  }
+
+  _updateSparks(audienceEnergy, dt) {
+    const COUNT   = 600;
+    const MAX_LIFE = 2.5;
+    const nHome   = this._sparkHomePos.length / 3;
+    let activeCnt = 0, lifeSum = 0;
+
+    // Update active particles
+    for (let i = 0; i < COUNT; i++) {
+      if (!this._sparkActive[i]) continue;
+      this._sparkPos[i * 3]     += this._sparkLat[i] * dt;
+      this._sparkPos[i * 3 + 1] += this._sparkVel[i] * dt;
+      this._sparkLife[i]        -= dt;
+      if (this._sparkLife[i] <= 0) {
+        this._sparkActive[i] = 0;
+        this._sparkLife[i]   = 0;
+        this._sparkLifeAttr.array[i] = 0;
+      } else {
+        lifeSum += this._sparkLife[i] / MAX_LIFE;
+        activeCnt++;
+        this._sparkLifeAttr.array[i] = Math.max(0, this._sparkLife[i] / MAX_LIFE);
+      }
+    }
+
+    // Emit new sparks proportional to audienceEnergy — strictly 0 when audienceEnergy === 0
+    if (audienceEnergy > 0) {
+      this._sparkEmitAccum += audienceEnergy * 8 * dt;
+      const toEmit = Math.floor(this._sparkEmitAccum);
+      this._sparkEmitAccum -= toEmit;
+      let emitted = 0;
+      for (let i = 0; i < COUNT && emitted < toEmit; i++) {
+        if (this._sparkActive[i]) continue;
+        // Sample a home position from logo geometry vertices (deterministic index cycling)
+        const hi = (i * 7 + Math.floor(this._uTime * 10)) % nHome;
+        this._sparkPos[i * 3]     = this._sparkHomePos[hi * 3];
+        this._sparkPos[i * 3 + 1] = this._sparkHomePos[hi * 3 + 1];
+        this._sparkPos[i * 3 + 2] = this._sparkHomePos[hi * 3 + 2];
+        this._sparkLife[i]        = MAX_LIFE * (0.5 + (i * 0.001317) % 0.5);
+        this._sparkActive[i]      = 1;
+        this._sparkLifeAttr.array[i] = this._sparkLife[i] / MAX_LIFE;
+        emitted++;
+        activeCnt++;
+        lifeSum += this._sparkLife[i] / MAX_LIFE;
+      }
+    }
+
+    this._sparkGeo.attributes.position.needsUpdate = true;
+    this._sparkLifeAttr.needsUpdate = true;
+    // Opacity = average remaining life fraction across active particles (0 at rest)
+    this._sparkMat.opacity = activeCnt > 0 ? lifeSum / activeCnt : 0;
+  }
+
+  update(st, dt) {
+    if (!this._logoMesh) return false;
+
+    this._uTime += dt;
+
+    // ── Signal extraction ────────────────────────────────────────────────────
+    const excitement    = Math.max(0, Math.min(1, st?.excitement     || 0));
+    const crisisLevel   = Math.max(0, Math.min(1, st?.crisis_level   || 0));
+    const anomalyScore  = Math.max(0, Math.min(1, st?.anomaly_score  || 0));
+    const audienceEnergy= Math.max(0, Math.min(1, st?.audience_energy|| 0));
+
+    // ── EMA-smoothed combined signal (τ ≈ 1s, 5% target at 20fps) ─────────
+    const combinedRaw = excitement * 0.5 + crisisLevel * 0.35 + anomalyScore * 0.15;
+    const alpha       = 1 - Math.pow(0.05, dt);  // LERP factor, τ ≈ 1s
+    this._sigSmooth   = this._sigSmooth + (combinedRaw - this._sigSmooth) * alpha;
+
+    const uDeformAmp  = this._sigSmooth;  // 0.0 at rest — NO_FAKE compliant
+
+    // ── Color lerp: base → crisis ────────────────────────────────────────────
+    this._colorCur.copy(this._colorBase).lerp(this._colorCrisis, crisisLevel * 0.6);
+
+    // ── Update logo shader uniforms ──────────────────────────────────────────
+    this._logoMat.uniforms.uTime.value      = this._uTime;
+    this._logoMat.uniforms.uDeformAmp.value = uDeformAmp;
+    this._logoMat.uniforms.uTimeScale.value = 1.0;
+    this._logoMat.uniforms.uColor.value.copy(this._colorCur);
+    this._logoMat.uniforms.uAlpha.value     = 1.0;
+
+    // ── Update glow shader uniforms ──────────────────────────────────────────
+    const glowAlpha = this._sigSmooth * 0.18;  // 0.0 at rest
+    this._glowMat.uniforms.uTime.value       = this._uTime;
+    this._glowMat.uniforms.uDeformAmp.value  = uDeformAmp;
+    this._glowMat.uniforms.uTimeScale.value  = 1.0;
+    this._glowMat.uniforms.uGlowColor.value.copy(this._colorCur);
+    this._glowMat.uniforms.uGlowAlpha.value  = glowAlpha;
+
+    // ── Spark color tracks logo color ────────────────────────────────────────
+    this._sparkMat.uniforms.uSparkColor.value.copy(this._colorCur);
+
+    // ── Update sparks ────────────────────────────────────────────────────────
+    this._updateSparks(audienceEnergy, dt);
+
+    renderer.render(scene, camera);
+    return true;
+  }
+
+  dispose(sc) {
+    if (this._logoMesh)  { this._logoGeo.dispose(); this._logoMat.dispose(); sc.remove(this._logoMesh); }
+    if (this._glowMesh)  { this._glowMat.dispose(); sc.remove(this._glowMesh); }
+    if (this._sparkMesh) { this._sparkGeo.dispose(); this._sparkMat.dispose(); sc.remove(this._sparkMesh); }
+    this._logoMesh = null; this._glowMesh = null; this._sparkMesh = null;
+    this._sparkGeo = null; this._sparkMat = null; this._sparkLifeAttr = null;
+    this._logoGeo  = null; this._logoMat  = null; this._glowMat = null;
+  }
+}
+
 // ── Système de modes ──────────────────────────────────────────────────────────
 
-const MODES = { neural: NeuralMode, chaos: ChaosMode, globe: GlobeMode, network: NetworkMode, nexus: NexusMode, warp: WarpMode };
-const _SCENE_NAMES = { neural: 'neural', chaos: 'spectre', globe: 'globe', network: 'network', nexus: 'nexus', warp: 'warp' };
+const MODES = { neural: NeuralMode, chaos: ChaosMode, globe: GlobeMode, network: NetworkMode, nexus: NexusMode, warp: WarpMode, logo: LogoMode };
+const _SCENE_NAMES = { neural: 'neural', chaos: 'spectre', globe: 'globe', network: 'network', nexus: 'nexus', warp: 'warp', logo: 'logo' };
 
 // Declared early — NeuralMode.init() reads liveNodes (let TDZ would crash otherwise)
 let liveState = {};
@@ -3405,7 +3724,7 @@ animate();
 
 // Keyboard shortcuts: 1=neural 2=chaos 3=globe 4=network 5=nexus
 window.addEventListener('keydown', (e) => {
-  const map = { '1':'neural', '2':'chaos', '3':'globe', '4':'network', '5':'nexus', '6':'warp' };
+  const map = { '1':'neural', '2':'chaos', '3':'globe', '4':'network', '5':'nexus', '6':'warp', '7':'logo' };
   if (map[e.key]) {
     userOverride = true;  // keep user's choice even when WS heartbeat sends visual_mode:'neural'
     switchMode(map[e.key]);
