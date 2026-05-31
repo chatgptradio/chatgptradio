@@ -118,19 +118,19 @@ async def test_replay_no_arg():
 @pytest.mark.asyncio
 async def test_switch_advances_to_next_mode():
     state, eng, q, conn = _make_deps()
-    state.visual_mode = "neural"
+    state.visual_mode = "chaos"
     eng.try_switch.return_value = True
     result = await handle_command("!switch", "", state, eng, q, conn)
     assert result is not None
-    assert "chaos" in result
+    assert "globe" in result
     update = await asyncio.wait_for(q.get(), timeout=1.0)
-    assert update["visual_mode"] == "chaos"
+    assert update["visual_mode"] == "globe"
 
 
 @pytest.mark.asyncio
 async def test_switch_explicit_valid_mode():
     state, eng, q, conn = _make_deps()
-    state.visual_mode = "neural"
+    state.visual_mode = "globe"
     eng.try_switch.return_value = True
     result = await handle_command("!switch chaos", "", state, eng, q, conn)
     assert result is not None
@@ -142,11 +142,11 @@ async def test_switch_explicit_valid_mode():
 @pytest.mark.asyncio
 async def test_switch_invalid_explicit_mode_advances():
     state, eng, q, conn = _make_deps()
-    state.visual_mode = "unknown_xyz"  # not in SCENE_CYCLE → fallback to neural → next = chaos
+    state.visual_mode = "unknown_xyz"  # not in SCENE_CYCLE → fallback to chaos → next = globe
     eng.try_switch.return_value = True
     result = await handle_command("!switch badmode", "", state, eng, q, conn)
     assert result is not None
-    assert "chaos" in result
+    assert "globe" in result
 
 
 @pytest.mark.asyncio
@@ -172,12 +172,12 @@ async def test_switch_wraps_around_from_chaos():
 
 
 @pytest.mark.asyncio
-async def test_switch_wraps_around_from_nexus():
+async def test_switch_wraps_around_from_logo():
     state, eng, q, conn = _make_deps()
-    state.visual_mode = "nexus"  # last in SCENE_CYCLE → wraps back to neural
+    state.visual_mode = "logo"  # last in SCENE_CYCLE → wraps back to chaos
     eng.try_switch.return_value = True
     result = await handle_command("!switch", "", state, eng, q, conn)
     assert result is not None
-    assert "neural" in result
+    assert "chaos" in result
     update = await asyncio.wait_for(q.get(), timeout=1.0)
-    assert update["visual_mode"] == "neural"
+    assert update["visual_mode"] == "chaos"

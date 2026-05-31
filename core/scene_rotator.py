@@ -5,7 +5,7 @@ import asyncio
 
 from core.state import GlobalState
 
-SCENE_CYCLE: list[str] = ["chaos", "globe", "network", "nexus", "warp"]
+SCENE_CYCLE: list[str] = ["chaos", "globe", "network", "logo"]
 
 
 async def run_scene_rotator(

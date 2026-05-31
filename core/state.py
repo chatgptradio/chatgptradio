@@ -88,7 +88,7 @@ class GlobalState(BaseModel):
     current_song_progress: float = 0.0
     current_track_name: str = ""
     journal_text: str = ""
-    visual_mode: str = "neural"
+    visual_mode: str = "chaos"
     viewer_cmd_label: str = ""
     active_event: str = ""
     event_label: str = ""
