@@ -2845,6 +2845,7 @@ const _EW_CYCLE_MS = 5 * 60 * 1000;
 const _EW_SHOW_MS  = 30 * 1000;
 function _ewCycle() {
   document.getElementById('emotion-wheel').classList.add('visible');
+  _drawEmotionWheel(); // force initial draw — dirty guard skips when all signals are 0
   setTimeout(() => document.getElementById('emotion-wheel').classList.remove('visible'), _EW_SHOW_MS);
 }
 _ewCycle();  // affiché immédiatement au démarrage

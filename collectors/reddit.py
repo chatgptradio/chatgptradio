@@ -57,7 +57,7 @@ async def collect(state: GlobalState) -> dict[str, Any]:
             collector="reddit",
             reason="REDDIT_CLIENT_ID / REDDIT_CLIENT_SECRET / REDDIT_USER_AGENT not set",
         )
-        return {}
+        return {"source_health": {"reddit": False}}
 
     import asyncpraw  # local import — optional dependency
 
