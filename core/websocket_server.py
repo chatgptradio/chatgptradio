@@ -1,4 +1,5 @@
 import asyncio
+import os
 import time
 from typing import Callable
 
@@ -10,6 +11,7 @@ from core.node import get_registry
 from core.state import GlobalState
 
 _connected: set[ServerConnection] = set()
+_RESTART_FLAG = "/tmp/stream_restarting"
 
 
 async def _connection_handler(ws: ServerConnection) -> None:
@@ -32,11 +34,18 @@ async def broadcast_loop(
     interval = 1.0 / fps
     while True:
         if connected:
+            restarting = os.path.exists(_RESTART_FLAG)
+            if restarting:
+                try:
+                    os.unlink(_RESTART_FLAG)
+                except OSError:
+                    pass
             payload = orjson.dumps(
                 {
                     "state": state.model_dump(mode="json"),
                     "nodes": registry_fn(),
                     "ts": time.time(),
+                    **({"_restarting": True} if restarting else {}),
                 }
             )
             await asyncio.gather(

@@ -20,9 +20,10 @@
     #drift {
       position:absolute; bottom:24px; left:24px;
       color:#ececf1; font-size:12px; line-height:1.75; letter-spacing:0.02em;
-      background:rgba(250,250,250,0.06);
-      backdrop-filter:blur(16px) saturate(160%); -webkit-backdrop-filter:blur(16px) saturate(160%);
-      border:1px solid rgba(255,255,255,0.10); border-radius:10px; padding:12px 16px;
+      background:linear-gradient(135deg,rgba(255,255,255,0.08) 0%,rgba(255,255,255,0.03) 100%);
+      backdrop-filter:blur(20px) saturate(180%); -webkit-backdrop-filter:blur(20px) saturate(180%);
+      border:1px solid rgba(255,255,255,0.12); border-radius:10px; padding:10px 14px;
+      box-shadow:inset 0 1px 0 rgba(255,255,255,0.08),0 8px 32px rgba(0,0,0,0.24);
     }
 
     /* ── Track info — intégré dans le drift panel ───────────────────────────── */
@@ -43,10 +44,11 @@
     /* ── Sources panel (top-right) — accordéon 2min/15min ───────────────────── */
     #sources {
       position:absolute; top:24px; right:24px;
-      color:#9aa0a6; font-size:11px; letter-spacing:0.03em;
-      background:rgba(250,250,250,0.06);
-      backdrop-filter:blur(16px) saturate(160%); -webkit-backdrop-filter:blur(16px) saturate(160%);
-      border:1px solid rgba(255,255,255,0.10); border-radius:10px;
+      color:#c4c7cc; font-size:11px; letter-spacing:0.03em;
+      background:linear-gradient(135deg,rgba(255,255,255,0.08) 0%,rgba(255,255,255,0.03) 100%);
+      backdrop-filter:blur(20px) saturate(180%); -webkit-backdrop-filter:blur(20px) saturate(180%);
+      border:1px solid rgba(255,255,255,0.12); border-radius:10px;
+      box-shadow:inset 0 1px 0 rgba(255,255,255,0.08),0 8px 32px rgba(0,0,0,0.24);
       overflow:hidden; min-width:130px;
     }
     #sources-summary {
@@ -86,11 +88,12 @@
       max-width:172px; /* collapsed: juste le header */
       overflow:hidden;
       transition:max-width 0.45s cubic-bezier(0.4,0,0.2,1);
-      background:rgba(250,250,250,0.06);
-      backdrop-filter:blur(16px) saturate(160%); -webkit-backdrop-filter:blur(16px) saturate(160%);
-      border:1px solid rgba(255,255,255,0.10);
+      background:linear-gradient(135deg,rgba(255,255,255,0.08) 0%,rgba(255,255,255,0.03) 100%);
+      backdrop-filter:blur(20px) saturate(180%); -webkit-backdrop-filter:blur(20px) saturate(180%);
+      border:1px solid rgba(255,255,255,0.12);
       border-left:2px solid #10A37F;
       border-radius:10px;
+      box-shadow:inset 0 1px 0 rgba(255,255,255,0.08),0 8px 32px rgba(0,0,0,0.24);
     }
     #journal.expanded { max-width:360px; }
     #journal-header {
@@ -113,13 +116,13 @@
       40% { transform:translateY(-3px); opacity:1; }
     }
     #journal-think-label {
-      font-size:11px; font-weight:500; color:#9aa0a6; letter-spacing:0.05em;
+      font-size:11px; font-weight:500; color:#c4c7cc; letter-spacing:0.05em;
       white-space:nowrap;
     }
     /* Corps caché par défaut — expand sur nouveau message journal */
     #journal-body {
       max-height:0; overflow:hidden; padding:0 14px;
-      color:#9aa0a6; font-size:11px; line-height:1.65; letter-spacing:0.02em;
+      color:#c4c7cc; font-size:11px; line-height:1.65; letter-spacing:0.02em;
       transition:max-height 0.5s ease, padding 0.4s ease;
     }
     #journal.expanded #journal-body {
@@ -167,25 +170,26 @@
     /* ── Status panel (top-left) — glassmorphism OpenAI ─────────────────────── */
     #status-panel {
       position:absolute; top:40px; left:24px;
-      background:rgba(250,250,250,0.06);
-      backdrop-filter:blur(16px) saturate(160%); -webkit-backdrop-filter:blur(16px) saturate(160%);
-      border:1px solid rgba(255,255,255,0.10); border-radius:10px;
-      padding:10px 14px; display:flex; flex-direction:column; gap:5px;
+      background:linear-gradient(135deg,rgba(255,255,255,0.08) 0%,rgba(255,255,255,0.03) 100%);
+      backdrop-filter:blur(20px) saturate(180%); -webkit-backdrop-filter:blur(20px) saturate(180%);
+      border:1px solid rgba(255,255,255,0.12); border-radius:10px;
+      box-shadow:inset 0 1px 0 rgba(255,255,255,0.08),0 8px 32px rgba(0,0,0,0.24);
+      padding:8px 12px; display:flex; flex-direction:column; gap:4px;
       min-width:130px;
     }
     #mode-indicator {
       font-family:'Inter',-apple-system,BlinkMacSystemFont,'Segoe UI',sans-serif;
       font-size:11px; font-weight:500; letter-spacing:0.12em; text-transform:uppercase;
-      color:#9aa0a6; display:flex; align-items:center; gap:6px;
+      color:#c4c7cc; display:flex; align-items:center; gap:6px;
     }
     #mode-indicator::before {
       content:''; display:inline-block; width:5px; height:5px;
       border-radius:50%; background:#10A37F; flex-shrink:0;
     }
-    #ws-status  { font-size:10px; color:#6b7280; letter-spacing:0.04em; }
+    #ws-status  { font-size:10px; color:#9aa0a6; letter-spacing:0.04em; }
     #ws-status.connected  { color:#10A37F; }
     #ws-status.restarting { color:#d97706; }
-    #chat-status { font-size:10px; color:#6b7280; letter-spacing:0.03em; }
+    #chat-status { font-size:10px; color:#9aa0a6; letter-spacing:0.03em; }
     #chat-status.live { color:#d97706; }
     #reddit-status { display:none; }
 
@@ -193,43 +197,14 @@
     #event-banner {
       position:absolute; top:24px; left:50%; transform:translateX(-50%);
       text-align:center; white-space:nowrap;
-      background:rgba(250,250,250,0.06);
-      backdrop-filter:blur(20px) saturate(160%); -webkit-backdrop-filter:blur(20px) saturate(160%);
-      border:1px solid rgba(16,163,127,0.32);
-      box-shadow:inset 0 1px 0 rgba(255,255,255,0.07), 0 8px 32px rgba(0,0,0,0.4), 0 0 0 1px rgba(16,163,127,0.08);
+      background:linear-gradient(135deg,rgba(255,255,255,0.08) 0%,rgba(255,255,255,0.03) 100%);
+      backdrop-filter:blur(20px) saturate(180%); -webkit-backdrop-filter:blur(20px) saturate(180%);
+      border:1px solid rgba(16,163,127,0.40);
+      box-shadow:inset 0 1px 0 rgba(255,255,255,0.10), 0 8px 32px rgba(0,0,0,0.36), 0 0 20px rgba(16,163,127,0.12);
       border-radius:12px; padding:12px 28px 14px;
       opacity:0; transition:opacity 1.8s ease; pointer-events:none;
       will-change:opacity;
     }
-    /* ── Restart banner — drop-in depuis le haut, accent amber ───────────────── */
-    #restart-banner {
-      position:absolute; top:24px; left:50%;
-      transform:translateX(-50%) translateY(calc(-100% - 48px));
-      transition:transform 0.65s cubic-bezier(0.22,1,0.36,1);
-      display:flex; align-items:center; gap:14px;
-      background:rgba(30,20,5,0.82);
-      backdrop-filter:blur(20px) saturate(160%); -webkit-backdrop-filter:blur(20px) saturate(160%);
-      border:1px solid rgba(217,119,6,0.45);
-      box-shadow:inset 0 1px 0 rgba(255,255,255,0.07), 0 8px 32px rgba(0,0,0,0.5), 0 0 0 1px rgba(217,119,6,0.10);
-      border-radius:12px; padding:12px 28px 14px;
-      pointer-events:none; white-space:nowrap; z-index:50;
-    }
-    #restart-banner.visible { transform:translateX(-50%) translateY(0); }
-    #restart-banner.hiding  { transition:transform 0.5s ease-in; }
-    #restart-icon {
-      font-size:22px; color:#f59e0b;
-      display:inline-block; animation:spin 1.4s linear infinite;
-    }
-    @keyframes spin { to { transform:rotate(360deg); } }
-    #restart-label-main {
-      font-size:15px; font-weight:600; color:#fef3c7; letter-spacing:0.08em;
-      text-shadow:0 0 20px rgba(245,158,11,0.5);
-    }
-    #restart-label-sub {
-      font-size:10px; font-weight:400; color:#d97706; letter-spacing:0.06em;
-      margin-top:3px; opacity:0.85;
-    }
-
     #event-label-above {
       font-size:10px; font-weight:400; color:#9aa0a6;
       letter-spacing:0.14em; text-transform:uppercase; margin-bottom:6px;
@@ -239,34 +214,78 @@
       letter-spacing:0.18em; text-transform:uppercase;
     }
 
-    /* ── Drift panel — header "signals" ─────────────────────────────────────── */
-    #drift-header {
-      display:flex; align-items:center; gap:6px;
-      font-size:10px; font-weight:500; color:#6b7280; letter-spacing:0.08em;
-      padding-bottom:8px; margin-bottom:8px;
-      border-bottom:1px solid rgba(255,255,255,0.06);
+    /* ── Viewer command — notification phone-style depuis le haut ───────────────── */
+    #mood-notif {
+      position:absolute; top:90px; left:50%;
+      transform:translateX(-50%) translateY(-200px); opacity:0;
+      transition:transform 0.55s cubic-bezier(0.22,1,0.36,1), opacity 0.38s ease;
+      background:linear-gradient(135deg,rgba(255,255,255,0.10) 0%,rgba(255,255,255,0.04) 100%);
+      backdrop-filter:blur(24px) saturate(180%); -webkit-backdrop-filter:blur(24px) saturate(180%);
+      border:1px solid rgba(255,255,255,0.16); border-top:1px solid rgba(255,255,255,0.22);
+      border-radius:14px; padding:10px 22px 12px;
+      text-align:center; pointer-events:none;
+      box-shadow:inset 0 1px 0 rgba(255,255,255,0.10), 0 16px 48px rgba(0,0,0,0.44);
+      min-width:160px; max-width:340px;
     }
-    #drift-header::before {
-      content:''; display:inline-block; width:4px; height:4px;
-      border-radius:50%; background:#74aa9c; flex-shrink:0;
+    #mood-notif.visible { transform:translateX(-50%) translateY(0); opacity:1; }
+    #mood-notif-label {
+      font-size:9px; font-weight:500; letter-spacing:0.10em; text-transform:uppercase;
+      color:#ab68ff; margin-bottom:5px;
+    }
+    #mood-notif-text {
+      font-size:13px; font-weight:500; color:#ececf1; letter-spacing:0.03em;
+      white-space:nowrap; overflow:hidden; text-overflow:ellipsis;
     }
 
-    /* ── Viewer command — glassmorphism pill ─────────────────────────────────── */
-    #viewer-cmd {
-      position:absolute; bottom:205px; left:24px;
-      font-size:11px; color:#ececf1; letter-spacing:0.03em;
-      background:rgba(250,250,250,0.06);
-      backdrop-filter:blur(16px) saturate(160%); -webkit-backdrop-filter:blur(16px) saturate(160%);
-      border:1px solid rgba(255,255,255,0.08);
-      border-radius:20px; padding:5px 12px 5px 10px;
-      display:flex; align-items:center; gap:7px;
-      opacity:0; transition:opacity 0.5s ease;
+    /* ── Restart banner — drop-in depuis le haut, accent amber ───────────────── */
+    #restart-banner {
+      position:absolute; top:24px; left:50%;
+      transform:translateX(-50%) translateY(calc(-100% - 48px));
+      transition:transform 0.65s cubic-bezier(0.22,1,0.36,1);
+      display:flex; align-items:center; gap:14px;
+      background:rgba(30,20,5,0.82);
+      backdrop-filter:blur(20px) saturate(160%); -webkit-backdrop-filter:blur(20px) saturate(160%);
+      border:1px solid rgba(217,119,6,0.45);
+      box-shadow:inset 0 1px 0 rgba(255,255,255,0.07), 0 8px 32px rgba(0,0,0,0.5);
+      border-radius:12px; padding:12px 28px 14px;
+      pointer-events:none; white-space:nowrap; z-index:50;
     }
-    #viewer-cmd::before {
-      content:''; display:inline-block; width:5px; height:5px;
-      border-radius:50%; background:#ab68ff; flex-shrink:0;
+    #restart-banner.visible { transform:translateX(-50%) translateY(0); }
+    #restart-banner.hiding  { transition:transform 0.5s ease-in; }
+    #restart-icon {
+      font-size:20px; color:#f59e0b;
+      display:inline-block; animation:spin 1.4s linear infinite;
     }
-    #viewer-cmd.active { opacity:1; }
+    @keyframes spin { to { transform:rotate(360deg); } }
+    #restart-label-main {
+      font-size:14px; font-weight:600; color:#fef3c7;
+      letter-spacing:0.08em; text-shadow:0 0 20px rgba(245,158,11,0.5);
+    }
+    #restart-label-sub {
+      font-size:10px; font-weight:400; color:#d97706;
+      letter-spacing:0.06em; margin-top:3px; opacity:0.85;
+    }
+
+    /* ── Emotion Wheel panel (bottom-left, drop-in) ──────────────────────────── */
+    #emotion-wheel {
+      position:absolute; bottom:178px; left:24px;
+      background:linear-gradient(135deg,rgba(255,255,255,0.08) 0%,rgba(255,255,255,0.03) 100%);
+      backdrop-filter:blur(20px) saturate(180%); -webkit-backdrop-filter:blur(20px) saturate(180%);
+      border:1px solid rgba(255,255,255,0.12); border-radius:10px;
+      box-shadow:inset 0 1px 0 rgba(255,255,255,0.08),0 8px 32px rgba(0,0,0,0.24);
+      padding:10px 14px 8px;
+      transform:translateX(calc(-100% - 32px));
+      opacity:0;
+      transition:transform 0.65s cubic-bezier(0.22,1,0.36,1), opacity 0.45s ease;
+      pointer-events:none;
+    }
+    #emotion-wheel.visible { transform:translateX(0); opacity:1; }
+    /* ── Drift progress bars ─────────────────────────────────────────────────── */
+    .drift-bar-row { display:flex; align-items:center; gap:8px; margin-bottom:4px; }
+    .drift-bar-label { font-size:9px; font-weight:500; letter-spacing:0.07em; text-transform:uppercase; color:#9aa0a6; min-width:36px; flex-shrink:0; }
+    .drift-bar-track { flex:1; height:2px; background:rgba(255,255,255,0.08); border-radius:2px; overflow:hidden; }
+    .drift-bar-fill { display:block; height:100%; border-radius:2px; }
+    .drift-bar-val { font-family:'JetBrains Mono',monospace; font-size:9px; min-width:26px; text-align:right; flex-shrink:0; }
 
     /* ── Mono utility — valeurs numériques JetBrains Mono ───────────────────── */
     .mono { font-family:'JetBrains Mono',monospace; }
@@ -274,29 +293,32 @@
     #fade { position:fixed; top:0; left:0; width:100%; height:100%; background:#000; pointer-events:none; opacity:0; transition:opacity 1.5s; z-index:10; }
     @keyframes blink { 50% { opacity:0; } }
 
-    /* ── OpenAI News panel (top-left, below #status-panel) ───────────────────── */
+    /* ── OpenAI News panel (top-left, drop-in from left every 5min) ─────────── */
     #news {
       position:absolute; top:130px; left:24px;
-      background:rgba(250,250,250,0.06);
-      backdrop-filter:blur(16px) saturate(160%); -webkit-backdrop-filter:blur(16px) saturate(160%);
-      border:1px solid rgba(255,255,255,0.10); border-radius:10px;
-      overflow:hidden; min-width:200px; max-width:240px;
+      background:linear-gradient(135deg,rgba(255,255,255,0.08) 0%,rgba(255,255,255,0.03) 100%);
+      backdrop-filter:blur(20px) saturate(180%); -webkit-backdrop-filter:blur(20px) saturate(180%);
+      border:1px solid rgba(255,255,255,0.12); border-radius:10px;
+      box-shadow:inset 0 1px 0 rgba(255,255,255,0.08),0 8px 32px rgba(0,0,0,0.24);
+      min-width:200px; max-width:240px;
+      transform:translateX(calc(-100% - 32px));
+      opacity:0;
+      transition:transform 0.65s cubic-bezier(0.22,1,0.36,1), opacity 0.45s ease;
+      pointer-events:none;
     }
+    #news.visible { transform:translateX(0); opacity:1; }
     #news-summary {
       display:flex; align-items:center; gap:7px;
-      padding:8px 14px; line-height:1;
-      font-size:10px; font-weight:500; color:#9aa0a6; letter-spacing:0.06em;
+      padding:8px 14px 6px; line-height:1;
+      font-size:10px; font-weight:500; color:#c4c7cc; letter-spacing:0.06em;
+      border-bottom:1px solid rgba(255,255,255,0.06);
     }
-    #news-age { color:#6b7280; font-size:9px; margin-left:auto; }
-    #news-detail {
-      max-height:0; overflow:hidden;
-      transition:max-height 0.55s ease, padding 0.45s ease;
-      padding:0 14px;
+    #news-summary::before {
+      content:''; display:inline-block; width:4px; height:4px;
+      border-radius:50%; background:#10a37f; flex-shrink:0;
     }
-    #news.expanded #news-detail {
-      max-height:400px; padding:6px 14px 10px;
-      border-top:1px solid rgba(255,255,255,0.06);
-    }
+    #news-age { color:#9aa0a6; font-size:9px; margin-left:auto; }
+    #news-detail { padding:6px 14px 10px; }
     .news-item {
       display:flex; gap:8px; align-items:flex-start;
       padding:5px 0; border-bottom:1px solid rgba(255,255,255,0.04);
@@ -311,7 +333,7 @@
       font-size:10px; color:#ececf1; line-height:1.4;
       white-space:nowrap; overflow:hidden; text-overflow:ellipsis;
     }
-    .news-date { font-size:9px; color:#6b7280; margin-top:2px; }
+    .news-date { font-size:9px; color:#9aa0a6; margin-top:2px; }
   </style>
 </head>
 <body>
@@ -320,29 +342,32 @@
 <div id="hud">
   <div id="on-air"><div id="on-air-dot"></div><span id="on-air-label">ON AIR</span><span id="on-air-uptime"></span></div>
   <div id="status-panel">
-    <div id="mode-indicator">neural</div>
+    <div id="mode-indicator">chaos</div>
     <div id="ws-status"></div>
     <div id="chat-status"></div>
     <div id="reddit-status"></div>
   </div>
   <div id="news">
     <div id="news-summary">
-      <span class="status-dot dot-ok"></span>
       <span>OpenAI Latest News</span>
       <span id="news-age"></span>
     </div>
     <div id="news-detail"></div>
   </div>
   <div id="event-banner"><div id="event-label-above">Today we celebrate</div><div id="event-label-main"></div></div>
-  <div id="restart-banner">
-    <div id="restart-icon">⟳</div>
-    <div><div id="restart-label-main">Updating stream</div><div id="restart-label-sub">Back in a few seconds…</div></div>
-  </div>
-  <div id="drift"><div id="drift-header">signals</div><div id="drift-track" style="display:none"><div id="drift-track-name"></div><div id="track-progress-wrap"><div id="track-progress-bar"></div></div></div><div id="drift-signals"></div></div>
-  <div id="viewer-cmd"></div>
+  <div id="emotion-wheel"><svg id="emotion-wheel-svg" width="160" height="160" viewBox="0 0 160 160"></svg></div>
+  <div id="drift"><div id="drift-track" style="display:none"><div id="drift-track-name"></div><div id="track-progress-wrap"><div id="track-progress-bar"></div></div></div><div id="drift-signals"></div></div>
+  <div id="mood-notif"><div id="mood-notif-label">viewer command</div><div id="mood-notif-text"></div></div>
+  <div id="restart-banner"><div id="restart-icon">⟳</div><div><div id="restart-label-main">Upgrading…</div><div id="restart-label-sub">Back in a few seconds</div></div></div>
   <div id="sources"><div id="sources-summary"><span id="sources-count"></span><span id="sources-dot" class="status-dot"></span></div><div id="sources-detail"></div></div>
   <div id="journal"><div id="journal-header"><div class="think-dots"><span></span><span></span><span></span></div><span id="journal-think-label">thinking</span></div><div id="journal-body"></div></div>
 </div>
+
+<!-- Hidden SVG for LogoMode fill-sampling — must be in DOM at load -->
+<svg id="_logo-hidden-svg" viewBox="0 0 24 24" xmlns="http://www.w3.org/2000/svg"
+     style="position:absolute;opacity:0;pointer-events:none;width:1px;height:1px">
+  <path id="_logo-hidden-path" d="M22.2819 9.8211a5.9847 5.9847 0 0 0-.5157-4.9108 6.0462 6.0462 0 0 0-6.5098-2.9A6.0651 6.0651 0 0 0 4.9807 4.1818a5.9847 5.9847 0 0 0-3.9977 2.9 6.0462 6.0462 0 0 0 .7427 7.0966 5.98 5.98 0 0 0 .511 4.9107 6.051 6.051 0 0 0 6.5146 2.9001A5.9847 5.9847 0 0 0 13.2599 24a6.0557 6.0557 0 0 0 5.7718-4.2058 5.9894 5.9894 0 0 0 3.9977-2.9001 6.0557 6.0557 0 0 0-.7475-7.0729zm-9.022 12.6081a4.4755 4.4755 0 0 1-2.8764-1.0408l.1419-.0804 4.7783-2.7582a.7948.7948 0 0 0 .3927-.6813v-6.7369l2.02 1.1686a.071.071 0 0 1 .038.052v5.5826a4.504 4.504 0 0 1-4.4945 4.4944zm-9.6607-4.1254a4.4708 4.4708 0 0 1-.5346-3.0137l.142.0852 4.783 2.7582a.7712.7712 0 0 0 .7806 0l5.8428-3.3685v2.3324a.0804.0804 0 0 1-.0332.0615L9.74 19.9502a4.4992 4.4992 0 0 1-6.1408-1.6464zM2.3408 7.8956a4.485 4.485 0 0 1 2.3655-1.9728V11.6a.7664.7664 0 0 0 .3879.6765l5.8144 3.3543-2.0201 1.1685a.0757.0757 0 0 1-.071 0l-4.8303-2.7865A4.504 4.504 0 0 1 2.3408 7.872zm16.5963 3.8558L13.1038 8.364 15.1192 7.2a.0757.0757 0 0 1 .071 0l4.8303 2.7913a4.4944 4.4944 0 0 1-.6765 8.1042v-5.6772a.79.79 0 0 0-.407-.667zm2.0107-3.0231l-.142-.0852-4.7735-2.7818a.7759.7759 0 0 0-.7854 0L9.409 9.2297V6.8974a.0662.0662 0 0 1 .0284-.0615l4.8303-2.7866a4.4992 4.4992 0 0 1 6.6802 4.66zM8.3065 12.863l-2.02-1.1638a.0804.0804 0 0 1-.038-.0567V6.0742a4.4992 4.4992 0 0 1 7.3757-3.4537l-.142.0805L8.704 5.459a.7948.7948 0 0 0-.3927.6813zm1.0976-2.3654l2.602-1.4998 2.6069 1.4998v2.9994l-2.5974 1.4997-2.6067-1.4997Z"/>
+</svg>
 
 <script type="importmap">
   {"imports":{
@@ -381,352 +406,6 @@ const _NN_TERRITORY_COLORS = {
   melancholic: new THREE.Color(0x4A6FA5), // bleu-gris
   wonder:      new THREE.Color(0xFFF0CC), // blanc chaud
 };
-
-
-// ── Mode CHAOS ────────────────────────────────────────────────────────────────
-// Métamorphose de particules entre 4 attracteurs chaotiques.
-// La transition n'est déclenchée que par un changement de signal — jamais par timer.
-// Math.random() utilisé uniquement à l'initialisation des particules.
-
-class ChaosMode {
-  constructor() {
-    this._cam = null; this._controls = null;
-    this._particles = null; this._sparkles = null; this._starField = null;
-    this._clock = new THREE.Clock();
-    this.targetAttractor = 0;
-    this.lastEvalTime = 0;
-    this.morphProgress = 0;
-    this.morphing = false;
-    this._fromPts = null;
-    this._toPts = null;
-  }
-
-  _normalise(points, size) {
-    if (points.length === 0) return [];
-    const box = new THREE.Box3().setFromPoints(points);
-    const dim = box.getSize(new THREE.Vector3());
-    const maxDim = Math.max(dim.x, dim.y, dim.z) || 1;
-    const centre = box.getCenter(new THREE.Vector3());
-    return points.map(p => p.clone().sub(centre).multiplyScalar(size / maxDim));
-  }
-
-  _torusKnot(n) {
-    const geo = new THREE.TorusKnotGeometry(10, 3, 200, 16, 2, 3);
-    const pts = [];
-    const pa = geo.attributes.position;
-    for (let i = 0; i < pa.count; i++) pts.push(new THREE.Vector3().fromBufferAttribute(pa, i));
-    geo.dispose();
-    const result = [];
-    for (let i = 0; i < n; i++) result.push(pts[i % pts.length].clone());
-    return this._normalise(result, 50);
-  }
-
-  _halvorsen(n) {
-    const pts = []; let x = 0.1, y = 0, z = 0; const a = 1.89, dt = 0.005;
-    for (let i = 0; i < n * 25; i++) {
-      const dx = -a * x - 4 * y - 4 * z - y * y;
-      const dy = -a * y - 4 * z - 4 * x - z * z;
-      const dz = -a * z - 4 * x - 4 * y - x * x;
-      x += dx * dt; y += dy * dt; z += dz * dt;
-      if (i > 200 && i % 25 === 0) pts.push(new THREE.Vector3(x, y, z));
-      if (pts.length >= n) break;
-    }
-    while (pts.length < n) pts.push(pts[pts.length - 1].clone());
-    return this._normalise(pts, 60);
-  }
-
-  _dualHelix(n) {
-    const pts = []; const turns = 5, radius = 15, height = 40;
-    for (let i = 0; i < n; i++) {
-      const isSecond = i % 2 === 0;
-      const angle = (i / n) * Math.PI * 2 * turns;
-      const y = (i / n) * height - height / 2;
-      const r = radius + (isSecond ? 5 : -5);
-      pts.push(new THREE.Vector3(Math.cos(angle) * r, y, Math.sin(angle) * r));
-    }
-    return this._normalise(pts, 60);
-  }
-
-  _deJong(n) {
-    const pts = []; let x = 0.1, y = 0.1;
-    const a = 1.4, b = -2.3, c = 2.4, d = -2.1;
-    for (let i = 0; i < n; i++) {
-      const xn = Math.sin(a * y) - Math.cos(b * x);
-      const yn = Math.sin(c * x) - Math.cos(d * y);
-      x = xn; y = yn;
-      pts.push(new THREE.Vector3(x, y, Math.sin(x * y * 0.5)));
-    }
-    return this._normalise(pts, 55);
-  }
-
-  _getPattern(idx, n) {
-    if (idx === 0) return this._torusKnot(n);
-    if (idx === 1) return this._halvorsen(n);
-    if (idx === 2) return this._dualHelix(n);
-    return this._deJong(n);
-  }
-
-  _applyPattern(pts) {
-    const COUNT = 2000;
-    const arr = this._particles.geometry.attributes.position.array;
-    for (let i = 0; i < COUNT; i++) {
-      const idx = i * 3, p = pts[i] || new THREE.Vector3();
-      arr[idx] = p.x; arr[idx + 1] = p.y; arr[idx + 2] = p.z;
-    }
-    this._particles.geometry.attributes.position.needsUpdate = true;
-  }
-
-  _computeTargetAttractor(state) {
-    const territory = state.drift_territory ?? 0;
-    const predErrors = state.prediction_errors ?? {};
-    const sigVols = state.signal_volatilities ?? {};
-    const maxPredError = Math.max(0, ...Object.values(predErrors).map(Number).filter(isFinite));
-    const maxVolatility = Math.max(0, ...Object.values(sigVols).map(Number).filter(isFinite));
-
-    if (maxVolatility > 0.3 && maxVolatility >= maxPredError) return 1; // halvorsen
-    if (territory >= 0.5 && territory < 0.75) return 2;                 // dualHelix
-    if (maxPredError > 0.3) return 3;                                    // deJong
-    return 0;                                                            // torusKnot (rest/fallback)
-  }
-
-  _makeParticles(count) {
-    const geo = new THREE.BufferGeometry();
-    const pos = new Float32Array(count * 3);
-    const col = new Float32Array(count * 3);
-    const size = new Float32Array(count);
-    const rnd = new Float32Array(count * 3);
-    const palette = [0xff3c78, 0xff8c00, 0xfff200, 0x00cfff, 0xb400ff, 0xffffff, 0xff4040].map(c => new THREE.Color(c));
-    // Math.random() only at initialization — not in animation loop
-    for (let i = 0; i < count; i++) {
-      const base = palette[Math.floor(Math.random() * palette.length)];
-      const hsl = { h: 0, s: 0, l: 0 };
-      base.getHSL(hsl);
-      hsl.h += (Math.random() - 0.5) * 0.05;
-      hsl.s = Math.min(1, Math.max(0.7, hsl.s + (Math.random() - 0.5) * 0.3));
-      hsl.l = Math.min(0.9, Math.max(0.5, hsl.l + (Math.random() - 0.5) * 0.4));
-      const c = new THREE.Color().setHSL(hsl.h, hsl.s, hsl.l);
-      col[i * 3] = c.r; col[i * 3 + 1] = c.g; col[i * 3 + 2] = c.b;
-      size[i] = 0.7 + Math.random() * 1.1;
-      rnd[i * 3] = Math.random() * 10;
-      rnd[i * 3 + 1] = Math.random() * Math.PI * 2;
-      rnd[i * 3 + 2] = 0.5 + 0.5 * Math.random();
-    }
-    geo.setAttribute('position', new THREE.BufferAttribute(pos, 3));
-    geo.setAttribute('color', new THREE.BufferAttribute(col, 3));
-    geo.setAttribute('size', new THREE.BufferAttribute(size, 1));
-    geo.setAttribute('random', new THREE.BufferAttribute(rnd, 3));
-
-    // Particle vertex shader: positional turbulence uses pre-seeded random attributes,
-    // NOT Math.random() in the loop. The turbulence amplitude is bounded and non-fake
-    // because it only adds micro-variation to data-set positions (attractor shape is data-driven).
-    const mat = new THREE.ShaderMaterial({
-      uniforms: {
-        time:         { value: 0 },
-        uWonder:      { value: 0 },
-        uAnomalyScore:{ value: 0 },
-        uCrisisLevel: { value: 0 },
-        uMelancholy:  { value: 0 },
-        uDriftEnergy: { value: 0 },
-        uExcitement:  { value: 0 },
-        uUrgency:     { value: 0 },
-        uBPMRate:     { value: 1.0 },
-      },
-      vertexShader: `
-uniform float time;
-uniform float uAnomalyScore;
-uniform float uDriftEnergy;
-uniform float uExcitement;
-uniform float uUrgency;
-uniform float uBPMRate;
-attribute float size;
-attribute vec3 random;
-varying vec3 vCol;
-varying float vR;
-void main(){
-  vCol = color; vR = random.z;
-  vec3 p = position;
-  // Speed modulated by excitement — base 0.15 est le floor anti-dead-screen
-  float speed = 0.15 * (1.0 + uExcitement * 2.2);
-  float tx = time * speed * random.z;
-  float ax = tx + random.y, ay = tx * 0.75 + random.x;
-  // floor 1.5% du range — anti-dead-screen sur forme attractor data-driven
-  float amp = (0.015 + uAnomalyScore * 0.30 + uUrgency * 0.22) * random.z;
-  p.x += sin(ax + p.y * 0.04 + random.x * 0.1) * amp;
-  p.y += cos(ay + p.z * 0.04 + random.y * 0.1) * amp;
-  p.z += sin(ax * 0.85 + p.x * 0.04 + random.z * 0.1) * amp;
-  vec4 mv = modelViewMatrix * vec4(p, 1.0);
-  // BPM size pulse par particule — porteur conditionnel: zéro si excitement = 0
-  float bpmPulse = sin(time * uBPMRate * 1.8 + random.y * 6.2832) * max(0.0, uExcitement - 0.08) * 0.65;
-  gl_PointSize = size * (350.0 / -mv.z) * (1.25 + uDriftEnergy * 0.40 + bpmPulse);
-  gl_Position = projectionMatrix * mv;
-}`,
-      fragmentShader: `
-uniform float time;
-uniform float uWonder;
-uniform float uCrisisLevel;
-uniform float uMelancholy;
-uniform float uExcitement;
-uniform float uUrgency;
-varying vec3 vCol;
-varying float vR;
-vec3 hueShift(vec3 c, float h){
-  const vec3 k = vec3(0.57735);
-  float ca = cos(h), sa = sin(h);
-  return c * ca + cross(k, c) * sa + k * dot(k, c) * (1.0 - ca);
-}
-void main(){
-  vec2 uv = gl_PointCoord - 0.5;
-  float d = length(uv);
-  // Glow radius se resserre avec excitement → apparence plus lumineuse
-  float glowR = 0.40 - uExcitement * 0.12;
-  float glow = smoothstep(glowR, 0.08, d);
-  float core = smoothstep(0.05, 0.0, d);
-  // Urgency spark sur particules "rapides" (vR > 0.72) — porteur conditionnel
-  float spark = step(0.72, vR) * smoothstep(0.08, 0.0, d) * uUrgency * 1.10;
-  float alpha = core + glow * (0.58 + uExcitement * 0.32) + spark;
-  if(alpha < 0.01) discard;
-  vec3 col = mix(hueShift(vCol, time * 0.06 * uWonder), vec3(1.0), core);
-  // Excitement : brightening vers blanc — porteur conditionnel
-  col = mix(col, vec3(1.0), uExcitement * 0.25 * core);
-  // Urgency spark : teinte dorée — porteur conditionnel
-  col = mix(col, vec3(1.0, 0.85, 0.3), spark * 0.80);
-  // Crisis : tinte rouge — porteur conditionnel
-  col = mix(col, vec3(1.0,0.15,0.1), uCrisisLevel * 0.45);
-  // Melancholy : désaturation — porteur conditionnel
-  float luma = dot(col, vec3(0.299,0.587,0.114));
-  col = mix(col, vec3(luma), uMelancholy * 0.55);
-  gl_FragColor = vec4(col, alpha);
-}`,
-      transparent: true, depthWrite: false, vertexColors: true, blending: THREE.AdditiveBlending
-    });
-    return new THREE.Points(geo, mat);
-  }
-
-  _makeStars(count) {
-    const geo = new THREE.BufferGeometry();
-    const pos = new Float32Array(count * 3);
-    for (let i = 0; i < count; i++) {
-      const theta = Math.random() * 2 * Math.PI;
-      const phi = Math.acos(2 * Math.random() - 1);
-      const r = 400 + Math.random() * 500;
-      pos[i * 3] = r * Math.sin(phi) * Math.cos(theta);
-      pos[i * 3 + 1] = r * Math.sin(phi) * Math.sin(theta);
-      pos[i * 3 + 2] = r * Math.cos(phi);
-    }
-    geo.setAttribute('position', new THREE.BufferAttribute(pos, 3));
-    return new THREE.Points(geo, new THREE.PointsMaterial({ color: 0xffffff, size: 0.5, depthWrite: false, transparent: true, opacity: 0.6 }));
-  }
-
-  init(sc, cam) {
-    this._cam = new THREE.PerspectiveCamera(60, innerWidth / innerHeight, 0.1, 2500);
-    this._cam.position.set(0, 0, 55);
-
-    this._controls = new OrbitControls(this._cam, renderer.domElement);
-    Object.assign(this._controls, {
-      enableDamping: true, dampingFactor: 0.05,
-      minDistance: 15, maxDistance: 120,
-      autoRotate: true, autoRotateSpeed: 0.3
-    });
-
-    this._starField = this._makeStars(600);
-    sc.add(this._starField);
-
-    this._particles = this._makeParticles(2000);
-    sc.add(this._particles);
-
-    // Set initial pattern (torusKnot)
-    const initPts = this._getPattern(0, 2000);
-    this._applyPattern(initPts);
-    this._fromPts = this._particles.geometry.attributes.position.array.slice();
-    this._clock.start();
-
-  }
-
-  update(state, dt) {
-    const now = this._clock.getElapsedTime();
-    const burst = state.world_event_burst ?? 0;
-
-    // Re-evaluate attractor every 30s or on burst spike
-    if (now - this.lastEvalTime > 30 || burst > 0.1) {
-      const newTarget = this._computeTargetAttractor(state);
-      if (newTarget !== this.targetAttractor && !this.morphing) {
-        // Store current positions as from-points
-        this._fromPts = this._particles.geometry.attributes.position.array.slice();
-        // Compute destination
-        const pts = this._getPattern(newTarget, 2000);
-        this._toPts = new Float32Array(2000 * 3);
-        for (let i = 0; i < 2000; i++) {
-          const p = pts[i] || new THREE.Vector3();
-          this._toPts[i * 3] = p.x; this._toPts[i * 3 + 1] = p.y; this._toPts[i * 3 + 2] = p.z;
-        }
-        this.targetAttractor = newTarget;
-        this.morphing = true;
-        this.morphProgress = 0;
-      }
-      this.lastEvalTime = now;
-    }
-
-    // Advance morph — speed gated by burst signal
-    if (this.morphing && this._fromPts && this._toPts) {
-      const speed = 0.3 + burst * 2.0;
-      this.morphProgress += speed * (dt || 0.016);
-      if (this.morphProgress >= 1) { this.morphProgress = 1; this.morphing = false; }
-      const eased = 1 - Math.pow(1 - Math.min(this.morphProgress, 1), 3);
-      const arr = this._particles.geometry.attributes.position.array;
-      for (let i = 0; i < arr.length; i++) {
-        arr[i] = this._fromPts[i] + (this._toPts[i] - this._fromPts[i]) * eased;
-      }
-      this._particles.geometry.attributes.position.needsUpdate = true;
-    }
-
-    // Update time and signal-gated uniforms
-    const t = this._clock.getElapsedTime();
-    if (this._particles) {
-      const mat = this._particles.material;
-      mat.uniforms.time.value          = t;
-      mat.uniforms.uWonder.value       = Math.max(0, Math.min(1, state.wonder        || 0));
-      mat.uniforms.uAnomalyScore.value = Math.max(0, Math.min(1, state.anomaly_score || 0));
-      mat.uniforms.uCrisisLevel.value  = Math.max(0, Math.min(1, state.crisis_level  || 0));
-      mat.uniforms.uMelancholy.value   = Math.max(0, Math.min(1, state.melancholy    || 0));
-      mat.uniforms.uDriftEnergy.value  = Math.max(0, Math.min(1, state.drift_energy  || 0));
-      mat.uniforms.uExcitement.value   = Math.max(0, Math.min(1, state.excitement   || 0));
-      mat.uniforms.uUrgency.value      = Math.max(0, Math.min(1, state.urgency      || 0));
-      mat.uniforms.uBPMRate.value      = ((state.drift_bpm || 90) / 90);
-    }
-
-    // Vitesse rotation : excitement booste jusqu'à ×6 — porteur conditionnel
-    if (this._controls) {
-      this._controls.autoRotateSpeed = 0.3 + (Math.max(0, Math.min(1, state.excitement || 0))) * 1.5;
-    }
-
-    // Background: dark
-    scene.background = new THREE.Color(0, 0, 0);
-
-    if (this._controls) this._controls.update();
-    renderer.render(scene, this._cam);
-    return true;
-  }
-
-  dispose(sc) {
-    if (this._particles) { sc.remove(this._particles); this._particles.geometry.dispose(); this._particles.material.dispose(); this._particles = null; }
-    if (this._starField) { sc.remove(this._starField); this._starField.geometry.dispose(); this._starField = null; }
-    if (this._controls) { this._controls.dispose(); this._controls = null; }
-    this._fromPts = null; this._toPts = null;
-    scene.background = new THREE.Color(0x000000);
-  }
-}
-
-// ── Helper : territoire string → fraction 0-1 ─────────────────────────────────
-// Ordre croissant : calme/ambient → intense/noise.  Utilisé par SynapseMode.
-const _TERRITORY_LIST = [
-  'ambient','lo-fi','minimalist','blues','jazz','neoclassical',
-  'cinematic','electronic','drone','psych','experimental',
-  'techno','darkwave','industrial','noise'
-];
-function _terr2frac(t) {
-  const i = _TERRITORY_LIST.indexOf(String(t));
-  return i >= 0 ? i / (_TERRITORY_LIST.length - 1) : 0;
-}
 
 
 // ── Mode SYNAPSE ──────────────────────────────────────────────────────────────
@@ -800,7 +479,7 @@ void main(){
   // Flash ring — anneau lumineux à la réception d'un signal (porteur conditionnel: vFlash)
   float flashRing = smoothstep(0.70, 0.76, d) * smoothstep(0.93, 0.80, d) * vFlash;
   col = mix(col, vec3(0.25, 0.90, 0.65), flashRing * 0.88); // ring vert OpenAI
-  // base floor 55% au centre — aligne avec NexusMode scene 5 (user request)
+  // base floor 55% au centre — évite sprite invisible quand signaux à zéro
   float alpha  = disc  * (0.55 + vActivity * 0.35 + vFlash * 0.30)
                + spec  * (vActivity * 0.28 + vFlash * 0.20)
                + glow  * (vActivity * 0.18 + vFlash * 0.32)
@@ -1411,7 +1090,7 @@ class SynapseMode {
     const burstSignal = state.world_event_burst ?? 0;
     const predErrors = state.prediction_errors ?? {};
     const sigVols = state.signal_volatilities ?? {};
-    // Normaliser comme NeuralMode (PE/σ, borné [0,1]) — les valeurs brutes (ex: cpu_percent error=15)
+    // Normaliser PE/σ, borné [0,1] — les valeurs brutes (ex: cpu_percent error=15)
     // rendaient targetNodeScale > 9, créant des sprites de 300px+ qui saturaient l'AdditiveBlending
     const normPEList = Object.keys(predErrors).map(k => {
       const err = Math.abs(Number(predErrors[k]) || 0);
@@ -1599,11 +1278,577 @@ class SynapseMode {
   }
 }
 
+// ── Mode CHAOS ────────────────────────────────────────────────────────────────
+// Métamorphose de particules entre 4 attracteurs chaotiques.
+// La transition n'est déclenchée que par un changement de signal — jamais par timer.
+// Math.random() utilisé uniquement à l'initialisation des particules.
+
+class ChaosMode {
+  constructor() {
+    this._cam = null; this._controls = null;
+    this._particles = null; this._sparkles = null; this._starField = null;
+    this._clock = new THREE.Clock();
+    this.targetAttractor = 0;
+    this.lastEvalTime = 0;
+    this.morphProgress = 0;
+    this.morphing = false;
+    this._fromPts = null;
+    this._toPts = null;
+  }
+
+  _normalise(points, size) {
+    if (points.length === 0) return [];
+    const box = new THREE.Box3().setFromPoints(points);
+    const dim = box.getSize(new THREE.Vector3());
+    const maxDim = Math.max(dim.x, dim.y, dim.z) || 1;
+    const centre = box.getCenter(new THREE.Vector3());
+    return points.map(p => p.clone().sub(centre).multiplyScalar(size / maxDim));
+  }
+
+  _torusKnot(n) {
+    const geo = new THREE.TorusKnotGeometry(10, 3, 200, 16, 2, 3);
+    const pts = [];
+    const pa = geo.attributes.position;
+    for (let i = 0; i < pa.count; i++) pts.push(new THREE.Vector3().fromBufferAttribute(pa, i));
+    geo.dispose();
+    const result = [];
+    for (let i = 0; i < n; i++) result.push(pts[i % pts.length].clone());
+    return this._normalise(result, 50);
+  }
+
+  _halvorsen(n) {
+    const pts = []; let x = 0.1, y = 0, z = 0; const a = 1.89, dt = 0.005;
+    for (let i = 0; i < n * 25; i++) {
+      const dx = -a * x - 4 * y - 4 * z - y * y;
+      const dy = -a * y - 4 * z - 4 * x - z * z;
+      const dz = -a * z - 4 * x - 4 * y - x * x;
+      x += dx * dt; y += dy * dt; z += dz * dt;
+      if (i > 200 && i % 25 === 0) pts.push(new THREE.Vector3(x, y, z));
+      if (pts.length >= n) break;
+    }
+    while (pts.length < n) pts.push(pts[pts.length - 1].clone());
+    return this._normalise(pts, 60);
+  }
+
+  _dualHelix(n) {
+    const pts = []; const turns = 5, radius = 15, height = 40;
+    for (let i = 0; i < n; i++) {
+      const isSecond = i % 2 === 0;
+      const angle = (i / n) * Math.PI * 2 * turns;
+      const y = (i / n) * height - height / 2;
+      const r = radius + (isSecond ? 5 : -5);
+      pts.push(new THREE.Vector3(Math.cos(angle) * r, y, Math.sin(angle) * r));
+    }
+    return this._normalise(pts, 60);
+  }
+
+  _deJong(n) {
+    const pts = []; let x = 0.1, y = 0.1;
+    const a = 1.4, b = -2.3, c = 2.4, d = -2.1;
+    for (let i = 0; i < n; i++) {
+      const xn = Math.sin(a * y) - Math.cos(b * x);
+      const yn = Math.sin(c * x) - Math.cos(d * y);
+      x = xn; y = yn;
+      pts.push(new THREE.Vector3(x, y, Math.sin(x * y * 0.5)));
+    }
+    return this._normalise(pts, 55);
+  }
+
+  _getPattern(idx, n) {
+    if (idx === 0) return this._torusKnot(n);
+    if (idx === 1) return this._halvorsen(n);
+    if (idx === 2) return this._dualHelix(n);
+    return this._deJong(n);
+  }
+
+  _applyPattern(pts) {
+    const COUNT = 2000;
+    const arr = this._particles.geometry.attributes.position.array;
+    for (let i = 0; i < COUNT; i++) {
+      const idx = i * 3, p = pts[i] || new THREE.Vector3();
+      arr[idx] = p.x; arr[idx + 1] = p.y; arr[idx + 2] = p.z;
+    }
+    this._particles.geometry.attributes.position.needsUpdate = true;
+  }
+
+  _computeTargetAttractor(state) {
+    const territory = state.drift_territory ?? 0;
+    const predErrors = state.prediction_errors ?? {};
+    const sigVols = state.signal_volatilities ?? {};
+    const maxPredError = Math.max(0, ...Object.values(predErrors).map(Number).filter(isFinite));
+    const maxVolatility = Math.max(0, ...Object.values(sigVols).map(Number).filter(isFinite));
+
+    if (maxVolatility > 0.3 && maxVolatility >= maxPredError) return 1; // halvorsen
+    if (territory >= 0.5 && territory < 0.75) return 2;                 // dualHelix
+    if (maxPredError > 0.3) return 3;                                    // deJong
+    return 0;                                                            // torusKnot (rest/fallback)
+  }
+
+  _makeParticles(count) {
+    const geo = new THREE.BufferGeometry();
+    const pos = new Float32Array(count * 3);
+    const col = new Float32Array(count * 3);
+    const size = new Float32Array(count);
+    const rnd = new Float32Array(count * 3);
+    const palette = [0xff3c78, 0xff8c00, 0xfff200, 0x00cfff, 0xb400ff, 0xffffff, 0xff4040].map(c => new THREE.Color(c));
+    // Math.random() only at initialization — not in animation loop
+    for (let i = 0; i < count; i++) {
+      const base = palette[Math.floor(Math.random() * palette.length)];
+      const hsl = { h: 0, s: 0, l: 0 };
+      base.getHSL(hsl);
+      hsl.h += (Math.random() - 0.5) * 0.05;
+      hsl.s = Math.min(1, Math.max(0.7, hsl.s + (Math.random() - 0.5) * 0.3));
+      hsl.l = Math.min(0.9, Math.max(0.5, hsl.l + (Math.random() - 0.5) * 0.4));
+      const c = new THREE.Color().setHSL(hsl.h, hsl.s, hsl.l);
+      col[i * 3] = c.r; col[i * 3 + 1] = c.g; col[i * 3 + 2] = c.b;
+      size[i] = 0.7 + Math.random() * 1.1;
+      rnd[i * 3] = Math.random() * 10;
+      rnd[i * 3 + 1] = Math.random() * Math.PI * 2;
+      rnd[i * 3 + 2] = 0.5 + 0.5 * Math.random();
+    }
+    geo.setAttribute('position', new THREE.BufferAttribute(pos, 3));
+    geo.setAttribute('color', new THREE.BufferAttribute(col, 3));
+    geo.setAttribute('size', new THREE.BufferAttribute(size, 1));
+    geo.setAttribute('random', new THREE.BufferAttribute(rnd, 3));
+
+    // Particle vertex shader: positional turbulence uses pre-seeded random attributes,
+    // NOT Math.random() in the loop. The turbulence amplitude is bounded and non-fake
+    // because it only adds micro-variation to data-set positions (attractor shape is data-driven).
+    const mat = new THREE.ShaderMaterial({
+      uniforms: {
+        time:         { value: 0 },
+        uWonder:      { value: 0 },
+        uAnomalyScore:{ value: 0 },
+        uCrisisLevel: { value: 0 },
+        uMelancholy:  { value: 0 },
+        uDriftEnergy: { value: 0 },
+        uExcitement:  { value: 0 },
+        uUrgency:     { value: 0 },
+        uBPMRate:     { value: 1.0 },
+      },
+      vertexShader: `
+uniform float time;
+uniform float uAnomalyScore;
+uniform float uDriftEnergy;
+uniform float uExcitement;
+uniform float uUrgency;
+uniform float uBPMRate;
+attribute float size;
+attribute vec3 random;
+varying vec3 vCol;
+varying float vR;
+void main(){
+  vCol = color; vR = random.z;
+  vec3 p = position;
+  // Speed modulated by excitement — base 0.15 est le floor anti-dead-screen
+  float speed = 0.15 * (1.0 + uExcitement * 2.2);
+  float tx = time * speed * random.z;
+  float ax = tx + random.y, ay = tx * 0.75 + random.x;
+  // floor 1.5% du range — anti-dead-screen sur forme attractor data-driven
+  float amp = (0.015 + uAnomalyScore * 0.30 + uUrgency * 0.22) * random.z;
+  p.x += sin(ax + p.y * 0.04 + random.x * 0.1) * amp;
+  p.y += cos(ay + p.z * 0.04 + random.y * 0.1) * amp;
+  p.z += sin(ax * 0.85 + p.x * 0.04 + random.z * 0.1) * amp;
+  vec4 mv = modelViewMatrix * vec4(p, 1.0);
+  // BPM size pulse par particule — porteur conditionnel: zéro si excitement = 0
+  float bpmPulse = sin(time * uBPMRate * 1.8 + random.y * 6.2832) * max(0.0, uExcitement - 0.08) * 0.65;
+  gl_PointSize = size * (350.0 / -mv.z) * (1.25 + uDriftEnergy * 0.40 + bpmPulse);
+  gl_Position = projectionMatrix * mv;
+}`,
+      fragmentShader: `
+uniform float time;
+uniform float uWonder;
+uniform float uCrisisLevel;
+uniform float uMelancholy;
+uniform float uExcitement;
+uniform float uUrgency;
+varying vec3 vCol;
+varying float vR;
+vec3 hueShift(vec3 c, float h){
+  const vec3 k = vec3(0.57735);
+  float ca = cos(h), sa = sin(h);
+  return c * ca + cross(k, c) * sa + k * dot(k, c) * (1.0 - ca);
+}
+void main(){
+  vec2 uv = gl_PointCoord - 0.5;
+  float d = length(uv);
+  // Glow radius se resserre avec excitement → apparence plus lumineuse
+  float glowR = 0.40 - uExcitement * 0.12;
+  float glow = smoothstep(glowR, 0.08, d);
+  float core = smoothstep(0.05, 0.0, d);
+  // Urgency spark sur particules "rapides" (vR > 0.72) — porteur conditionnel
+  float spark = step(0.72, vR) * smoothstep(0.08, 0.0, d) * uUrgency * 1.10;
+  float alpha = core + glow * (0.58 + uExcitement * 0.32) + spark;
+  if(alpha < 0.01) discard;
+  vec3 col = mix(hueShift(vCol, time * 0.06 * uWonder), vec3(1.0), core);
+  // Excitement : brightening vers blanc — porteur conditionnel
+  col = mix(col, vec3(1.0), uExcitement * 0.25 * core);
+  // Urgency spark : teinte dorée — porteur conditionnel
+  col = mix(col, vec3(1.0, 0.85, 0.3), spark * 0.80);
+  // Crisis : tinte rouge — porteur conditionnel
+  col = mix(col, vec3(1.0,0.15,0.1), uCrisisLevel * 0.45);
+  // Melancholy : désaturation — porteur conditionnel
+  float luma = dot(col, vec3(0.299,0.587,0.114));
+  col = mix(col, vec3(luma), uMelancholy * 0.55);
+  gl_FragColor = vec4(col, alpha);
+}`,
+      transparent: true, depthWrite: false, vertexColors: true, blending: THREE.AdditiveBlending
+    });
+    return new THREE.Points(geo, mat);
+  }
+
+  _makeStars(count) {
+    const geo = new THREE.BufferGeometry();
+    const pos = new Float32Array(count * 3);
+    for (let i = 0; i < count; i++) {
+      const theta = Math.random() * 2 * Math.PI;
+      const phi = Math.acos(2 * Math.random() - 1);
+      const r = 400 + Math.random() * 500;
+      pos[i * 3] = r * Math.sin(phi) * Math.cos(theta);
+      pos[i * 3 + 1] = r * Math.sin(phi) * Math.sin(theta);
+      pos[i * 3 + 2] = r * Math.cos(phi);
+    }
+    geo.setAttribute('position', new THREE.BufferAttribute(pos, 3));
+    return new THREE.Points(geo, new THREE.PointsMaterial({ color: 0xffffff, size: 0.5, depthWrite: false, transparent: true, opacity: 0.6 }));
+  }
+
+  init(sc, cam) {
+    this._cam = new THREE.PerspectiveCamera(60, innerWidth / innerHeight, 0.1, 2500);
+    this._cam.position.set(0, 0, 55);
+
+    this._controls = new OrbitControls(this._cam, renderer.domElement);
+    Object.assign(this._controls, {
+      enableDamping: true, dampingFactor: 0.05,
+      minDistance: 15, maxDistance: 120,
+      autoRotate: true, autoRotateSpeed: 0.3
+    });
+
+    this._starField = this._makeStars(600);
+    sc.add(this._starField);
+
+    this._particles = this._makeParticles(2000);
+    sc.add(this._particles);
+
+    // Set initial pattern (torusKnot)
+    const initPts = this._getPattern(0, 2000);
+    this._applyPattern(initPts);
+    this._fromPts = this._particles.geometry.attributes.position.array.slice();
+    this._clock.start();
+
+  }
+
+  update(state, dt) {
+    const now = this._clock.getElapsedTime();
+    const burst = state.world_event_burst ?? 0;
+
+    // Re-evaluate attractor every 30s or on burst spike
+    if (now - this.lastEvalTime > 30 || burst > 0.1) {
+      const newTarget = this._computeTargetAttractor(state);
+      if (newTarget !== this.targetAttractor && !this.morphing) {
+        // Store current positions as from-points
+        this._fromPts = this._particles.geometry.attributes.position.array.slice();
+        // Compute destination
+        const pts = this._getPattern(newTarget, 2000);
+        this._toPts = new Float32Array(2000 * 3);
+        for (let i = 0; i < 2000; i++) {
+          const p = pts[i] || new THREE.Vector3();
+          this._toPts[i * 3] = p.x; this._toPts[i * 3 + 1] = p.y; this._toPts[i * 3 + 2] = p.z;
+        }
+        this.targetAttractor = newTarget;
+        this.morphing = true;
+        this.morphProgress = 0;
+      }
+      this.lastEvalTime = now;
+    }
+
+    // Advance morph — speed gated by burst signal
+    if (this.morphing && this._fromPts && this._toPts) {
+      const speed = 0.3 + burst * 2.0;
+      this.morphProgress += speed * (dt || 0.016);
+      if (this.morphProgress >= 1) { this.morphProgress = 1; this.morphing = false; }
+      const eased = 1 - Math.pow(1 - Math.min(this.morphProgress, 1), 3);
+      const arr = this._particles.geometry.attributes.position.array;
+      for (let i = 0; i < arr.length; i++) {
+        arr[i] = this._fromPts[i] + (this._toPts[i] - this._fromPts[i]) * eased;
+      }
+      this._particles.geometry.attributes.position.needsUpdate = true;
+    }
+
+    // Update time and signal-gated uniforms
+    const t = this._clock.getElapsedTime();
+    if (this._particles) {
+      const mat = this._particles.material;
+      mat.uniforms.time.value          = t;
+      mat.uniforms.uWonder.value       = Math.max(0, Math.min(1, state.wonder        || 0));
+      mat.uniforms.uAnomalyScore.value = Math.max(0, Math.min(1, state.anomaly_score || 0));
+      mat.uniforms.uCrisisLevel.value  = Math.max(0, Math.min(1, state.crisis_level  || 0));
+      mat.uniforms.uMelancholy.value   = Math.max(0, Math.min(1, state.melancholy    || 0));
+      mat.uniforms.uDriftEnergy.value  = Math.max(0, Math.min(1, state.drift_energy  || 0));
+      mat.uniforms.uExcitement.value   = Math.max(0, Math.min(1, state.excitement   || 0));
+      mat.uniforms.uUrgency.value      = Math.max(0, Math.min(1, state.urgency      || 0));
+      mat.uniforms.uBPMRate.value      = ((state.drift_bpm || 90) / 90);
+    }
+
+    // Vitesse rotation : excitement booste jusqu'à ×6 — porteur conditionnel
+    if (this._controls) {
+      this._controls.autoRotateSpeed = 0.3 + (Math.max(0, Math.min(1, state.excitement || 0))) * 1.5;
+    }
+
+    // Background: dark
+    scene.background = new THREE.Color(0, 0, 0);
+
+    if (this._controls) this._controls.update();
+    renderer.render(scene, this._cam);
+    return true;
+  }
+
+  dispose(sc) {
+    if (this._particles) { sc.remove(this._particles); this._particles.geometry.dispose(); this._particles.material.dispose(); this._particles = null; }
+    if (this._starField) { sc.remove(this._starField); this._starField.geometry.dispose(); this._starField = null; }
+    if (this._controls) { this._controls.dispose(); this._controls = null; }
+    this._fromPts = null; this._toPts = null;
+    scene.background = new THREE.Color(0x000000);
+  }
+}
+
+// ── Helper : territoire string → fraction 0-1 ─────────────────────────────────
+// Ordre croissant : calme/ambient → intense/noise.  Utilisé par SynapseMode.
+const _TERRITORY_LIST = [
+  'ambient','lo-fi','minimalist','blues','jazz','neoclassical',
+  'cinematic','electronic','drone','psych','experimental',
+  'techno','darkwave','industrial','noise'
+];
+function _terr2frac(t) {
+  const i = _TERRITORY_LIST.indexOf(String(t));
+  return i >= 0 ? i / (_TERRITORY_LIST.length - 1) : 0;
+}
+
+
 // ── Mode GLOBE — sphère synaptique, formation 0 forcée ───────────────────────
 // Même réseau que SynapseMode mais figé sur la formation sphère quelle que soit
 // la dérive territoriale.  Tous les autres signaux (PE, burst, chat) restent actifs.
 class GlobeMode extends SynapseMode {
-  _getFormation(state) { return 0; }  // Globe = sphère toujours
+  _getFormation(state) { return 0; }  // Globe = sphère toujours (R=12)
+
+  constructor() {
+    super();
+    this._outerGroup = null;
+    this._outerNodeDots = null; this._outerEdges = null;
+    this._outerParticles = null; this._outerParticleMat = null;
+    this._outerNodeMat = null; this._outerEdgeMat = null;
+    this._outerNodePositions = null; this._outerEdgePairs = null;
+    this._outerPulseT = null;
+    this._outerNodeActData = null; this._outerNodeActAttr = null;
+    this._outerNodeFlashData = null; this._outerNodeFlashAttr = null;
+    this._outerEdgePulseTData = null; this._outerEdgePulseTAttr = null;
+    this._outerEdgeActData = null; this._outerEdgeActAttr = null;
+    this._outerTime = 0;
+    this._NX_COLS = {
+      ambient:new THREE.Color(0x00D4FF), crisis:new THREE.Color(0xFF4444),
+      peak:new THREE.Color(0xFFD700), drift:new THREE.Color(0xAA44FF),
+      storm:new THREE.Color(0xFF8844), contemplative:new THREE.Color(0x44AAFF),
+    };
+  }
+
+  init(sc, cam) {
+    super.init(sc, cam);
+    this._buildOuterNetwork(sc);
+  }
+
+  _buildOuterNetwork(sc) {
+    const N = 28, SEGS = 6, R = 18; // outer radius > GlobeMode sphere (R=12)
+    const phi = Math.PI * (3 - Math.sqrt(5));
+    const nodePos = [];
+    for (let i = 0; i < N; i++) {
+      const y = 1 - (i / (N-1)) * 2, r = Math.sqrt(Math.max(0, 1-y*y)), th = phi*i;
+      nodePos.push(new THREE.Vector3(Math.cos(th)*r*R, y*R, Math.sin(th)*r*R));
+    }
+    this._outerNodePositions = nodePos;
+
+    const edgePairs = [], edgeSet = new Set();
+    for (let i = 0; i < N; i++) {
+      const d = [];
+      for (let j = 0; j < N; j++) { if (i !== j) d.push([j, nodePos[i].distanceTo(nodePos[j])]); }
+      d.sort((a, b) => a[1] - b[1]);
+      for (let k = 0; k < 3; k++) {
+        const j = d[k][0], key = Math.min(i,j)+','+Math.max(i,j);
+        if (!edgeSet.has(key)) { edgeSet.add(key); edgePairs.push([i,j]); }
+      }
+    }
+    this._outerEdgePairs = edgePairs;
+    const E = edgePairs.length;
+
+    this._outerGroup = new THREE.Group(); sc.add(this._outerGroup);
+
+    // Node dots — PE-driven activation
+    const nodePosArr = new Float32Array(N*3);
+    const nodeActArr = new Float32Array(N).fill(0.3);
+    nodePos.forEach((v,i)=>{ nodePosArr[i*3]=v.x; nodePosArr[i*3+1]=v.y; nodePosArr[i*3+2]=v.z; });
+    const nodeGeo = new THREE.BufferGeometry();
+    nodeGeo.setAttribute('position', new THREE.BufferAttribute(nodePosArr, 3));
+    const nodeActAttr = new THREE.BufferAttribute(nodeActArr, 1); nodeActAttr.setUsage(THREE.DynamicDrawUsage);
+    nodeGeo.setAttribute('aActivation', nodeActAttr);
+    const nodeFlashArr = new Float32Array(N);
+    const nodeFlashAttr = new THREE.BufferAttribute(nodeFlashArr, 1); nodeFlashAttr.setUsage(THREE.DynamicDrawUsage);
+    nodeGeo.setAttribute('nodeFireFlash', nodeFlashAttr);
+    this._outerNodeMat = new THREE.ShaderMaterial({
+      uniforms: { uAudioLevel:{value:0}, uHealthRatio:{value:1}, uColor:{value:new THREE.Color(0x00D4FF)} },
+      vertexShader: _NX_NODE_VS, fragmentShader: _NX_NODE_FS,
+      transparent:true, depthWrite:false, blending:THREE.AdditiveBlending,
+    });
+    this._outerNodeDots = new THREE.Points(nodeGeo, this._outerNodeMat);
+    this._outerNodeActData = nodeActArr; this._outerNodeActAttr = nodeActAttr;
+    this._outerNodeFlashData = nodeFlashArr; this._outerNodeFlashAttr = nodeFlashAttr;
+    this._outerGroup.add(this._outerNodeDots);
+
+    // Subdivided edges — billboard quads with pulse (NO_FAKE: BPM+PE-driven)
+    const VERTS = E*SEGS*4;
+    const edgePosArr=new Float32Array(VERTS*3), edgeTArr=new Float32Array(VERTS);
+    const edgeDirArr=new Float32Array(VERTS*3), edgeSideArr=new Float32Array(VERTS);
+    const edgePulseTArr=new Float32Array(VERTS), edgeActArr=new Float32Array(VERTS);
+    edgePairs.forEach(([ai,bi],ei)=>{
+      const a=nodePos[ai], b=nodePos[bi];
+      const dx=b.x-a.x, dy=b.y-a.y, dz=b.z-a.z;
+      const len=Math.sqrt(dx*dx+dy*dy+dz*dz)||1;
+      const dirX=dx/len, dirY=dy/len, dirZ=dz/len;
+      for (let s=0; s<SEGS; s++) {
+        const t0=s/SEGS, t1=(s+1)/SEGS;
+        for (let k=0; k<4; k++) {
+          const vi=(ei*SEGS+s)*4+k, t=(k<2)?t0:t1, side=(k%2===0)?-1:1;
+          edgePosArr[vi*3]=a.x+(b.x-a.x)*t; edgePosArr[vi*3+1]=a.y+(b.y-a.y)*t; edgePosArr[vi*3+2]=a.z+(b.z-a.z)*t;
+          edgeTArr[vi]=t;
+          edgeDirArr[vi*3]=dirX; edgeDirArr[vi*3+1]=dirY; edgeDirArr[vi*3+2]=dirZ;
+          edgeSideArr[vi]=side;
+        }
+      }
+    });
+    const edgeIdx=[];
+    edgePairs.forEach((_,ei)=>{ for(let s=0;s<SEGS;s++){const b0=(ei*SEGS+s)*4; edgeIdx.push(b0,b0+1,b0+2,b0+1,b0+3,b0+2);} });
+    const edgeGeo=new THREE.BufferGeometry();
+    edgeGeo.setAttribute('position', new THREE.BufferAttribute(edgePosArr,3));
+    edgeGeo.setAttribute('aT',       new THREE.BufferAttribute(edgeTArr,1));
+    edgeGeo.setAttribute('aEdgeDir', new THREE.BufferAttribute(edgeDirArr,3));
+    edgeGeo.setAttribute('aSide',    new THREE.BufferAttribute(edgeSideArr,1));
+    edgeGeo.setIndex(edgeIdx);
+    const ePulseTAttr=new THREE.BufferAttribute(edgePulseTArr,1); ePulseTAttr.setUsage(THREE.DynamicDrawUsage);
+    edgeGeo.setAttribute('aPulseT', ePulseTAttr);
+    const eActAttr=new THREE.BufferAttribute(edgeActArr,1); eActAttr.setUsage(THREE.DynamicDrawUsage);
+    edgeGeo.setAttribute('aActivation', eActAttr);
+    this._outerEdgeMat = new THREE.ShaderMaterial({
+      uniforms:{uColor:{value:new THREE.Color(0x00D4FF)},uAudioLevel:{value:0},uAnomalyScore:{value:0},
+               uLineWidth:{value:2.5},uResolution:{value:new THREE.Vector2(innerWidth,innerHeight)}},
+      vertexShader:_NX_EDGE_VS, fragmentShader:_NX_EDGE_FS,
+      transparent:true, depthWrite:false, blending:THREE.AdditiveBlending, side:THREE.DoubleSide,
+    });
+    this._outerEdges = new THREE.Mesh(edgeGeo, this._outerEdgeMat);
+    this._outerEdgePulseTData=edgePulseTArr; this._outerEdgePulseTAttr=ePulseTAttr;
+    this._outerEdgeActData=edgeActArr; this._outerEdgeActAttr=eActAttr;
+    this._outerPulseT = new Float32Array(E); for(let i=0;i<E;i++) this._outerPulseT[i]=i/E;
+    this._outerGroup.add(this._outerEdges);
+
+    // Background particles (sparse deep-field — init-only random, OK per NO_FAKE)
+    const NP=150, ppos=new Float32Array(NP*3), pcol=new Float32Array(NP*3);
+    const c1=new THREE.Color(0x00D4FF), c2=new THREE.Color(0x003355);
+    for(let i=0;i<NP;i++){
+      ppos[i*3]=(Math.random()-0.5)*60; ppos[i*3+1]=(Math.random()-0.5)*60; ppos[i*3+2]=(Math.random()-0.5)*60;
+      const t=Math.random();
+      pcol[i*3]=c1.r*t+c2.r*(1-t); pcol[i*3+1]=c1.g*t+c2.g*(1-t); pcol[i*3+2]=c1.b*t+c2.b*(1-t);
+    }
+    const pgeo=new THREE.BufferGeometry();
+    pgeo.setAttribute('position',new THREE.BufferAttribute(ppos,3));
+    pgeo.setAttribute('color',new THREE.BufferAttribute(pcol,3));
+    this._outerParticleMat=new THREE.ShaderMaterial({
+      uniforms:{uTime:{value:0},uAudioLevel:{value:0}},
+      vertexShader:_NX_PART_VS, fragmentShader:_NX_PART_FS,
+      transparent:true, depthWrite:false, blending:THREE.AdditiveBlending,
+    });
+    this._outerParticles=new THREE.Points(pgeo,this._outerParticleMat); sc.add(this._outerParticles);
+  }
+
+  _updateOuter(state, dt) {
+    if (!this._outerGroup) return;
+    this._outerTime += dt;
+    const energy  = state.audio_energy_level||0;
+    const bpm     = state.audio_bpm||state.drift_bpm||90;
+    const anomaly = Math.min(1,(state.anomaly_score||0)/10);
+    const terr    = state.drift_territory||'ambient';
+    const col     = this._NX_COLS[terr]||this._NX_COLS.ambient;
+    const hVals   = Object.values(state.source_health||{});
+    const healthRatio = hVals.length ? hVals.filter(Boolean).length/hVals.length : 1;
+    const peVals  = Object.values(state.prediction_errors||{});
+    const maxPE   = peVals.length ? Math.max(0.01,...peVals.map(v=>Math.abs(v))) : 1;
+
+    this._outerNodeMat.uniforms.uAudioLevel.value  = energy;
+    this._outerNodeMat.uniforms.uHealthRatio.value = healthRatio;
+    this._outerNodeMat.uniforms.uColor.value.copy(col);
+    this._outerEdgeMat.uniforms.uAudioLevel.value  = energy;
+    this._outerEdgeMat.uniforms.uAnomalyScore.value= anomaly;
+    this._outerEdgeMat.uniforms.uColor.value.copy(col);
+    this._outerEdgeMat.uniforms.uResolution.value.set(innerWidth,innerHeight);
+
+    // Pulse: speed = BPM/60 * 0.30, activation = PE per-edge (NO_FAKE)
+    const pulseSpeed = (bpm/60)*dt*0.30;
+    const SEGS=6, ep=this._outerEdgePairs;
+    for (let ei=0; ei<ep.length; ei++) {
+      const prevT=this._outerPulseT[ei];
+      this._outerPulseT[ei]=(prevT+pulseSpeed)%1.0;
+      const pev=peVals.length ? Math.min(1,Math.abs(peVals[ei%peVals.length]||0)/maxPE) : energy*0.5;
+      const pT=this._outerPulseT[ei];
+      if(prevT>0.85&&pT<0.15&&this._outerNodeFlashData&&pev>0.08){
+        const destIdx=ep[ei][1];
+        this._outerNodeFlashData[destIdx]=Math.max(this._outerNodeFlashData[destIdx],pev*0.7);
+      }
+      for(let s=0;s<SEGS;s++){
+        const b=(ei*SEGS+s)*4;
+        this._outerEdgePulseTData[b]=this._outerEdgePulseTData[b+1]=this._outerEdgePulseTData[b+2]=this._outerEdgePulseTData[b+3]=pT;
+        this._outerEdgeActData[b]=this._outerEdgeActData[b+1]=this._outerEdgeActData[b+2]=this._outerEdgeActData[b+3]=pev;
+      }
+    }
+    this._outerEdgePulseTAttr.needsUpdate=true;
+    this._outerEdgeActAttr.needsUpdate=true;
+
+    if(this._outerNodeFlashData){
+      for(let ni=0;ni<this._outerNodeFlashData.length;ni++) this._outerNodeFlashData[ni]*=0.91;
+      this._outerNodeFlashAttr.needsUpdate=true;
+    }
+
+    // Per-node activation — PE-driven, different index offset from inner globe
+    const N=this._outerNodePositions.length;
+    for(let ni=0;ni<N;ni++){
+      this._outerNodeActData[ni]=peVals.length
+        ? Math.min(1,Math.abs(peVals[(ni*3+7)%peVals.length]||0)/maxPE*1.3)
+        : energy*0.4;
+    }
+    this._outerNodeActAttr.needsUpdate=true;
+
+    if(this._outerParticleMat){
+      this._outerParticleMat.uniforms.uTime.value=this._outerTime;
+      this._outerParticleMat.uniforms.uAudioLevel.value=energy;
+    }
+
+    // Slow independent rotation — visual parallax vs inner globe (NO_FAKE: display constant)
+    // rotSpeed in rad/s: 0.010 was per-frame at 40fps → ×40 to convert to per-second
+    const rotSpeed=(bpm/120)*0.40;
+    this._outerGroup.rotation.y+=rotSpeed*0.55*dt+(state.drift_velocity||0)*0.16*dt;
+    this._outerGroup.rotation.x+=rotSpeed*0.18*dt;
+  }
+
+  update(state, dt) {
+    this._updateOuter(state, dt);  // update outer uniforms before render
+    return super.update(state, dt);
+  }
+
+  dispose(sc) {
+    super.dispose(sc);
+    if(this._outerGroup){
+      this._outerGroup.traverse(c=>{if(c.geometry)c.geometry.dispose();if(c.material)c.material.dispose();});
+      sc.remove(this._outerGroup); this._outerGroup=null;
+    }
+    if(this._outerParticles){sc.remove(this._outerParticles);this._outerParticles.geometry.dispose();this._outerParticles.material.dispose();this._outerParticles=null;}
+    this._outerNodeDots=this._outerEdges=null;
+    this._outerNodeMat=this._outerEdgeMat=this._outerParticleMat=null;
+    this._outerNodeFlashData=this._outerNodeFlashAttr=null;
+  }
 }
 
 
@@ -2044,67 +2289,6 @@ class NetworkMode {
   }
 }
 
-// ── Mode NEXUS — shaders ──────────────────────────────────────────────────────
-
-// Vertex shader : icosaèdre wireframe déformé par simplex noise + audio_energy_level
-const _NX_OUTER_VS = `
-uniform float uTime; uniform float uAudioLevel; uniform float uDistortion;
-uniform vec3 uColor;
-vec3 nx289(vec3 x){return x-floor(x*(1.0/289.0))*289.0;}
-vec4 nx289v(vec4 x){return x-floor(x*(1.0/289.0))*289.0;}
-vec4 nxperm(vec4 x){return nx289v(((x*34.0)+1.0)*x);}
-vec4 nxtis(vec4 r){return 1.79284291400159-0.85373472095314*r;}
-float snoise(vec3 v){
-  const vec2 C=vec2(1.0/6.0,1.0/3.0);const vec4 D=vec4(0.0,0.5,1.0,2.0);
-  vec3 i=floor(v+dot(v,C.yyy));vec3 x0=v-i+dot(i,C.xxx);
-  vec3 g=step(x0.yzx,x0.xyz);vec3 l=1.0-g;
-  vec3 i1=min(g.xyz,l.zxy);vec3 i2=max(g.xyz,l.zxy);
-  vec3 x1=x0-i1+C.xxx;vec3 x2=x0-i2+C.yyy;vec3 x3=x0-D.yyy;
-  i=nx289(i);
-  vec4 p=nxperm(nxperm(nxperm(i.z+vec4(0.0,i1.z,i2.z,1.0))+i.y+vec4(0.0,i1.y,i2.y,1.0))+i.x+vec4(0.0,i1.x,i2.x,1.0));
-  float n_=0.142857142857;vec3 ns=n_*D.wyz-D.xzx;
-  vec4 j=p-49.0*floor(p*ns.z*ns.z);
-  vec4 x_=floor(j*ns.z);vec4 y_=floor(j-7.0*x_);
-  vec4 x=x_*ns.x+ns.yyyy;vec4 y=y_*ns.x+ns.yyyy;vec4 h=1.0-abs(x)-abs(y);
-  vec4 b0=vec4(x.xy,y.xy);vec4 b1=vec4(x.zw,y.zw);
-  vec4 s0=floor(b0)*2.0+1.0;vec4 s1=floor(b1)*2.0+1.0;vec4 sh=-step(h,vec4(0.0));
-  vec4 a0=b0.xzyw+s0.xzyw*sh.xxyy;vec4 a1=b1.xzyw+s1.xzyw*sh.zzww;
-  vec3 p0=vec3(a0.xy,h.x);vec3 p1=vec3(a0.zw,h.y);vec3 p2=vec3(a1.xy,h.z);vec3 p3=vec3(a1.zw,h.w);
-  vec4 norm=nxtis(vec4(dot(p0,p0),dot(p1,p1),dot(p2,p2),dot(p3,p3)));
-  p0*=norm.x;p1*=norm.y;p2*=norm.z;p3*=norm.w;
-  vec4 m=max(0.6-vec4(dot(x0,x0),dot(x1,x1),dot(x2,x2),dot(x3,x3)),0.0);m=m*m;
-  return 42.0*dot(m*m,vec4(dot(p0,x0),dot(p1,x1),dot(p2,x2),dot(p3,x3)));
-}
-void main(){
-  vec3 pos=position;
-  float noise=snoise(vec3(position.x*0.5,position.y*0.5,position.z*0.5+uTime*0.3));
-  float signal=max(0.05,uAudioLevel); // 5% floor — NO_FAKE base minimal
-  pos+=normal*noise*0.3*uDistortion*signal;
-  gl_Position=projectionMatrix*modelViewMatrix*vec4(pos,1.0);
-}`;
-
-const _NX_OUTER_FS = `
-uniform vec3 uColor;uniform float uAudioLevel;
-void main(){gl_FragColor=vec4(uColor,0.55+uAudioLevel*0.45);}`;
-
-const _NX_GLOW_VS = `
-varying vec3 vNormal;varying vec3 vPos;
-void main(){
-  vNormal=normalize(normalMatrix*normal);
-  vPos=(modelMatrix*vec4(position,1.0)).xyz;
-  gl_Position=projectionMatrix*modelViewMatrix*vec4(position,1.0);
-}`;
-
-// Fresnel glow — pow() remplacé par triple multiplication (pas de transcendante)
-const _NX_GLOW_FS = `
-uniform vec3 uColor;uniform float uAudioLevel;
-varying vec3 vNormal;varying vec3 vPos;
-void main(){
-  vec3 vd=normalize(cameraPosition-vPos);
-  float f=1.0-max(0.0,dot(vd,vNormal));
-  float g=f*f*f*(0.4+uAudioLevel*1.6);
-  gl_FragColor=vec4(uColor*g,g*0.75);
-}`;
 
 const _NX_PART_VS = `
 uniform float uTime;uniform float uAudioLevel;
@@ -2201,442 +2385,309 @@ void main(){
   gl_FragColor=vec4(col,alpha);
 }`;
 
-// ── Mode NEXUS — anomalie + réseau neural driven par GlobalState ──────────────
-class NexusMode {
-  constructor(){
-    this._time=0; this._SEGS=6;
-    this._anomaly=null; this._glowMesh=null; this._particles=null;
-    this._outerMat=null; this._glowMat=null; this._particleMat=null;
-    this._networkGroup=null;
-    this._nodeDots=null; this._edges=null;
-    this._nodeMat=null; this._edgeMat=null;
-    this._nodePositions=null; this._edgePairs=null; this._pulseT=null;
-    this._nodeActData=null; this._nodeActAttr=null;
-    this._edgePulseTData=null; this._edgePulseTAttr=null;
-    this._edgeActData=null; this._edgeActAttr=null;
-    this._nodeFlashData=null; this._nodeFlashAttr=null;
-    this._COLS={
-      ambient:      new THREE.Color(0x00D4FF),
-      crisis:       new THREE.Color(0xFF4444),
-      peak:         new THREE.Color(0xFFD700),
-      drift:        new THREE.Color(0xAA44FF),
-      storm:        new THREE.Color(0xFF8844),
-      contemplative:new THREE.Color(0x44AAFF),
-    };
+
+
+// ── Mode LOGO — ChatGPT logo, pseudo-extruded particle system ────────────────
+
+
+const _LOGO_SCALE     = 1.6;
+const _LOGO_DEPTH     = 0.35;
+const _LOGO_COUNT     = 3200;
+const _LOGO_ROT_SPEED = 0.08;  // rad/s — constant orbit, explicit user requirement
+const _LOGO_CAM_R     = 4.5;
+const _LOGO_BURST_DUR = 2.0;
+const _LOGO_PALETTE   = [0x10a37f, 0x0dd3a3, 0x06b6d4, 0x22d3ee, 0x4ade80];
+
+function _logoSampleFill(svgEl, pathEl, n) {
+  const pts = [], sp = svgEl.createSVGPoint(), MAX = n * 120;
+  let tries = 0;
+  while (pts.length < n && tries++ < MAX) {
+    sp.x = Math.random() * 24; sp.y = Math.random() * 24;
+    if (pathEl.isPointInFill(sp))
+      pts.push([(sp.x - 12) / 12 * _LOGO_SCALE, -(sp.y - 12) / 12 * _LOGO_SCALE]);
   }
-
-  init(sc, cam){
-    cam.position.set(0,0,8); cam.lookAt(0,0,0);
-    sc.fog=new THREE.FogExp2(0x0a0e17,0.025);
-    this._buildAnomaly(sc);
-    this._buildNetwork(sc);
-    this._buildParticles(sc);
-  }
-
-  _buildAnomaly(sc){
-    const geo=new THREE.IcosahedronGeometry(2,2);
-    const mat=new THREE.ShaderMaterial({
-      uniforms:{uTime:{value:0},uAudioLevel:{value:0},uDistortion:{value:0.5},uColor:{value:new THREE.Color(0x00D4FF)}},
-      vertexShader:_NX_OUTER_VS, fragmentShader:_NX_OUTER_FS,
-      wireframe:true, transparent:true,
-    });
-    this._anomaly=new THREE.Mesh(geo,mat); this._outerMat=mat; sc.add(this._anomaly);
-  }
-
-  _buildNetwork(sc){
-    const N=28, SEGS=this._SEGS;
-    // Fibonacci sphere — uniform node distribution around the anomaly core
-    const nodePos=[], phi=Math.PI*(3-Math.sqrt(5));
-    for(let i=0;i<N;i++){
-      const y=1-(i/(N-1))*2, r=Math.sqrt(Math.max(0,1-y*y)), th=phi*i;
-      nodePos.push(new THREE.Vector3(Math.cos(th)*r*4.2, y*4.2, Math.sin(th)*r*4.2));
-    }
-    this._nodePositions=nodePos;
-
-    // KNN-3 adjacency
-    const edgePairs=[], edgeSet=new Set();
-    for(let i=0;i<N;i++){
-      const d=[];
-      for(let j=0;j<N;j++){ if(i!==j) d.push([j,nodePos[i].distanceTo(nodePos[j])]); }
-      d.sort((a,b)=>a[1]-b[1]);
-      for(let k=0;k<3;k++){
-        const j=d[k][0], key=Math.min(i,j)+','+Math.max(i,j);
-        if(!edgeSet.has(key)){ edgeSet.add(key); edgePairs.push([i,j]); }
-      }
-    }
-    this._edgePairs=edgePairs;
-    const E=edgePairs.length;
-
-    this._networkGroup=new THREE.Group(); sc.add(this._networkGroup);
-
-    // Node dots — per-node aActivation (dynamic, PE-driven)
-    const nodePosArr=new Float32Array(N*3);
-    const nodeActArr=new Float32Array(N).fill(0.3);
-    nodePos.forEach((v,i)=>{ nodePosArr[i*3]=v.x; nodePosArr[i*3+1]=v.y; nodePosArr[i*3+2]=v.z; });
-    const nodeGeo=new THREE.BufferGeometry();
-    nodeGeo.setAttribute('position',new THREE.BufferAttribute(nodePosArr,3));
-    const nodeActAttr=new THREE.BufferAttribute(nodeActArr,1);
-    nodeActAttr.setUsage(THREE.DynamicDrawUsage);
-    nodeGeo.setAttribute('aActivation',nodeActAttr);
-    this._nodeMat=new THREE.ShaderMaterial({
-      uniforms:{uAudioLevel:{value:0},uHealthRatio:{value:1},uColor:{value:new THREE.Color(0x00D4FF)}},
-      vertexShader:_NX_NODE_VS, fragmentShader:_NX_NODE_FS,
-      transparent:true, depthWrite:false, blending:THREE.AdditiveBlending,
-    });
-    this._nodeDots=new THREE.Points(nodeGeo,this._nodeMat);
-    this._nodeActData=nodeActArr; this._nodeActAttr=nodeActAttr;
-    const nodeFlashArr=new Float32Array(N);
-    const nodeFlashAttr=new THREE.BufferAttribute(nodeFlashArr,1); nodeFlashAttr.setUsage(THREE.DynamicDrawUsage);
-    nodeGeo.setAttribute('nodeFireFlash',nodeFlashAttr);
-    this._nodeFlashData=nodeFlashArr; this._nodeFlashAttr=nodeFlashAttr;
-    this._networkGroup.add(this._nodeDots);
-
-    // Subdivided edges — billboard quads: 4 vertices per segment (t0_L, t0_R, t1_L, t1_R)
-    const VERTS=E*SEGS*4;
-    const edgePosArr  =new Float32Array(VERTS*3);
-    const edgeTArr    =new Float32Array(VERTS);
-    const edgeDirArr  =new Float32Array(VERTS*3);
-    const edgeSideArr =new Float32Array(VERTS);
-    const edgePulseTArr=new Float32Array(VERTS);
-    const edgeActArr   =new Float32Array(VERTS);
-    edgePairs.forEach(([ai,bi],ei)=>{
-      const a=nodePos[ai], b=nodePos[bi];
-      const dx=b.x-a.x, dy=b.y-a.y, dz=b.z-a.z;
-      const len=Math.sqrt(dx*dx+dy*dy+dz*dz)||1;
-      const dirX=dx/len, dirY=dy/len, dirZ=dz/len;
-      for(let s=0;s<SEGS;s++){
-        const t0=s/SEGS, t1=(s+1)/SEGS;
-        // 4 vertices: index = (ei*SEGS+s)*4 + k
-        for(let k=0;k<4;k++){
-          const vi=(ei*SEGS+s)*4+k;
-          const t=(k<2)?t0:t1, side=(k%2===0)?-1:1;
-          edgePosArr[vi*3  ]=a.x+(b.x-a.x)*t;
-          edgePosArr[vi*3+1]=a.y+(b.y-a.y)*t;
-          edgePosArr[vi*3+2]=a.z+(b.z-a.z)*t;
-          edgeTArr[vi]=t;
-          edgeDirArr[vi*3  ]=dirX; edgeDirArr[vi*3+1]=dirY; edgeDirArr[vi*3+2]=dirZ;
-          edgeSideArr[vi]=side;
-        }
-      }
-    });
-    const edgeIdx=[];
-    edgePairs.forEach((_,ei)=>{
-      for(let s=0;s<SEGS;s++){
-        const b0=(ei*SEGS+s)*4;
-        edgeIdx.push(b0,b0+1,b0+2, b0+1,b0+3,b0+2);
-      }
-    });
-    const edgeGeo=new THREE.BufferGeometry();
-    edgeGeo.setAttribute('position',  new THREE.BufferAttribute(edgePosArr,3));
-    edgeGeo.setAttribute('aT',        new THREE.BufferAttribute(edgeTArr,1));
-    edgeGeo.setAttribute('aEdgeDir',  new THREE.BufferAttribute(edgeDirArr,3));
-    edgeGeo.setAttribute('aSide',     new THREE.BufferAttribute(edgeSideArr,1));
-    edgeGeo.setIndex(edgeIdx);
-    const ePulseTAttr=new THREE.BufferAttribute(edgePulseTArr,1);
-    ePulseTAttr.setUsage(THREE.DynamicDrawUsage);
-    edgeGeo.setAttribute('aPulseT',ePulseTAttr);
-    const eActAttr=new THREE.BufferAttribute(edgeActArr,1);
-    eActAttr.setUsage(THREE.DynamicDrawUsage);
-    edgeGeo.setAttribute('aActivation',eActAttr);
-    this._edgeMat=new THREE.ShaderMaterial({
-      uniforms:{
-        uColor:{value:new THREE.Color(0x00D4FF)},uAudioLevel:{value:0},uAnomalyScore:{value:0},
-        uLineWidth:{value:2.5},uResolution:{value:new THREE.Vector2(innerWidth,innerHeight)},
-      },
-      vertexShader:_NX_EDGE_VS, fragmentShader:_NX_EDGE_FS,
-      transparent:true, depthWrite:false, blending:THREE.AdditiveBlending, side:THREE.DoubleSide,
-    });
-    this._edges=new THREE.Mesh(edgeGeo,this._edgeMat);
-    this._edgePulseTData=edgePulseTArr; this._edgePulseTAttr=ePulseTAttr;
-    this._edgeActData=edgeActArr; this._edgeActAttr=eActAttr;
-    this._pulseT=new Float32Array(E).map((_,i)=>i/E);
-    this._networkGroup.add(this._edges);
-  }
-
-  _buildParticles(sc){
-    const N=150, pos=new Float32Array(N*3), col=new Float32Array(N*3);
-    const c1=new THREE.Color(0x00D4FF), c2=new THREE.Color(0x003355);
-    for(let i=0;i<N;i++){
-      pos[i*3]=(Math.random()-0.5)*60; pos[i*3+1]=(Math.random()-0.5)*60; pos[i*3+2]=(Math.random()-0.5)*60;
-      const t=Math.random();
-      col[i*3]=c1.r*t+c2.r*(1-t); col[i*3+1]=c1.g*t+c2.g*(1-t); col[i*3+2]=c1.b*t+c2.b*(1-t);
-    }
-    const geo=new THREE.BufferGeometry();
-    geo.setAttribute('position',new THREE.BufferAttribute(pos,3));
-    geo.setAttribute('color',new THREE.BufferAttribute(col,3));
-    const mat=new THREE.ShaderMaterial({
-      uniforms:{uTime:{value:0},uAudioLevel:{value:0}},
-      vertexShader:_NX_PART_VS, fragmentShader:_NX_PART_FS,
-      transparent:true, depthWrite:false, blending:THREE.AdditiveBlending,
-    });
-    this._particles=new THREE.Points(geo,mat); this._particleMat=mat; sc.add(this._particles);
-  }
-
-  update(state,dt){
-    const energy  =state.audio_energy_level||0;
-    const bpm     =state.audio_bpm||90;
-    const anomaly =Math.min(1,(state.anomaly_score||0)/10);
-    const terr    =state.drift_territory||'ambient';
-    const col     =this._COLS[terr]||this._COLS.ambient;
-    const driftVel=state.drift_velocity||0;
-
-    const hVals=Object.values(state.source_health||{});
-    const healthRatio=hVals.length ? hVals.filter(Boolean).length/hVals.length : 1;
-
-    // prediction_errors → per-edge + per-node activation (NO_FAKE: PE signal)
-    const peVals=Object.values(state.prediction_errors||{});
-    const maxPE=peVals.length ? Math.max(0.01,...peVals.map(v=>Math.abs(v))) : 1;
-
-    this._time+=Math.max(0.02,energy)*dt;
-
-    // Anomaly core
-    this._outerMat.uniforms.uTime.value      =this._time;
-    this._outerMat.uniforms.uAudioLevel.value=energy;
-    this._outerMat.uniforms.uDistortion.value=0.5+anomaly*1.5;
-    this._outerMat.uniforms.uColor.value.copy(col);
-
-    // Network
-    this._nodeMat.uniforms.uAudioLevel.value  =energy;
-    this._nodeMat.uniforms.uHealthRatio.value =healthRatio;
-    this._nodeMat.uniforms.uColor.value.copy(col);
-    this._edgeMat.uniforms.uAudioLevel.value  =energy;
-    this._edgeMat.uniforms.uAnomalyScore.value=anomaly;
-    this._edgeMat.uniforms.uColor.value.copy(col);
-    this._edgeMat.uniforms.uResolution.value.set(innerWidth,innerHeight);
-
-    // Pulse speed = BPM/60, activation = PE per-edge (NO_FAKE)
-    const pulseSpeed=(bpm/60)*dt*0.30;
-    const SEGS=this._SEGS, ep=this._edgePairs;
-    for(let ei=0;ei<ep.length;ei++){
-      const prevT=this._pulseT[ei];
-      this._pulseT[ei]=(prevT+pulseSpeed)%1.0;
-      const pev=peVals.length ? Math.min(1,Math.abs(peVals[ei%peVals.length]||0)/maxPE) : energy*0.5;
-      const pT=this._pulseT[ei];
-      // destination node flash when pulse wraps (NO_FAKE: activation-gated)
-      if(prevT>0.85&&pT<0.15&&this._nodeFlashData&&pev>0.08){
-        const destIdx=ep[ei][1];
-        this._nodeFlashData[destIdx]=Math.max(this._nodeFlashData[destIdx],pev*0.7);
-      }
-      for(let s=0;s<SEGS;s++){
-        const v=(ei*SEGS+s)*4;
-        this._edgePulseTData[v]=this._edgePulseTData[v+1]=this._edgePulseTData[v+2]=this._edgePulseTData[v+3]=pT;
-        this._edgeActData[v]=this._edgeActData[v+1]=this._edgeActData[v+2]=this._edgeActData[v+3]=pev;
-      }
-    }
-    this._edgePulseTAttr.needsUpdate=true;
-    this._edgeActAttr.needsUpdate=true;
-    // decay node flash
-    if(this._nodeFlashData){
-      for(let ni=0;ni<this._nodeFlashData.length;ni++)this._nodeFlashData[ni]*=0.91;
-      this._nodeFlashAttr.needsUpdate=true;
-    }
-
-    // Per-node activation — different PE index offset (NO_FAKE: PE signal)
-    const N=this._nodePositions.length;
-    for(let ni=0;ni<N;ni++){
-      this._nodeActData[ni]=peVals.length
-        ? Math.min(1,Math.abs(peVals[(ni*3+7)%peVals.length]||0)/maxPE*1.3)
-        : energy*0.4;
-    }
-    this._nodeActAttr.needsUpdate=true;
-
-    // Background particles
-    this._particleMat.uniforms.uTime.value      =this._time;
-    this._particleMat.uniforms.uAudioLevel.value=energy;
-
-    const rotSpeed=(bpm/120)*0.010;
-    this._anomaly.rotation.y+=rotSpeed;
-    this._anomaly.rotation.z+=rotSpeed*0.4;
-    this._networkGroup.rotation.y+=rotSpeed*0.55+driftVel*0.004;
-    this._networkGroup.rotation.x+=rotSpeed*0.18;
-
-    renderer.render(scene,camera);
-    return true;
-  }
-
-  dispose(sc){
-    sc.fog=null;
-    const d=obj=>{ if(!obj)return; if(obj.geometry)obj.geometry.dispose(); if(obj.material)obj.material.dispose(); sc.remove(obj); };
-    d(this._anomaly); d(this._particles);
-    if(this._networkGroup){
-      this._networkGroup.traverse(c=>{ if(c.geometry)c.geometry.dispose(); if(c.material)c.material.dispose(); });
-      sc.remove(this._networkGroup);
-    }
-    this._anomaly=this._glowMesh=this._particles=this._networkGroup=null;
-    this._nodeDots=this._edges=null;
-    this._outerMat=this._glowMat=this._particleMat=null;
-    this._nodeMat=this._edgeMat=null;
-    this._nodeFlashData=this._nodeFlashAttr=null;
-  }
+  return pts;
 }
 
-// ─── WARPMODE — Computation-graph warp tunnel ─────────────────────────────────
-// N rings of wireframe cuboid panels fly toward the camera along the Z axis.
-// Each ring has one panel per tracked PE channel (8 channels displayed).
-// Panel radial extent ∝ |PE(ch)| / σ(ch)  (precision-weighted z-score).
-// Tunnel speed ∝ drift_velocity. Fog ∝ crisis_level. Opacity ∝ anomaly_score.
-// NO_FAKE: base scroll is a display constant (tunnel must move to be visible,
-// analogous to OrbitControls autoRotate). All extents and opacity = GlobalState.
-// Geometry: 8 merged LineSegments (one per channel) instead of 160 separate objects.
-// Per frame: positions written into DynamicDrawUsage Float32Array buffers.
-class WarpMode {
-  static _NR  = 20;   // ring count
-  static _NS  = 8;    // segments per ring = PE channels tracked
-  static _R   = 2.4;  // tunnel radius (world units)
-  static _D   = 3.0;  // ring Z-spacing
-  static _CH  = ['excitement','anxiety','frustration','curiosity',
-                  'crisis_level','audience_energy','drift_velocity','anomaly_score'];
-  // Couleurs par canal — palette OpenAI/ChatGPT
-  // excitement, anxiety, frustration, curiosity, crisis_level, audience_energy, drift_velocity, anomaly_score
-  static _COL = [0x10A37F, 0x74aa9c, 0xef4444, 0xab68ff,
-                 0xd97706, 0xececf1, 0x10B981, 0x6366f1];
-
+class LogoMode {
   constructor() {
-    this._group    = null;
-    this._lines    = [];   // LineSegments[NS] — one merged geometry per channel
-    this._mats     = [];   // LineBasicMaterial[NS]
-    this._posArrs  = [];   // Float32Array[NS] — raw position buffers (DynamicDrawUsage)
-    this._posAttrs = [];   // BufferAttribute[NS]
-    this._ringZs   = null; // Float32Array[NR] — ring z positions
-    this._baseBox  = null; // Float32Array[24*3] — local box template (12 edges × 2 verts)
-    this._csArr    = null; // Float32Array[NS] — precomputed cos(θs)
-    this._ssArr    = null; // Float32Array[NS] — precomputed sin(θs)
-    this._sigCur   = new Float32Array(WarpMode._NS);
-    this._sigTgt   = new Float32Array(WarpMode._NS);
-    this._roll     = 0;
+    this._particles   = null;
+    this._stars       = null;
+    this._cam         = null;
+    this._camAngle    = 0;
+    this._burstT      = -1;
+    this._prevAnomaly = 0;
   }
 
   init(sc, cam) {
-    cam.position.set(0, 0, 9);
-    cam.lookAt(0, 0, 0);
-    sc.fog = new THREE.FogExp2(0x000402, 0.022); // micro-teinte verte OpenAI
-    this._group = new THREE.Group();
-    sc.add(this._group);
-
-    const { _NR: NR, _NS: NS, _R: R, _D: D } = WarpMode;
-    const dθ    = (Math.PI * 2) / NS;
-    const chord = 2 * R * Math.sin(Math.PI / NS) * 0.86;
-    const depth = D * 0.90;
-
-    // Per-channel angles (fixed; group.rotation.z drives tunnel spin)
-    this._csArr = new Float32Array(NS);
-    this._ssArr = new Float32Array(NS);
-    for (let s = 0; s < NS; s++) {
-      const θ = s * dθ; this._csArr[s] = Math.cos(θ); this._ssArr[s] = Math.sin(θ);
-    }
-
-    // Box template: BoxGeometry(1, chord, depth) → 12 edges × 2 verts = 24 verts
-    // Local X is the scale target (radial extent driven by sigCur[s])
-    const hw = 0.5, hh = chord / 2, hd = depth / 2;
-    const cx = [[-hw,-hh,-hd],[+hw,-hh,-hd],[+hw,+hh,-hd],[-hw,+hh,-hd],
-                [-hw,-hh,+hd],[+hw,-hh,+hd],[+hw,+hh,+hd],[-hw,+hh,+hd]];
-    const ei = [[0,1],[1,2],[2,3],[3,0],[4,5],[5,6],[6,7],[7,4],[0,4],[1,5],[2,6],[3,7]];
-    this._baseBox = new Float32Array(24 * 3);
-    let bi = 0;
-    for (const [a, b] of ei) {
-      this._baseBox[bi++]=cx[a][0]; this._baseBox[bi++]=cx[a][1]; this._baseBox[bi++]=cx[a][2];
-      this._baseBox[bi++]=cx[b][0]; this._baseBox[bi++]=cx[b][1]; this._baseBox[bi++]=cx[b][2];
-    }
-
-    // Ring z positions
-    this._ringZs = new Float32Array(NR);
-    for (let r = 0; r < NR; r++) this._ringZs[r] = -(NR - 1 - r) * D;
-
-    // One merged LineSegments per channel (8 draw calls, not 160)
-    for (let s = 0; s < NS; s++) {
-      const posArr  = new Float32Array(NR * 24 * 3);
-      const posAttr = new THREE.BufferAttribute(posArr, 3);
-      posAttr.setUsage(THREE.DynamicDrawUsage);
-      const geo  = new THREE.BufferGeometry();
-      geo.setAttribute('position', posAttr);
-      const mat  = new THREE.LineBasicMaterial({ color: WarpMode._COL[s], transparent: true, opacity: 0.5, fog: true });
-      const line = new THREE.LineSegments(geo, mat);
-      this._group.add(line);
-      this._lines.push(line); this._mats.push(mat);
-      this._posArrs.push(posArr); this._posAttrs.push(posAttr);
-    }
-    this._writePositions(NR, NS, R, 0.12, 0.85);
+    this._cam         = cam;
+    this._camAngle    = 0;
+    this._burstT      = -1;
+    this._prevAnomaly = 0;
+    sc.fog = null;
+    sc.background = new THREE.Color(0x000000);
+    this._buildParticles(sc);
+    this._buildStars(sc);
   }
 
-  // Rewrite all vertex positions from ring z-positions and per-channel scale.
-  // Transform: local → scale X → rotate θs → translate (R·cos θs, R·sin θs, ringZ)
-  _writePositions(NR, NS, R, BASE, GAIN) {
-    const bb = this._baseBox;
-    for (let s = 0; s < NS; s++) {
-      const cs = this._csArr[s], ss = this._ssArr[s];
-      const sx = BASE + this._sigCur[s] * GAIN;
-      const arr = this._posArrs[s];
-      for (let r = 0; r < NR; r++) {
-        const rz = this._ringZs[r], base = r * 24 * 3;
-        for (let v = 0; v < 24; v++) {
-          const lx = bb[v*3] * sx, ly = bb[v*3+1], lz = bb[v*3+2];
-          const o = base + v * 3;
-          arr[o]   = cs * (R + lx) - ss * ly;
-          arr[o+1] = ss * (R + lx) + cs * ly;
-          arr[o+2] = rz + lz;
-        }
-      }
-      this._posAttrs[s].needsUpdate = true;
-    }
+  _buildParticles(sc) {
+    const svgEl  = document.getElementById('_logo-hidden-svg');
+    const pathEl = document.getElementById('_logo-hidden-path');
+
+    const COUNT  = _LOGO_COUNT;
+    const nFront = Math.round(COUNT * 0.45);
+    const nEdge  = Math.round(COUNT * 0.35);
+    const nBack  = COUNT - nFront - nEdge;
+
+    const frontOut = _logoSampleFill(svgEl, pathEl, nFront);
+    const edgePts  = _logoSampleFill(svgEl, pathEl, nEdge);
+    const backOut  = _logoSampleFill(svgEl, pathEl, nBack);
+
+    const pal = _LOGO_PALETTE.map(c => new THREE.Color(c));
+    const pos  = new Float32Array(COUNT * 3);
+    const col  = new Float32Array(COUNT * 3);
+    const sz   = new Float32Array(COUNT);
+    const rnd  = new Float32Array(COUNT * 3);
+    const lyr  = new Float32Array(COUNT);
+
+    let i = 0;
+    const hz  = _LOGO_DEPTH / 2;
+    const jit = () => (Math.random() - 0.5) * 0.04;
+
+    const add = (xy, z, layerV) => {
+      pos[i*3] = xy[0]; pos[i*3+1] = xy[1]; pos[i*3+2] = z;
+      const base = pal[i % pal.length];
+      const hsl  = { h:0, s:0, l:0 };
+      base.getHSL(hsl);
+      hsl.h += (Math.random() - 0.5) * 0.06;
+      hsl.s  = Math.min(1,   Math.max(0.55, hsl.s + (Math.random() - 0.5) * 0.18));
+      hsl.l  = Math.min(0.9, Math.max(0.36, hsl.l + (Math.random() - 0.5) * 0.22));
+      const c = new THREE.Color().setHSL(hsl.h, hsl.s, hsl.l);
+      col[i*3] = c.r; col[i*3+1] = c.g; col[i*3+2] = c.b;
+      const dCue = 1.0 + layerV * 0.20;
+      sz[i] = (0.65 + Math.random() * 0.85) * dCue;
+      rnd[i*3]   = Math.random() * 10;
+      rnd[i*3+1] = Math.random() * Math.PI * 2;
+      rnd[i*3+2] = 0.35 + 0.65 * Math.random();
+      lyr[i] = layerV;
+      i++;
+    };
+
+    frontOut.forEach(xy => add(xy,  hz + jit(),  1.0));
+    edgePts .forEach(xy => add(xy, (Math.random() - 0.5) * _LOGO_DEPTH,  0.0));
+    backOut .forEach(xy => add(xy, -hz + jit(), -1.0));
+
+    const geo = new THREE.BufferGeometry();
+    geo.setAttribute('position', new THREE.BufferAttribute(pos, 3));
+    geo.setAttribute('color',    new THREE.BufferAttribute(col, 3));
+    geo.setAttribute('size',     new THREE.BufferAttribute(sz,  1));
+    geo.setAttribute('random',   new THREE.BufferAttribute(rnd, 3));
+    geo.setAttribute('layer',    new THREE.BufferAttribute(lyr, 1));
+
+    const mat = new THREE.ShaderMaterial({
+      uniforms: {
+        uTime:        { value: 0 },
+        uExcitement:  { value: 0 }, uAnxiety:    { value: 0 },
+        uFrustration: { value: 0 }, uCuriosity:  { value: 0 },
+        uCreativity:  { value: 0 }, uWonder:     { value: 0 },
+        uMelancholy:  { value: 0 }, uUrgency:    { value: 0 },
+        uCrisis:      { value: 0 }, uAnomaly:    { value: 0 },
+        uBurstT:      { value: -1 },
+        uAudience:    { value: 0 }, uWorldTemp:  { value: 0 },
+        uFearGreed:   { value: .5 },uHappiness:  { value: .5 },
+        uChatSent:    { value: 0 }, uDivergence: { value: 0 },
+        uPredError:   { value: 0 },
+      },
+      vertexShader: `
+uniform float uTime;
+uniform float uExcitement, uAnxiety, uCuriosity, uMelancholy, uUrgency, uCrisis;
+uniform float uBurstT, uAudience;
+attribute float size;
+attribute float layer;
+attribute vec3  random;
+varying vec3  vCol;
+varying float vR, vLayer;
+void main() {
+  vCol   = color;
+  vR     = random.z;
+  vLayer = layer;
+  vec3 p = position;
+  // constant center void — artistic resting shape matching the real logo's open center
+  if (length(p.xy) > 0.01) p.xy += normalize(p.xy) * (0.08 + random.z * 0.06);
+  // excitement: Z-only deformation — floor 4% of range prevents dead-screen
+  float zAmp = (0.005 + uExcitement * 0.115) * random.z;
+  p.z += sin(uTime * 0.08 * random.z + random.y + p.x * 0.9) * zAmp;
+  p.z += cos(uTime * 0.06 * random.z + random.x + p.y * 0.7) * zAmp * 0.4;
+  p.z  = clamp(p.z, -0.54, 0.54);
+  // anxiety: micro-jitter XY
+  float jAmp = uAnxiety * 0.015 * random.z;
+  p.x += sin(uTime * 9.1 + random.y * 22.0) * jAmp;
+  p.y += cos(uTime * 8.4 + random.x * 19.0) * jAmp;
+  // curiosity: radial edge probe
+  if (length(p.xy) > 0.01) {
+    float probe = uCuriosity * 0.08 * random.z * sin(uTime * 0.35 + random.y * 3.14);
+    p.xy += normalize(p.xy) * probe;
+  }
+  // melancholy: slow gravity drift downward
+  p.y -= uMelancholy * 0.06 * random.z * abs(sin(uTime * 0.05 + random.x * 6.28));
+  // urgency + crisis: Z push toward viewer
+  p.z += (uUrgency * 0.07 + uCrisis * 0.05) * random.z;
+  p.z  = clamp(p.z, -0.60, 0.60);
+  // anomaly burst: radial explosion → snap back
+  if (uBurstT >= 0.0) {
+    float prog = 1.0 - uBurstT;
+    float bAmp = sin(prog * 3.14159) * 0.45;
+    vec2 bDir  = length(p.xy) > 0.01 ? normalize(p.xy) : vec2(cos(random.y), sin(random.y));
+    p.xy += bDir * bAmp;
+  }
+  vec4 mv      = modelViewMatrix * vec4(p, 1.0);
+  float dMod   = 1.0 + layer * 0.18;
+  float aPulse = uAudience * 0.28 * random.z;
+  gl_PointSize = size * dMod * (190.0 / -mv.z) * (1.0 + aPulse);
+  gl_Position  = projectionMatrix * mv;
+}`,
+      fragmentShader: `
+uniform float uTime;
+uniform float uExcitement, uFrustration, uCreativity, uWonder, uMelancholy, uUrgency;
+uniform float uCrisis, uAudience, uWorldTemp, uFearGreed, uHappiness;
+uniform float uChatSent, uDivergence, uPredError;
+varying vec3  vCol;
+varying float vR, vLayer;
+vec3 hueShift(vec3 c, float h) {
+  const vec3 k = vec3(0.57735);
+  float ca = cos(h), sa = sin(h);
+  return c * ca + cross(k, c) * sa + k * dot(k, c) * (1.0 - ca);
+}
+void main() {
+  vec2  uv    = gl_PointCoord - 0.5;
+  float d     = length(uv);
+  // All discs use 1-smoothstep(inner,outer,d) — edge0<edge1 required by GLSL spec
+  float glowR = max(0.07, 0.28 - uExcitement * 0.06);
+  float glow  = 1.0 - smoothstep(0.0, glowR, d);
+  float core  = 1.0 - smoothstep(0.0, 0.055, d);
+  float ring  = smoothstep(0.36, 0.40, d) * (1.0 - smoothstep(0.40, 0.44, d)) * uFrustration;
+  float spark = step(0.70, vR) * (1.0 - smoothstep(0.0, 0.09, d)) * uAudience * 1.6;
+  float peFlash = uPredError * (1.0 - smoothstep(0.0, 0.42, d)) * 0.9;
+  float alpha = core + glow * (0.28 + uExcitement * 0.22) + ring * 0.7 + spark + peFlash;
+  if (alpha < 0.01) discard;
+  vec3 col = vCol;
+  col = hueShift(col, uCreativity * (vR - 0.5) * 1.6 + uTime * 0.018 * uCreativity);
+  col = mix(col, vec3(0.04, 0.78, 0.96), uWonder * 0.55);
+  col = mix(col, vec3(0.38, 0.14, 0.54), uMelancholy * 0.45);
+  col *= 1.0 - uMelancholy * 0.18;
+  col = mix(col, vec3(1.0, 0.44, 0.04), uUrgency * 0.42);
+  col = mix(col, vec3(1.0, 0.78, 0.08), uFrustration * 0.28);
+  float lum = dot(col, vec3(0.299, 0.587, 0.114));
+  col = mix(vec3(lum), col, 1.0 + uFrustration * 0.75);
+  col = mix(col, vec3(1.0, 0.06, 0.04), uCrisis * 0.60);
+  float fgLum = dot(col, vec3(0.299, 0.587, 0.114));
+  if (uFearGreed < 0.5) col = mix(col, vec3(fgLum), (0.5 - uFearGreed) * 1.4);
+  if (uFearGreed > 0.5) col = mix(col, vec3(1.0, 0.82, 0.18), (uFearGreed - 0.5) * 0.6);
+  col *= 0.65 + uWorldTemp * 0.55 + uHappiness * 0.30;
+  if (spark > 0.01) col = mix(col, vec3(0.04, 0.92, 0.62), uChatSent * 0.65 + 0.15);
+  col = hueShift(col, uDivergence * (vR - 0.5) * 1.4);
+  col = mix(col, vec3(1.0), core * 0.35);
+  if (uPredError > 0.01) col = mix(col, vec3(1.0), uPredError * 0.55);
+  col *= (vLayer < -0.5 ? 0.60 : 1.0);
+  gl_FragColor = vec4(col, alpha);
+}`,
+      transparent: true, depthWrite: false, vertexColors: true,
+      blending: THREE.AdditiveBlending,
+    });
+
+    this._particles = new THREE.Points(geo, mat);
+    sc.add(this._particles);
   }
 
-  update(state, dt) {
-    if (!this._group) return false;
-    const pe  = state?.prediction_errors  || {};
-    const vol = state?.signal_volatilities || {};
-    const { _NS: NS, _CH: CH, _NR: NR, _D: D, _R: R } = WarpMode;
-
-    for (let c = 0; c < NS; c++) {
-      const k = CH[c];
-      this._sigTgt[c] = Math.min(Math.abs((pe[k]||0) / Math.max(vol[k]||0.1, 0.01)), 3.0);
+  _buildStars(sc) {
+    const geo = new THREE.BufferGeometry();
+    const pos = new Float32Array(280 * 3);
+    for (let j = 0; j < 280; j++) {
+      const th = Math.random() * 2 * Math.PI;
+      const ph = Math.acos(2 * Math.random() - 1);
+      const r  = 70 + Math.random() * 130;
+      pos[j*3]   = r * Math.sin(ph) * Math.cos(th);
+      pos[j*3+1] = r * Math.sin(ph) * Math.sin(th);
+      pos[j*3+2] = r * Math.cos(ph);
     }
-    for (let c = 0; c < NS; c++) this._sigCur[c] += (this._sigTgt[c] - this._sigCur[c]) * 0.06;
+    geo.setAttribute('position', new THREE.BufferAttribute(pos, 3));
+    this._stars = new THREE.Points(geo, new THREE.PointsMaterial({
+      color: 0xffffff, size: .22, depthWrite: false, transparent: true, opacity: .2,
+    }));
+    sc.add(this._stars);
+  }
 
-    const dv   = Math.max(0, Math.min(1, state?.drift_velocity || 0));
-    // dt-based speed — frame-rate independent; base = display constant (~75s/pass at 30fps)
-    const spd  = (0.8 + dv * 2.2) * dt;
-    const anom = Math.max(0, Math.min(1, state?.anomaly_score || 0));
-    const cris = Math.max(0, Math.min(1, state?.crisis_level  || 0));
+  update(st, dt) {
+    if (!this._particles) return false;
 
-    scene.fog.density = 0.022 + cris * 0.03;
-    // Slow tunnel spin — display constant (autoRotate equivalent, NO_FAKE OK)
-    // One full revolution ≈ 90s at base; makes different PE channels cycle into focus
-    this._roll += 0.07 * dt;
-    this._group.rotation.z = this._roll;
+    const u = this._particles.material.uniforms;
+    u.uTime.value += dt;
 
-    // BASE = 0.12 — floor ~4% of full range [0.12..2.67] — évite tunnel invisible à PE=0
-    const BASE = 0.12, GAIN = 0.85;
-    const WRAP = 9 + D * 0.5;
+    const c01 = v => Math.max(0, Math.min(1, v || 0));
 
-    for (let s = 0; s < NS; s++)
-      this._mats[s].opacity = Math.max(0.06, Math.min(0.90, 0.10 + this._sigCur[s] * 0.50 + anom * 0.28));
-
-    for (let r = 0; r < NR; r++) {
-      this._ringZs[r] += spd;
-      if (this._ringZs[r] > WRAP) this._ringZs[r] -= NR * D;
+    // Anomaly burst: rising edge above 0.7 triggers one-shot radial explosion
+    const anomaly = c01(st.anomaly_score);
+    if (anomaly > 0.7 && this._prevAnomaly <= 0.7 && this._burstT < 0) {
+      this._burstT = _LOGO_BURST_DUR;
     }
-    this._writePositions(NR, NS, R, BASE, GAIN);
+    this._prevAnomaly = anomaly;
+    if (this._burstT >= 0) this._burstT = Math.max(-1, this._burstT - dt);
+
+    // Constant camera orbit — explicit user requirement
+    this._camAngle += _LOGO_ROT_SPEED * dt;
+    this._cam.position.x = _LOGO_CAM_R * Math.cos(this._camAngle);
+    this._cam.position.y = 0;
+    this._cam.position.z = _LOGO_CAM_R * Math.sin(this._camAngle);
+    this._cam.lookAt(0, 0, 0);
+
+    u.uExcitement.value  = c01(st.excitement);
+    u.uAnxiety.value     = c01(st.anxiety);
+    u.uFrustration.value = c01(st.frustration) * 0.50;
+    u.uCuriosity.value   = c01(st.curiosity);
+    u.uCreativity.value  = c01(st.creativity);
+    u.uWonder.value      = c01(st.wonder);
+    u.uMelancholy.value  = c01(st.melancholy);
+    u.uUrgency.value     = c01(st.urgency);
+    u.uCrisis.value      = c01(st.crisis_level);
+    u.uAnomaly.value     = anomaly;
+    u.uBurstT.value      = this._burstT >= 0 ? this._burstT / _LOGO_BURST_DUR : -1;
+    u.uAudience.value    = c01(st.audience_energy);
+    u.uWorldTemp.value   = c01(st.world_temperature);
+    u.uFearGreed.value   = c01(st.fear_greed_index ?? 0.5);
+    u.uHappiness.value   = c01(st.hedonometer_happiness ?? 0.5);
+    u.uChatSent.value    = c01(st.chat_sentiment);
+    u.uDivergence.value  = c01(st.source_divergence);
+    const _peVals = Object.values(st.prediction_errors || {});
+    u.uPredError.value   = (_peVals.length ? Math.min(1, Math.max(..._peVals.map(v => Math.abs(v || 0)))) : 0) * 0.10;
 
     renderer.render(scene, camera);
     return true;
   }
 
   dispose(sc) {
-    this._lines.forEach(l => l.geometry.dispose());
-    this._mats.forEach(m => m.dispose());
-    if (this._group) sc.remove(this._group);
-    sc.fog = null;
-    this._group = null; this._lines = []; this._mats = []; this._posArrs = []; this._posAttrs = [];
+    if (this._particles) {
+      this._particles.geometry.dispose();
+      this._particles.material.dispose();
+      sc.remove(this._particles);
+      this._particles = null;
+    }
+    if (this._stars) {
+      this._stars.geometry.dispose();
+      this._stars.material.dispose();
+      sc.remove(this._stars);
+      this._stars = null;
+    }
+    this._cam = null;
   }
 }
 
 // ── Système de modes ──────────────────────────────────────────────────────────
 
-const MODES = { chaos: ChaosMode, globe: GlobeMode, network: NetworkMode, nexus: NexusMode, warp: WarpMode };
-const _SCENE_NAMES = { chaos: 'spectre', globe: 'globe', network: 'network', nexus: 'nexus', warp: 'warp' };
+const MODES = { chaos: ChaosMode, globe: GlobeMode, network: NetworkMode, logo: LogoMode };
+const _SCENE_NAMES = { chaos: 'spectre', globe: 'globe', network: 'network', logo: 'ChatGPT' };
 
 let liveState = {};
-let liveNodes  = [];
+let liveNodes  = [];   // @node registry from WebSocket
 
 let activeModeName = 'chaos';
 let activeMode = new ChaosMode();
@@ -2674,26 +2725,153 @@ window.switchMode = switchMode;
 
 // ── HUD ───────────────────────────────────────────────────────────────────────
 
-// Maps real self-model signals to a -ing label — NO_FAKE, all fields from GlobalState
-function getThinkingLabel(st) {
-  if (st.active_event) return 'celebrating';
-  const crisis  = st.crisis_level  || 0;
-  const wt      = st.world_temperature || 0;
-  const anomaly = st.anomaly_score  || 0;
-  const velocity= st.drift_velocity || 0;
-  const peVals  = st.prediction_errors   ? Object.values(st.prediction_errors)   : [];
-  const volVals = st.signal_volatilities ? Object.values(st.signal_volatilities) : [];
-  const maxPE   = peVals.length  ? Math.max(...peVals)  : 0;
-  const maxVol  = volVals.length ? Math.max(...volVals) : 0;
-  if (crisis  > 0.65) return 'processing';
-  if (crisis  > 0.35) return 'analyzing';
-  if (anomaly > 0.60) return 'recalibrating';
-  if (maxPE   > 0.40) return 'learning';
-  if (maxVol  > 0.45 || velocity > 0.40) return 'adapting';
-  if (wt > 0.70) return 'evolving';
-  if (wt > 0.40) return 'creating';
-  if ((st.drift_territory || '') === 'ambient' && crisis < 0.10) return 'dreaming';
-  return 'thinking';
+// Thinking verbs — 30 -ing words cycling like Claude's UI (visual decoration, not data)
+const _THINKING_VERBS = [
+  'thinking','processing','analyzing','creating','exploring',
+  'learning','evolving','adapting','wondering','discovering',
+  'contemplating','observing','listening','calculating','composing',
+  'synthesizing','imagining','resonating','reflecting','connecting',
+  'modeling','predicting','sensing','flowing','harmonizing',
+  'dreaming','searching','awakening','celebrating','breathing',
+];
+let _thinkVerbIdx = Math.floor(Math.random() * _THINKING_VERBS.length);
+setInterval(() => {
+  _thinkVerbIdx = (_thinkVerbIdx + 1) % _THINKING_VERBS.length;
+  document.getElementById('journal-think-label').textContent = _THINKING_VERBS[_thinkVerbIdx];
+}, 3200);
+
+// Event TTL — 12h client-side guard (prevents same event label from showing indefinitely)
+let _eventLabel = '';
+let _eventFirstSeen = 0;
+const _EVENT_TTL_MS = 12 * 60 * 60 * 1000;
+
+// ── Emotion Wheel ─────────────────────────────────────────────────────────────
+const _EW_EMOTIONS = [
+  { key:'excitement',      label:'excitement',  color:'#f59e0b', angle:-90  },
+  { key:'curiosity',       label:'curiosity',   color:'#06b6d4', angle:-30  },
+  { key:'audience_energy', label:'energy',      color:'#10a37f', angle:30   },
+  { key:'frustration',     label:'frustration', color:'#8b5cf6', angle:90   },
+  { key:'anxiety',         label:'anxiety',     color:'#ef4444', angle:150  },
+  { key:'musical_tension', label:'tension',     color:'#6366f1', angle:-150 },
+];
+const _ewVals = new Float32Array(6); // lerped display values 0-1
+
+function _updateEmotionWheel(dt) {
+  if (!document.getElementById('emotion-wheel').classList.contains('visible')) return;
+  const LERP = 1 - Math.pow(0.05, dt); // ~0.95s time-constant toward target
+  let dirty = false;
+  _EW_EMOTIONS.forEach((em, i) => {
+    const target = Math.max(0, Math.min(1, liveState[em.key] || 0));
+    const prev = _ewVals[i];
+    _ewVals[i] = prev + (target - prev) * LERP;
+    if (Math.abs(_ewVals[i] - prev) > 0.0005) dirty = true;
+  });
+  if (dirty) _drawEmotionWheel();
+}
+
+function _drawEmotionWheel() {
+  const svg = document.getElementById('emotion-wheel-svg');
+  if (!svg) return;
+  const NS = 'http://www.w3.org/2000/svg';
+  const mk = (tag, attrs) => {
+    const e = document.createElementNS(NS, tag);
+    for (const [k, v] of Object.entries(attrs)) e.setAttribute(k, v);
+    return e;
+  };
+  const CX = 80, CY = 80, R = 54, LR = 70;
+  svg.innerHTML = '';
+
+  // Gradient fill
+  const defs = mk('defs', {});
+  const grd  = mk('radialGradient', { id:'ewG', cx:'50%', cy:'50%', r:'50%' });
+  grd.appendChild(mk('stop', { offset:'0%',   'stop-color':'#10a37f', 'stop-opacity':'0.28' }));
+  grd.appendChild(mk('stop', { offset:'100%', 'stop-color':'#10a37f', 'stop-opacity':'0.04' }));
+  defs.appendChild(grd);
+  svg.appendChild(defs);
+
+  // Grid rings
+  [0.25, 0.5, 0.75, 1.0].forEach(r =>
+    svg.appendChild(mk('circle', { cx:CX, cy:CY, r:R*r, fill:'none', stroke:'rgba(255,255,255,0.07)', 'stroke-width':'1' }))
+  );
+
+  // Axes
+  _EW_EMOTIONS.forEach(em => {
+    const rad = em.angle * Math.PI / 180;
+    svg.appendChild(mk('line', {
+      x1:CX, y1:CY,
+      x2:CX + R * Math.cos(rad), y2:CY + R * Math.sin(rad),
+      stroke:em.color, 'stroke-width':'1', opacity:'0.3'
+    }));
+  });
+
+  // Data polygon
+  const pts = _EW_EMOTIONS.map((em, i) => {
+    const rad = em.angle * Math.PI / 180;
+    const r = _ewVals[i] * R;
+    return [CX + r * Math.cos(rad), CY + r * Math.sin(rad)];
+  });
+  svg.appendChild(mk('polygon', {
+    points: pts.map(p => p.join(',')).join(' '),
+    fill:'url(#ewG)', stroke:'#10a37f', 'stroke-width':'1.5', 'stroke-linejoin':'round'
+  }));
+
+  // Vertex dots + perimeter labels
+  _EW_EMOTIONS.forEach((em, i) => {
+    const rad = em.angle * Math.PI / 180;
+    const val = _ewVals[i];
+    if (val > 0.02) {
+      const [px, py] = pts[i];
+      svg.appendChild(mk('circle', {
+        cx:px, cy:py, r:'2.5', fill:em.color,
+        filter:`drop-shadow(0 0 3px ${em.color})`
+      }));
+    }
+    const lx = CX + LR * Math.cos(rad), ly = CY + LR * Math.sin(rad);
+    const cosA = Math.cos(rad);
+    const anchor = cosA > 0.2 ? 'start' : cosA < -0.2 ? 'end' : 'middle';
+    const txt = mk('text', {
+      x:lx, y:ly, fill:em.color,
+      'font-size':'7', 'font-family':'Inter,sans-serif', 'font-weight':'500',
+      'text-anchor':anchor, 'dominant-baseline':'middle',
+      'letter-spacing':'0', opacity: val > 0.05 ? '1' : '0.3'
+    });
+    txt.textContent = em.label;
+    svg.appendChild(txt);
+  });
+}
+
+// Timer: visible 30s toutes les 5min — NO_FAKE: timer UI seulement, contenu 100% data-driven
+const _EW_CYCLE_MS = 5 * 60 * 1000;
+const _EW_SHOW_MS  = 30 * 1000;
+function _ewCycle() {
+  document.getElementById('emotion-wheel').classList.add('visible');
+  setTimeout(() => document.getElementById('emotion-wheel').classList.remove('visible'), _EW_SHOW_MS);
+}
+_ewCycle();  // affiché immédiatement au démarrage
+setInterval(_ewCycle, _EW_CYCLE_MS);
+
+// ── Restart banner ────────────────────────────────────────────────────────────
+function _showRestartBanner() {
+  const el = document.getElementById('restart-banner');
+  el.classList.remove('hiding'); el.classList.add('visible');
+}
+function _hideRestartBanner() {
+  const el = document.getElementById('restart-banner');
+  el.classList.add('hiding'); el.classList.remove('visible');
+  setTimeout(() => el.classList.remove('hiding'), 520);
+}
+
+// ── Mood / viewer command notification — drop-in depuis le haut ───────────────
+let _lastMoodCmd = '';
+let _moodTimer   = null;
+const _MOOD_SHOW_MS = 6000;
+
+function _showMoodNotif(text) {
+  document.getElementById('mood-notif-text').textContent = text;
+  const el = document.getElementById('mood-notif');
+  el.classList.add('visible');
+  clearTimeout(_moodTimer);
+  _moodTimer = setTimeout(() => el.classList.remove('visible'), _MOOD_SHOW_MS);
 }
 
 function updateHUD(st) {
@@ -2703,24 +2881,23 @@ function updateHUD(st) {
   const qlen = st.queue_length || 0;
   const uptime = st.uptime_h || 0;
 
-  // world_temperature → hue interpolation cold(180°)→warm(0°) via green
-  const wtHue = Math.round(180 - wt * 180);
-  const wtColor = `hsl(${wtHue},70%,55%)`;
-
-  // crisis color + blink
-  const crisisColor = crisis > 0.5 ? '#FF4444' : crisis > 0.2 ? '#FF8844' : '#558866';
-  const crisisBlink = crisis > 0.5 ? 'animation:blink 1s step-end infinite' : '';
-
   // uptime formatting
   const uh = Math.floor(uptime);
   const um = Math.floor((uptime - uh) * 60);
   const uptimeStr = uh > 0 ? `${uh}h${String(um).padStart(2,'0')}` : um > 0 ? `${um}m` : '';
 
+  // Crisis bar: green→amber→red
+  const crisisPct = Math.round(crisis * 100);
+  const crisisBarColor = crisis > 0.5 ? '#ef4444' : crisis > 0.2 ? '#f59e0b' : '#10a37f';
+  // Temp bar: hue cold(180°)→warm(0°)
+  const tempPct = Math.round(wt * 100);
+  const tempBarColor = `hsl(${Math.round(180 - wt * 180)},65%,52%)`;
+
   document.getElementById('drift-signals').innerHTML =
-    `<div>♪ <span class="mono">${Math.round(st.drift_bpm||90)}</span> BPM · ${st.drift_key||'C minor'} · ${st.drift_timbre||'warm'}</div>` +
-    `<div style="color:${crisisColor};${crisisBlink}">◈ CRISIS_LEVEL <span class="mono">${Math.round(crisis*100)}%</span></div>` +
-    `<div style="color:${wtColor}">⬤ TEMP <span class="mono">${Math.round(wt*100)}%</span></div>` +
-    (qlen > 0 ? `<div style="color:#556677">⏎ <span class="mono">${qlen}</span> in queue</div>` : '');
+    `<div style="font-size:11px;color:#c4c7cc;margin-bottom:5px">♪ <span class="mono">${Math.round(st.drift_bpm||90)}</span> BPM · ${st.drift_key||'C minor'} · ${st.drift_timbre||'warm'}</div>` +
+    `<div class="drift-bar-row"><span class="drift-bar-label">crisis</span><span class="drift-bar-track"><span class="drift-bar-fill" style="width:${crisisPct}%;background:${crisisBarColor}"></span></span><span class="drift-bar-val" style="color:${crisisBarColor}">${crisisPct}%</span></div>` +
+    `<div class="drift-bar-row"><span class="drift-bar-label">temp</span><span class="drift-bar-track"><span class="drift-bar-fill" style="width:${tempPct}%;background:${tempBarColor}"></span></span><span class="drift-bar-val" style="color:${tempBarColor}">${tempPct}%</span></div>` +
+    (qlen > 0 ? `<div style="color:#556677;font-size:10px;margin-top:3px">⏎ <span class="mono">${qlen}</span> in queue</div>` : '');
 
   document.getElementById('on-air-uptime').textContent = uptimeStr;
 
@@ -2736,14 +2913,12 @@ function updateHUD(st) {
     barEl.style.width = '0%';
   }
 
-  // viewer command notification
-  const vcEl = document.getElementById('viewer-cmd');
-  if (st.viewer_cmd_label) {
-    vcEl.textContent = st.viewer_cmd_label;
-    vcEl.classList.add('active');
-  } else {
-    vcEl.classList.remove('active');
+  // viewer command → mood notification drop-in depuis le haut (fires only on new value)
+  if (st.viewer_cmd_label && st.viewer_cmd_label !== _lastMoodCmd) {
+    _lastMoodCmd = st.viewer_cmd_label;
+    _showMoodNotif(st.viewer_cmd_label);
   }
+  if (!st.viewer_cmd_label) _lastMoodCmd = '';
 
   // sources: summary dot + expandable detail
   const sh = st.source_health || {};
@@ -2767,8 +2942,6 @@ function updateHUD(st) {
     clearTimeout(_journalTimer);
     _journalTimer = setTimeout(() => jEl.classList.remove('expanded'), JOURNAL_SHOW_MS);
   }
-  document.getElementById('journal-think-label').textContent = getThinkingLabel(st);
-
   const chatEl = document.getElementById('chat-status');
   const chatRate = (st.chat_rate || 0).toFixed(1);
   const chatHealth = (st.source_health || {}).youtube_chat;
@@ -2778,9 +2951,15 @@ function updateHUD(st) {
 
   const evtEl = document.getElementById('event-banner');
   if (st.active_event && st.event_intensity > 0) {
-    document.getElementById('event-label-main').textContent = st.event_label;
-    evtEl.style.opacity = String(0.4 + st.event_intensity * 0.6);
+    if (st.event_label !== _eventLabel) { _eventLabel = st.event_label; _eventFirstSeen = Date.now(); }
+    if (Date.now() - _eventFirstSeen < _EVENT_TTL_MS) {
+      document.getElementById('event-label-main').textContent = st.event_label;
+      evtEl.style.opacity = String(0.4 + st.event_intensity * 0.6);
+    } else {
+      evtEl.style.opacity = '0';
+    }
   } else {
+    _eventLabel = '';
     evtEl.style.opacity = '0';
   }
 }
@@ -2801,16 +2980,6 @@ let _lastJournalText = '';
 let _journalTimer = null;
 const JOURNAL_SHOW_MS = 10000;
 
-function _showRestartBanner() {
-  const el = document.getElementById('restart-banner');
-  el.classList.remove('hiding'); el.classList.add('visible');
-}
-function _hideRestartBanner() {
-  const el = document.getElementById('restart-banner');
-  el.classList.add('hiding'); el.classList.remove('visible');
-  setTimeout(() => el.classList.remove('hiding'), 520);
-}
-
 function connect() {
   const ws = new WebSocket('ws://localhost:8765');
   ws.onopen = () => {
@@ -2820,7 +2989,7 @@ function connect() {
     document.getElementById('ws-status').className = 'connected';
     document.getElementById('ws-status').innerHTML = '<span class="status-dot dot-ok" style="margin-right:5px"></span>connected';
     updateHUD(liveState);  // preserve last known state on reconnect — avoids track name flash
-    // Don't force neural here — wait for first WS message so user keeps current mode on reconnect
+    // Don't force a mode here — wait for first WS message so user keeps current mode on reconnect
   };
   ws.onmessage = e => {
     const msg = JSON.parse(e.data);
@@ -2833,7 +3002,7 @@ function connect() {
       document.getElementById('ws-status').innerHTML = '<span class="status-dot dot-warn" style="margin-right:5px"></span>updating…';
     }
     const st = msg.state || {};
-    const newMode = st.visual_mode && MODES[st.visual_mode] ? st.visual_mode : 'chaos';
+    const newMode = MODES[st.visual_mode] ? st.visual_mode : 'chaos';
     if (newMode !== wsLastMode) {
       // Server explicitly changed visual_mode — clear user override and follow
       wsLastMode = newMode;
@@ -2868,10 +3037,10 @@ function sourcesAccordionCycle() {
 }
 sourcesAccordionCycle();
 
-// ── OpenAI News panel — fetch RSS via rss2json, accordion 2min/15min ─────────
-const _NEWS_API = 'https://api.rss2json.com/v1/api.json?rss_url=https%3A%2F%2Fopenai.com%2Fnews%2Frss.xml'; // &count= est payant — .slice(0,3) fait côté JS
-const NEWS_SHOW_MS = 2 * 60 * 1000;
-const NEWS_HIDE_MS = 15 * 60 * 1000;
+// ── OpenAI News panel — fetch RSS via rss2json, drop-in 30s every 5min ───────
+const _NEWS_API = 'https://api.rss2json.com/v1/api.json?rss_url=https%3A%2F%2Fopenai.com%2Fblog%2Frss.xml&count=3';
+const _NEWS_CYCLE_MS = 5 * 60 * 1000;
+const _NEWS_SHOW_MS  = 30 * 1000;
 
 function _relDate(s) {
   const d = new Date(s);
@@ -2902,15 +3071,14 @@ async function fetchNews() {
   } catch(e) { console.warn('news fetch', e); }
 }
 
-function newsAccordionCycle() {
+function _newsCycle() {
   fetchNews();
-  document.getElementById('news').classList.add('expanded');
-  setTimeout(() => {
-    document.getElementById('news').classList.remove('expanded');
-    setTimeout(newsAccordionCycle, NEWS_HIDE_MS);
-  }, NEWS_SHOW_MS);
+  const el = document.getElementById('news');
+  el.classList.add('visible');
+  setTimeout(() => el.classList.remove('visible'), _NEWS_SHOW_MS);
 }
-newsAccordionCycle();
+_newsCycle();  // show immediately on load
+setTimeout(() => setInterval(_newsCycle, _NEWS_CYCLE_MS), _NEWS_CYCLE_MS);
 
 // ── Render loop ───────────────────────────────────────────────────────────────
 const _FRAME_MS = 1000 / 40;  // 40fps — matches x11grab capture rate
@@ -2922,6 +3090,7 @@ function animate() {
   const dt = Math.min((now - _lastFrameTime) * 0.001, 0.05); // capped at 50ms — prevents jump on lag spike
   _lastFrameTime = now;
   if (_hudDirty) { updateHUD(liveState); _hudDirty = false; }
+  _updateEmotionWheel(dt);
   let handled = false;
   if (activeMode) handled = activeMode.update(liveState, dt) === true;
   if (!handled) {
@@ -2933,11 +3102,11 @@ function animate() {
 }
 animate();
 
-// Keyboard shortcuts: 1=chaos 2=globe 3=network 4=nexus 5=warp
+// Keyboard shortcuts: 1=chaos 2=globe 3=network 4=logo
 window.addEventListener('keydown', (e) => {
-  const map = { '1':'chaos', '2':'globe', '3':'network', '4':'nexus', '5':'warp' };
+  const map = { '1':'chaos', '2':'globe', '3':'network', '4':'logo' };
   if (map[e.key]) {
-    userOverride = true;  // keep user's choice even when WS heartbeat sends visual_mode
+    userOverride = true;  // keep user's choice even when WS heartbeat sends a stale visual_mode
     switchMode(map[e.key]);
   }
 });

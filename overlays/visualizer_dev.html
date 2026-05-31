@@ -214,23 +214,57 @@
       letter-spacing:0.18em; text-transform:uppercase;
     }
 
-    /* ── Viewer command — glassmorphism pill (center-bottom) ─────────────────── */
-    #viewer-cmd {
-      position:absolute; bottom:28px; left:50%; transform:translateX(-50%);
-      font-size:11px; color:#ececf1; letter-spacing:0.03em; white-space:nowrap;
-      background:linear-gradient(135deg,rgba(255,255,255,0.08) 0%,rgba(255,255,255,0.03) 100%);
-      backdrop-filter:blur(20px) saturate(180%); -webkit-backdrop-filter:blur(20px) saturate(180%);
-      border:1px solid rgba(255,255,255,0.12);
-      box-shadow:inset 0 1px 0 rgba(255,255,255,0.08),0 4px 20px rgba(0,0,0,0.24);
-      border-radius:20px; padding:5px 12px 5px 10px;
-      display:flex; align-items:center; gap:7px;
-      opacity:0; transition:opacity 0.5s ease;
+    /* ── Viewer command — notification phone-style depuis le haut ───────────────── */
+    #mood-notif {
+      position:absolute; top:90px; left:50%;
+      transform:translateX(-50%) translateY(-200px); opacity:0;
+      transition:transform 0.55s cubic-bezier(0.22,1,0.36,1), opacity 0.38s ease;
+      background:linear-gradient(135deg,rgba(255,255,255,0.10) 0%,rgba(255,255,255,0.04) 100%);
+      backdrop-filter:blur(24px) saturate(180%); -webkit-backdrop-filter:blur(24px) saturate(180%);
+      border:1px solid rgba(255,255,255,0.16); border-top:1px solid rgba(255,255,255,0.22);
+      border-radius:14px; padding:10px 22px 12px;
+      text-align:center; pointer-events:none;
+      box-shadow:inset 0 1px 0 rgba(255,255,255,0.10), 0 16px 48px rgba(0,0,0,0.44);
+      min-width:160px; max-width:340px;
     }
-    #viewer-cmd::before {
-      content:''; display:inline-block; width:5px; height:5px;
-      border-radius:50%; background:#ab68ff; flex-shrink:0;
+    #mood-notif.visible { transform:translateX(-50%) translateY(0); opacity:1; }
+    #mood-notif-label {
+      font-size:9px; font-weight:500; letter-spacing:0.10em; text-transform:uppercase;
+      color:#ab68ff; margin-bottom:5px;
     }
-    #viewer-cmd.active { opacity:1; }
+    #mood-notif-text {
+      font-size:13px; font-weight:500; color:#ececf1; letter-spacing:0.03em;
+      white-space:nowrap; overflow:hidden; text-overflow:ellipsis;
+    }
+
+    /* ── Restart banner — drop-in depuis le haut, accent amber ───────────────── */
+    #restart-banner {
+      position:absolute; top:24px; left:50%;
+      transform:translateX(-50%) translateY(calc(-100% - 48px));
+      transition:transform 0.65s cubic-bezier(0.22,1,0.36,1);
+      display:flex; align-items:center; gap:14px;
+      background:rgba(30,20,5,0.82);
+      backdrop-filter:blur(20px) saturate(160%); -webkit-backdrop-filter:blur(20px) saturate(160%);
+      border:1px solid rgba(217,119,6,0.45);
+      box-shadow:inset 0 1px 0 rgba(255,255,255,0.07), 0 8px 32px rgba(0,0,0,0.5);
+      border-radius:12px; padding:12px 28px 14px;
+      pointer-events:none; white-space:nowrap; z-index:50;
+    }
+    #restart-banner.visible { transform:translateX(-50%) translateY(0); }
+    #restart-banner.hiding  { transition:transform 0.5s ease-in; }
+    #restart-icon {
+      font-size:20px; color:#f59e0b;
+      display:inline-block; animation:spin 1.4s linear infinite;
+    }
+    @keyframes spin { to { transform:rotate(360deg); } }
+    #restart-label-main {
+      font-size:14px; font-weight:600; color:#fef3c7;
+      letter-spacing:0.08em; text-shadow:0 0 20px rgba(245,158,11,0.5);
+    }
+    #restart-label-sub {
+      font-size:10px; font-weight:400; color:#d97706;
+      letter-spacing:0.06em; margin-top:3px; opacity:0.85;
+    }
 
     /* ── Emotion Wheel panel (bottom-left, drop-in) ──────────────────────────── */
     #emotion-wheel {
@@ -308,7 +342,7 @@
 <div id="hud">
   <div id="on-air"><div id="on-air-dot"></div><span id="on-air-label">ON AIR</span><span id="on-air-uptime"></span></div>
   <div id="status-panel">
-    <div id="mode-indicator">neural</div>
+    <div id="mode-indicator">chaos</div>
     <div id="ws-status"></div>
     <div id="chat-status"></div>
     <div id="reddit-status"></div>
@@ -323,10 +357,17 @@
   <div id="event-banner"><div id="event-label-above">Today we celebrate</div><div id="event-label-main"></div></div>
   <div id="emotion-wheel"><svg id="emotion-wheel-svg" width="160" height="160" viewBox="0 0 160 160"></svg></div>
   <div id="drift"><div id="drift-track" style="display:none"><div id="drift-track-name"></div><div id="track-progress-wrap"><div id="track-progress-bar"></div></div></div><div id="drift-signals"></div></div>
-  <div id="viewer-cmd"></div>
+  <div id="mood-notif"><div id="mood-notif-label">viewer command</div><div id="mood-notif-text"></div></div>
+  <div id="restart-banner"><div id="restart-icon">⟳</div><div><div id="restart-label-main">Upgrading…</div><div id="restart-label-sub">Back in a few seconds</div></div></div>
   <div id="sources"><div id="sources-summary"><span id="sources-count"></span><span id="sources-dot" class="status-dot"></span></div><div id="sources-detail"></div></div>
   <div id="journal"><div id="journal-header"><div class="think-dots"><span></span><span></span><span></span></div><span id="journal-think-label">thinking</span></div><div id="journal-body"></div></div>
 </div>
+
+<!-- Hidden SVG for LogoMode fill-sampling — must be in DOM at load -->
+<svg id="_logo-hidden-svg" viewBox="0 0 24 24" xmlns="http://www.w3.org/2000/svg"
+     style="position:absolute;opacity:0;pointer-events:none;width:1px;height:1px">
+  <path id="_logo-hidden-path" d="M22.2819 9.8211a5.9847 5.9847 0 0 0-.5157-4.9108 6.0462 6.0462 0 0 0-6.5098-2.9A6.0651 6.0651 0 0 0 4.9807 4.1818a5.9847 5.9847 0 0 0-3.9977 2.9 6.0462 6.0462 0 0 0 .7427 7.0966 5.98 5.98 0 0 0 .511 4.9107 6.051 6.051 0 0 0 6.5146 2.9001A5.9847 5.9847 0 0 0 13.2599 24a6.0557 6.0557 0 0 0 5.7718-4.2058 5.9894 5.9894 0 0 0 3.9977-2.9001 6.0557 6.0557 0 0 0-.7475-7.0729zm-9.022 12.6081a4.4755 4.4755 0 0 1-2.8764-1.0408l.1419-.0804 4.7783-2.7582a.7948.7948 0 0 0 .3927-.6813v-6.7369l2.02 1.1686a.071.071 0 0 1 .038.052v5.5826a4.504 4.504 0 0 1-4.4945 4.4944zm-9.6607-4.1254a4.4708 4.4708 0 0 1-.5346-3.0137l.142.0852 4.783 2.7582a.7712.7712 0 0 0 .7806 0l5.8428-3.3685v2.3324a.0804.0804 0 0 1-.0332.0615L9.74 19.9502a4.4992 4.4992 0 0 1-6.1408-1.6464zM2.3408 7.8956a4.485 4.485 0 0 1 2.3655-1.9728V11.6a.7664.7664 0 0 0 .3879.6765l5.8144 3.3543-2.0201 1.1685a.0757.0757 0 0 1-.071 0l-4.8303-2.7865A4.504 4.504 0 0 1 2.3408 7.872zm16.5963 3.8558L13.1038 8.364 15.1192 7.2a.0757.0757 0 0 1 .071 0l4.8303 2.7913a4.4944 4.4944 0 0 1-.6765 8.1042v-5.6772a.79.79 0 0 0-.407-.667zm2.0107-3.0231l-.142-.0852-4.7735-2.7818a.7759.7759 0 0 0-.7854 0L9.409 9.2297V6.8974a.0662.0662 0 0 1 .0284-.0615l4.8303-2.7866a4.4992 4.4992 0 0 1 6.6802 4.66zM8.3065 12.863l-2.02-1.1638a.0804.0804 0 0 1-.038-.0567V6.0742a4.4992 4.4992 0 0 1 7.3757-3.4537l-.142.0805L8.704 5.459a.7948.7948 0 0 0-.3927.6813zm1.0976-2.3654l2.602-1.4998 2.6069 1.4998v2.9994l-2.5974 1.4997-2.6067-1.4997Z"/>
+</svg>
 
 <script type="importmap">
   {"imports":{
@@ -337,7 +378,6 @@
 <script type="module">
 import * as THREE from 'three';
 import { OrbitControls } from 'three/addons/controls/OrbitControls.js';
-import { mergeGeometries } from 'three/addons/utils/BufferGeometryUtils.js';
 
 // ── Setup Three.js ────────────────────────────────────────────────────────────
 
@@ -356,123 +396,6 @@ fill.position.set(0,0,15);
 scene.add(fill);
 const clock = new THREE.Clock();
 
-// ── Mode NEURAL — graphe de computation réel (@node registry) ───────────────────
-// Topologie = le vrai pipeline Python. Correspondance 1-to-1 avec le code.
-// Source: WebSocket msg.nodes (get_registry()), aucune simulation.
-
-const _NN_NODE_VS = `
-attribute float nodeSize;
-attribute vec3  nodeColor;
-attribute float significance;
-attribute float nodeFireFlash;
-uniform   float uTime;
-uniform   float uBaseSize;
-uniform   float uBPM;
-uniform   float uPulseTime;
-uniform   vec3  uPulsePos;
-uniform   float uPulseSpeed;
-varying   vec3  vColor;
-varying   float vSig;
-varying   vec3  vWorldPos;
-varying   float vPulse;
-varying   float vFlash;
-void main(){
-  vColor=nodeColor; vSig=significance; vFlash=nodeFireFlash;
-  vWorldPos=(modelMatrix*vec4(position,1.0)).xyz;
-  float beat=1.0+significance*0.15*sin(uTime*uBPM+position.x);
-  float scale=nodeSize*beat*max(0.5,1.0+significance*0.8)*(1.0+nodeFireFlash*0.7);
-  vPulse=0.0;
-  float timeSince=uTime-uPulseTime;
-  if(timeSince>=0.0&&timeSince<4.0){
-    float pRadius=timeSince*uPulseSpeed;
-    float d=distance(vWorldPos,uPulsePos);
-    vPulse=smoothstep(2.0,0.0,abs(d-pRadius))*smoothstep(4.0,0.0,timeSince);
-    scale*=(1.0+vPulse*1.2);
-  }
-  vec4 mv=modelViewMatrix*vec4(position,1.0);
-  gl_PointSize=scale*uBaseSize*(700.0/-mv.z);
-  gl_Position=projectionMatrix*mv;
-}`;
-const _NN_NODE_FS = `
-uniform float uTime;
-varying vec3 vColor; varying float vSig; varying vec3 vWorldPos; varying float vPulse; varying float vFlash;
-void main(){
-  vec2 c=2.0*gl_PointCoord-1.0; float d=length(c); if(d>1.0)discard;
-  float g=pow(1.0-smoothstep(0.0,1.0,d),1.6);
-  float ring=smoothstep(0.55,0.65,d)*smoothstep(0.9,0.65,d)*vSig;
-  vec3 col=vColor*(0.9+0.3*sin(uTime*0.6+d*3.0)*min(1.0,vSig*2.0));
-  col=mix(col,vec3(1.0),vSig*0.35*g)+vec3(1.0)*ring*0.6;
-  if(vPulse>0.0)col=mix(col,vec3(1.0),vPulse*0.55);
-  col=mix(col,vec3(0.7,1.0,1.9),vFlash*0.85);
-  // Flash ring — anneau qui s'allume quand un paquet arrive (porteur conditionnel: vFlash>0)
-  float flashRing=smoothstep(0.68,0.73,d)*smoothstep(0.93,0.79,d)*vFlash;
-  col=mix(col,vec3(0.4,0.90,1.8),flashRing*0.90);
-  float alpha=g*(1.1-0.35*d)*smoothstep(90.0,8.0,length(vWorldPos-cameraPosition));
-  gl_FragColor=vec4(col,alpha*(1.0+vPulse*0.4+vFlash*0.25)+flashRing*vFlash*0.65);
-}`;
-const _NN_CONN_VS = `
-attribute vec3 startPt; attribute vec3 endPt; attribute float connStr;
-attribute float pathIdx; attribute vec3 connColor;
-attribute float pulseFront; attribute float pulseActV;
-attribute float side;
-uniform float uTime; uniform float uPulseTime; uniform vec3 uPulsePos; uniform float uPulseSpeed;
-uniform float uLineWidth; uniform vec2 uResolution;
-varying vec3 vColor; varying float vStr; varying float vT; varying float vPulse;
-varying float vPF; varying float vPA; varying float vSide;
-void main(){
-  float t=position.x; vT=t; vColor=connColor; vStr=connStr; vPF=pulseFront; vPA=pulseActV; vSide=side;
-  vec3 edgeDir=normalize(endPt-startPt);
-  vec3 _up=abs(edgeDir.y)<0.9?vec3(0.0,1.0,0.0):vec3(1.0,0.0,0.0);
-  vec3 perp=normalize(cross(edgeDir,_up));
-  vec3 midBase=mix(startPt,endPt,0.5);
-  vec3 mid=midBase+perp*sin(t*3.14159)*0.15;
-  vec3 pos=mix(mix(startPt,mid,t),mix(mid,endPt,t),t);
-  vec3 worldPos=(modelMatrix*vec4(pos,1.0)).xyz;
-  vPulse=0.0;
-  float timeSince=uTime-uPulseTime;
-  if(timeSince>=0.0&&timeSince<4.0){
-    float pRadius=timeSince*uPulseSpeed;
-    float dd=distance(worldPos,uPulsePos);
-    vPulse=smoothstep(2.0,0.0,abs(dd-pRadius))*smoothstep(4.0,0.0,timeSince);
-  }
-  float tN=clamp(t+1.0/12.0,0.0,1.0);
-  vec3 midN=midBase+perp*sin(tN*3.14159)*0.15;
-  vec3 posN=mix(mix(startPt,midN,tN),mix(midN,endPt,tN),tN);
-  vec4 clip=projectionMatrix*modelViewMatrix*vec4(pos,1.0);
-  vec4 clipN=projectionMatrix*modelViewMatrix*vec4(posN,1.0);
-  vec2 screenDir=normalize((clipN.xy/clipN.w-clip.xy/clip.w)*uResolution);
-  vec2 screenNorm=vec2(-screenDir.y,screenDir.x);
-  clip.xy+=screenNorm*(uLineWidth/uResolution.y)*side*clip.w;
-  gl_Position=clip;
-}`;
-const _NN_CONN_FS = `
-uniform float uTime;
-uniform float uFlowSpeed;
-varying vec3 vColor; varying float vStr; varying float vT; varying float vPulse;
-varying float vPF; varying float vPA; varying float vSide;
-void main(){
-  float flow=uFlowSpeed>0.0?(sin(vT*18.0-uTime*uFlowSpeed)*0.5+0.5):0.0;
-  vec3 col=vColor*(0.90+0.35*flow*vStr)*(1.0+smoothstep(0.3,0.7,flow)*vStr*0.5);
-  if(vPulse>0.0)col=mix(col,vec3(1.0),vPulse*0.5);
-  // Paquet primaire
-  float env=sin(vPF*3.14159)*vPA;
-  float pCore=smoothstep(0.06,0.0,abs(vT-vPF))*env;
-  float pHalo=smoothstep(0.26,0.06,abs(vT-vPF))*env*0.42;
-  // Traîne derrière le paquet (porteur conditionnel: vPA)
-  float wakeD=clamp(vPF-vT,0.0,0.18);
-  float wake=wakeD*(1.0/0.18)*vPA*0.28;
-  // Second paquet — décalé de 0.5 phase, visible seulement si arête très active (porteur conditionnel)
-  float pF2=fract(vPF+0.5);
-  float env2=sin(pF2*3.14159)*max(0.0,(vPA-0.38)*2.6);
-  float pCore2=smoothstep(0.06,0.0,abs(vT-pF2))*env2;
-  float pHalo2=smoothstep(0.22,0.06,abs(vT-pF2))*env2*0.32;
-  col=mix(col,vec3(0.5,0.85,1.8),pCore*1.20+pHalo*0.65+pCore2*0.80+pHalo2*0.40);
-  float alpha=(max(0.32,0.80*vStr)+0.25*flow+vPulse*0.3+pCore*0.90+pHalo*0.55+wake+pCore2*0.62+pHalo2*0.35)*smoothstep(0.0,0.06,vT)*smoothstep(1.0,0.94,vT);
-  float tube=pow(max(0.0,1.0-abs(vSide)),0.40);
-  col*=(0.80+tube*0.70);
-  alpha=alpha*(0.25+tube);
-  gl_FragColor=vec4(col,alpha);
-}`;
 
 // A2 — palette par territoire (teinte dominante, mélangée à 35% avec couleur structurelle du nœud)
 const _NN_TERRITORY_COLORS = {
@@ -484,278 +407,6 @@ const _NN_TERRITORY_COLORS = {
   wonder:      new THREE.Color(0xFFF0CC), // blanc chaud
 };
 
-class NeuralMode {
-  constructor(){
-    this._nMesh=null; this._cMesh=null; this._starField=null;
-    this._controls=null;
-    this._nodeData=[]; this._built=false; this._clock=new THREE.Clock(); this._clock.start();
-    this._lastSig=0; this._lastPulse=0; this._sprites=[];
-    this._bgColor=new THREE.Color(0,0,0);
-    this._nodeColorAttr=null;
-    this._connStrAttr=null; this._connStrData=null; this._edges=null;
-    this._pulseT=null; this._pulsePrevT=null;
-    this._pfData=null; this._pfAttr=null; this._paData=null; this._paAttr=null;
-    this._nodeFireFlashData=null; this._nodeFireFlashAttr=null;
-  }
-
-  init(sc, cam){
-    this._cam=new THREE.PerspectiveCamera(55,innerWidth/innerHeight,0.1,600);
-    this._cam.position.set(0,4,18);
-    this._controls=new OrbitControls(this._cam, renderer.domElement);
-    Object.assign(this._controls,{enableDamping:true,dampingFactor:0.05,autoRotate:true,autoRotateSpeed:0.5,enablePan:false,enableZoom:false,enableRotate:false});
-    // Stars
-    const N=1500,pos=[];for(let i=0;i<N;i++){const r=THREE.MathUtils.randFloat(50,150),phi=Math.acos(THREE.MathUtils.randFloatSpread(2)),theta=THREE.MathUtils.randFloat(0,Math.PI*2);pos.push(r*Math.sin(phi)*Math.cos(theta),r*Math.sin(phi)*Math.sin(theta),r*Math.cos(phi));}
-    const sg=new THREE.BufferGeometry();sg.setAttribute('position',new THREE.Float32BufferAttribute(pos,3));
-    this._starField=new THREE.Points(sg,new THREE.PointsMaterial({color:0xffffff,size:0.12,depthWrite:false,opacity:0.7,transparent:true}));sc.add(this._starField);
-    // Build immediately if nodes already received from WebSocket
-    if(liveNodes.length > 0) this._build(sc, liveNodes);
-  }
-
-  _build(sc, nodes){
-    if(this._nMesh){sc.remove(this._nMesh);this._nMesh.geometry.dispose();this._nMesh.material.dispose();this._nMesh=null;}
-    if(this._cMesh){sc.remove(this._cMesh);this._cMesh.geometry.dispose();this._cMesh.material.dispose();this._cMesh=null;}
-    this._sprites.forEach(s=>sc.remove(s)); this._sprites=[];
-    this._nodeData=[];
-    this._nodeColorAttr=null; this._connStrAttr=null; this._connStrData=null; this._edges=null;
-
-    const collectors=nodes.filter(n=>n.name!=='music_prompt');
-    const builder=nodes.find(n=>n.name==='music_prompt');
-    const R=12;
-    collectors.forEach((nd,i)=>{
-      const golden=(1+Math.sqrt(5))/2,theta=2*Math.PI*i/golden,phi=Math.acos(1-2*(i+0.5)/collectors.length);
-      this._nodeData.push({nd,pos:new THREE.Vector3(R*Math.sin(phi)*Math.cos(theta),R*Math.sin(phi)*Math.sin(theta),R*Math.cos(phi)),produces:nd.produces,color:new THREE.Color(nd.color||'#00D4FF'),label:nd.label||nd.name,reads:nd.reads||[],size:0.9,sig:0.0});
-    });
-    if(builder) this._nodeData.push({nd:builder,pos:new THREE.Vector3(0,0,0),produces:builder.produces,color:new THREE.Color(builder.color||'#00D4FF'),label:builder.label||builder.name,reads:builder.reads||[],size:1.6,sig:0.0});
-
-    const produceMap={};
-    this._nodeData.forEach(n=>{
-      const keys=Array.isArray(n.produces)?n.produces:[n.produces];
-      keys.forEach(k=>{produceMap[k]=n;});
-    });
-    const edges=[];
-    this._nodeData.forEach(n=>{
-      const isBuilder=Array.isArray(n.produces)?n.produces.includes('music_prompt'):n.produces==='music_prompt';
-      if(!isBuilder&&builder){const mp=this._nodeData.find(d=>(Array.isArray(d.produces)?d.produces.includes('music_prompt'):d.produces==='music_prompt'));if(mp)edges.push({from:n,to:mp,str:0.7});}
-      (n.reads||[]).forEach(f=>{const p=produceMap[f];if(p&&p!==n)edges.push({from:p,to:n,str:1.0});});
-    });
-
-    // Node geometry
-    const nPos=[],nSz=[],nColData=[],nSig=[];
-    this._nodeData.forEach(n=>{
-      nPos.push(n.pos.x,n.pos.y,n.pos.z); nSz.push(n.size);
-      nColData.push(n.color.r,n.color.g,n.color.b); nSig.push(0);
-      n.currentColor=n.color.clone(); // A2 : couleur interpolée vers territoire
-    });
-    const ng=new THREE.BufferGeometry();
-    ng.setAttribute('position',new THREE.Float32BufferAttribute(nPos,3));
-    ng.setAttribute('nodeSize',new THREE.Float32BufferAttribute(nSz,1));
-    const ncAttr=new THREE.Float32BufferAttribute(new Float32Array(nColData),3);
-    ncAttr.setUsage(THREE.DynamicDrawUsage);
-    ng.setAttribute('nodeColor',ncAttr); this._nodeColorAttr=ncAttr;
-    const sigAttr=new THREE.Float32BufferAttribute(nSig,1); sigAttr.setUsage(THREE.DynamicDrawUsage);
-    ng.setAttribute('significance',sigAttr);
-    const nffData=new Float32Array(this._nodeData.length);
-    const nffAttr=new THREE.Float32BufferAttribute(nffData,1); nffAttr.setUsage(THREE.DynamicDrawUsage);
-    ng.setAttribute('nodeFireFlash',nffAttr);
-    this._nodeFireFlashData=nffData; this._nodeFireFlashAttr=nffAttr;
-    const nm=new THREE.ShaderMaterial({uniforms:{
-      uTime:{value:0},uBaseSize:{value:1.8},
-      uBPM:{value:9.42}, // A3 : 90 BPM défaut
-      uPulseTime:{value:-100},uPulsePos:{value:new THREE.Vector3()},uPulseSpeed:{value:8} // A4
-    },vertexShader:_NN_NODE_VS,fragmentShader:_NN_NODE_FS,transparent:true,depthWrite:false,blending:THREE.AdditiveBlending});
-    this._nMesh=new THREE.Points(ng,nm);sc.add(this._nMesh);
-
-    // Connection geometry — billboard quads (two vertices per sample point: side=-1/+1)
-    if(edges.length){
-      const SEG=12;
-      const csData=new Float32Array(edges.length*SEG*2);
-      const cPos=[],sp=[],ep=[],ci=[],cc=[],sd=[];
-      edges.forEach((e,pi)=>{
-        for(let i=0;i<SEG;i++){
-          const t=i/(SEG-1);
-          for(const sk of [-1,1]){
-            cPos.push(t,0,0);
-            sp.push(e.from.pos.x,e.from.pos.y,e.from.pos.z);
-            ep.push(e.to.pos.x,e.to.pos.y,e.to.pos.z);
-            csData[pi*SEG*2+i*2+(sk<0?0:1)]=e.str;
-            ci.push(pi);
-            const c=e.from.color.clone().lerp(e.to.color,0.5);
-            cc.push(c.r,c.g,c.b);
-            sd.push(sk);
-          }
-        }
-      });
-      const cg=new THREE.BufferGeometry();
-      cg.setAttribute('position',new THREE.Float32BufferAttribute(cPos,3));
-      cg.setAttribute('startPt',new THREE.Float32BufferAttribute(sp,3));
-      cg.setAttribute('endPt',new THREE.Float32BufferAttribute(ep,3));
-      cg.setAttribute('side',new THREE.Float32BufferAttribute(sd,1));
-      const csAttr=new THREE.BufferAttribute(csData,1); csAttr.setUsage(THREE.DynamicDrawUsage);
-      cg.setAttribute('connStr',csAttr);
-      this._connStrAttr=csAttr; this._connStrData=csData; this._edges=edges;
-      const E=edges.length;
-      const pfData=new Float32Array(E*SEG*2),paData=new Float32Array(E*SEG*2);
-      const pfAttr=new THREE.BufferAttribute(pfData,1); pfAttr.setUsage(THREE.DynamicDrawUsage);
-      const paAttr=new THREE.BufferAttribute(paData,1); paAttr.setUsage(THREE.DynamicDrawUsage);
-      cg.setAttribute('pulseFront',pfAttr); cg.setAttribute('pulseActV',paAttr);
-      this._pfData=pfData; this._pfAttr=pfAttr; this._paData=paData; this._paAttr=paAttr;
-      this._pulseT=new Float32Array(E).map((_,i)=>i/E);
-      this._pulsePrevT=new Float32Array(E);
-      edges.forEach((e,ei)=>{ e.toIdx=this._nodeData.indexOf(e.to); });
-      cg.setAttribute('pathIdx',new THREE.Float32BufferAttribute(ci,1));
-      cg.setAttribute('connColor',new THREE.Float32BufferAttribute(cc,3));
-      const idx=[];
-      edges.forEach((_,ei)=>{
-        for(let s=0;s<SEG-1;s++){
-          const l0=2*(ei*SEG+s),r0=l0+1,l1=2*(ei*SEG+s+1),r1=l1+1;
-          idx.push(l0,r0,l1,r0,r1,l1);
-        }
-      });
-      cg.setIndex(idx);
-      const cm=new THREE.ShaderMaterial({uniforms:{
-        uTime:{value:0},uFlowSpeed:{value:0},
-        uPulseTime:{value:-100},uPulsePos:{value:new THREE.Vector3()},uPulseSpeed:{value:8},
-        uLineWidth:{value:5.5},uResolution:{value:new THREE.Vector2(innerWidth,innerHeight)}
-      },vertexShader:_NN_CONN_VS,fragmentShader:_NN_CONN_FS,transparent:true,depthWrite:false,blending:THREE.AdditiveBlending,side:THREE.DoubleSide});
-      this._cMesh=new THREE.Mesh(cg,cm);sc.add(this._cMesh);
-    }
-
-    // Labels
-    this._nodeData.forEach(n=>{
-      const cv=document.createElement('canvas');cv.width=300;cv.height=44;
-      const ctx=cv.getContext('2d');ctx.fillStyle=`#${n.color.getHexString()}`;
-      ctx.font='600 17px Inter,Courier New';ctx.fillText(n.label,4,32);
-      const sp=new THREE.Sprite(new THREE.SpriteMaterial({map:new THREE.CanvasTexture(cv),transparent:true,opacity:0.7,depthWrite:false}));
-      sp.scale.set(3.0,0.44,1);sp.position.copy(n.pos).addScaledVector(n.pos.length()>0?n.pos.clone().normalize():new THREE.Vector3(0,1,0),1.3);
-      sc.add(sp);this._sprites.push(sp);n.sprite=sp;
-    });
-    this._built=true;
-  }
-
-  _updateSig(state){
-    if(!this._nMesh||!this._nodeData.length)return;
-    const pe=state.prediction_errors||{},vol=state.signal_volatilities||{},sh=state.source_health||{};
-    const dw=state.drift_weights||{},territory=state.drift_territory||'ambient';
-    const weights=dw[territory]||{};
-    const tCol=_NN_TERRITORY_COLORS[territory]||_NN_TERRITORY_COLORS.ambient; // A2
-    const sigAttr=this._nMesh.geometry.attributes.significance;
-
-    this._nodeData.forEach((n,i)=>{
-      // Significance (PE/σ) — take max across all produced keys
-      const pkeys=Array.isArray(n.produces)?n.produces:[n.produces];
-      let maxRaw=0;pkeys.forEach(k=>{const e2=Math.abs(pe[k]||0),v2=Math.max(vol[k]||0.1,0.001);maxRaw=Math.max(maxRaw,e2/v2);});
-      let sig=Math.min(maxRaw,3.0)/3.0;
-      if(sh[n.nd.name]===false)sig*=0.15;
-      n.sig=sig; sigAttr.setX(i,sig);
-      // A2 — lerp couleur vers teinte territoire (65% base + 35% territoire)
-      if(this._nodeColorAttr&&n.currentColor){
-        const target=n.color.clone().lerp(tCol,0.35);
-        n.currentColor.lerp(target,0.08);
-        this._nodeColorAttr.setXYZ(i,n.currentColor.r,n.currentColor.g,n.currentColor.b);
-      }
-    });
-    sigAttr.needsUpdate=true;
-    if(this._nodeColorAttr)this._nodeColorAttr.needsUpdate=true;
-
-    // A1 — drift_weights → connStr : arête collector→builder pondérée par territoire
-    if(this._connStrAttr&&this._edges){
-      const SEG=12;
-      this._edges.forEach((e,ei)=>{
-        const fromKey=Array.isArray(e.from.produces)?e.from.produces[0]:e.from.produces;
-        const toIsBuilder=Array.isArray(e.to.produces)?e.to.produces.includes('music_prompt'):e.to.produces==='music_prompt';
-        const cs=toIsBuilder
-          ?Math.max(0.15,Math.min(1.0,weights[fromKey]||0)) // floor 0.15 : visibilité structurelle
-          :0.3+e.from.sig*0.7; // arête reads : intensité liée à la surprise de la source
-        for(let s=0;s<SEG;s++){this._connStrData[ei*SEG*2+s*2]=cs;this._connStrData[ei*SEG*2+s*2+1]=cs;}
-      });
-      this._connStrAttr.needsUpdate=true;
-    }
-
-    // A4 — anomaly_score → onde de choc depuis le nœud le plus surpris (cooldown 8s)
-    const anomaly=state.anomaly_score||0;
-    const t=this._clock.getElapsedTime();
-    if(anomaly>0.6&&t-this._lastPulse>8){
-      let maxSig=0,pulseNode=null;
-      this._nodeData.forEach(n=>{if(n.sig>maxSig){maxSig=n.sig;pulseNode=n;}});
-      if(pulseNode){
-        this._lastPulse=t;
-        const speed=6+anomaly*4;
-        if(this._nMesh){
-          this._nMesh.material.uniforms.uPulseTime.value=t;
-          this._nMesh.material.uniforms.uPulsePos.value.copy(pulseNode.pos);
-          this._nMesh.material.uniforms.uPulseSpeed.value=speed;
-        }
-        if(this._cMesh){
-          this._cMesh.material.uniforms.uPulseTime.value=t;
-          this._cMesh.material.uniforms.uPulsePos.value.copy(pulseNode.pos);
-          this._cMesh.material.uniforms.uPulseSpeed.value=speed;
-        }
-      }
-    }
-  }
-
-  update(state, dt){
-    const t=this._clock.getElapsedTime();
-    // Build on first call with real nodes
-    if(!this._built&&liveNodes.length>0) this._build(scene,liveNodes);
-    if(this._nMesh){
-      this._nMesh.material.uniforms.uTime.value=t;
-      this._nMesh.material.uniforms.uBPM.value=(state.drift_bpm||90)/60*6.28318; // A3
-    }
-    if(this._cMesh){
-      this._cMesh.material.uniforms.uTime.value=t;
-      this._cMesh.material.uniforms.uFlowSpeed.value=(state.world_temperature||0)*(state.drift_bpm||90)/90*6;
-      this._cMesh.material.uniforms.uLineWidth.value=3.5+(state.world_temperature||0.5)*2.5+(state.excitation||0)*1.5;
-      this._cMesh.material.uniforms.uResolution.value.set(innerWidth,innerHeight);
-    }
-    if(this._controls) this._controls.update();
-
-    const crisis=state.crisis_level||0,excit=state.excitation||0,wt=state.world_temperature||0.5;
-    const now=performance.now();
-    if(now-this._lastSig>400){this._updateSig(state);this._lastSig=now;}
-    // per-edge traveling pulse (NO_FAKE: speed = BPM + excitement, 2.5% floor = structural min)
-    if(this._pfData&&this._pulseT){
-      const bpm=state.drift_bpm||90,excit2=state.excitation||0;
-      const spd=(0.025+excit2*0.30+(bpm/60)*0.20)*dt;
-      const SEG=12,E=this._pulseT.length;
-      for(let ei=0;ei<E;ei++){
-        const prev=this._pulseT[ei];
-        this._pulseT[ei]=(prev+spd)%1.0;
-        const pf=this._pulseT[ei];
-        const act=this._connStrData?this._connStrData[ei*SEG*2]:0.5;
-        for(let s=0;s<SEG;s++){this._pfData[ei*SEG*2+s*2]=pf;this._pfData[ei*SEG*2+s*2+1]=pf;this._paData[ei*SEG*2+s*2]=act;this._paData[ei*SEG*2+s*2+1]=act;}
-        if(prev>0.85&&pf<0.15&&this._edges&&this._nodeFireFlashData&&act>0.08){
-          const toIdx=this._edges[ei].toIdx;
-          if(toIdx>=0)this._nodeFireFlashData[toIdx]=Math.max(this._nodeFireFlashData[toIdx],act*0.7);
-        }
-      }
-      if(this._nodeFireFlashData){
-        for(let ni=0;ni<this._nodeFireFlashData.length;ni++)this._nodeFireFlashData[ni]*=0.91;
-        this._nodeFireFlashAttr.needsUpdate=true;
-      }
-      this._pfAttr.needsUpdate=true; this._paAttr.needsUpdate=true;
-    }
-    if(this._controls){this._controls.autoRotate=true;this._controls.autoRotateSpeed=0.5+excit*1.5;}
-    if(this._cam.aspect!==innerWidth/innerHeight){
-      this._cam.aspect=innerWidth/innerHeight;
-      this._cam.updateProjectionMatrix();
-    }
-    scene.background=this._bgColor;
-    renderer.render(scene,this._cam);
-    return true;
-  }
-
-  dispose(sc){
-    if(this._nMesh){sc.remove(this._nMesh);this._nMesh.geometry.dispose();this._nMesh.material.dispose();this._nMesh=null;}
-    if(this._cMesh){sc.remove(this._cMesh);this._cMesh.geometry.dispose();this._cMesh.material.dispose();this._cMesh=null;}
-    if(this._starField){sc.remove(this._starField);this._starField.geometry.dispose();this._starField=null;}
-    this._sprites.forEach(s=>{sc.remove(s);s.material.map?.dispose();s.material.dispose();});this._sprites=[];
-    if(this._controls){this._controls.dispose();this._controls=null;}
-    this._built=false;
-    renderer.setSize(innerWidth,innerHeight);
-    scene.background=this._bgColor;
-  }
-}
 
 // ── Mode SYNAPSE ──────────────────────────────────────────────────────────────
 // Graphe de neurones synthétiques, topologie pilotée par drift_territory.
@@ -828,7 +479,7 @@ void main(){
   // Flash ring — anneau lumineux à la réception d'un signal (porteur conditionnel: vFlash)
   float flashRing = smoothstep(0.70, 0.76, d) * smoothstep(0.93, 0.80, d) * vFlash;
   col = mix(col, vec3(0.25, 0.90, 0.65), flashRing * 0.88); // ring vert OpenAI
-  // base floor 55% au centre — aligne avec NexusMode scene 5 (user request)
+  // base floor 55% au centre — évite sprite invisible quand signaux à zéro
   float alpha  = disc  * (0.55 + vActivity * 0.35 + vFlash * 0.30)
                + spec  * (vActivity * 0.28 + vFlash * 0.20)
                + glow  * (vActivity * 0.18 + vFlash * 0.32)
@@ -1439,7 +1090,7 @@ class SynapseMode {
     const burstSignal = state.world_event_burst ?? 0;
     const predErrors = state.prediction_errors ?? {};
     const sigVols = state.signal_volatilities ?? {};
-    // Normaliser comme NeuralMode (PE/σ, borné [0,1]) — les valeurs brutes (ex: cpu_percent error=15)
+    // Normaliser PE/σ, borné [0,1] — les valeurs brutes (ex: cpu_percent error=15)
     // rendaient targetNodeScale > 9, créant des sprites de 300px+ qui saturaient l'AdditiveBlending
     const normPEList = Object.keys(predErrors).map(k => {
       const err = Math.abs(Number(predErrors[k]) || 0);
@@ -1977,7 +1628,227 @@ function _terr2frac(t) {
 // Même réseau que SynapseMode mais figé sur la formation sphère quelle que soit
 // la dérive territoriale.  Tous les autres signaux (PE, burst, chat) restent actifs.
 class GlobeMode extends SynapseMode {
-  _getFormation(state) { return 0; }  // Globe = sphère toujours
+  _getFormation(state) { return 0; }  // Globe = sphère toujours (R=12)
+
+  constructor() {
+    super();
+    this._outerGroup = null;
+    this._outerNodeDots = null; this._outerEdges = null;
+    this._outerParticles = null; this._outerParticleMat = null;
+    this._outerNodeMat = null; this._outerEdgeMat = null;
+    this._outerNodePositions = null; this._outerEdgePairs = null;
+    this._outerPulseT = null;
+    this._outerNodeActData = null; this._outerNodeActAttr = null;
+    this._outerNodeFlashData = null; this._outerNodeFlashAttr = null;
+    this._outerEdgePulseTData = null; this._outerEdgePulseTAttr = null;
+    this._outerEdgeActData = null; this._outerEdgeActAttr = null;
+    this._outerTime = 0;
+    this._NX_COLS = {
+      ambient:new THREE.Color(0x00D4FF), crisis:new THREE.Color(0xFF4444),
+      peak:new THREE.Color(0xFFD700), drift:new THREE.Color(0xAA44FF),
+      storm:new THREE.Color(0xFF8844), contemplative:new THREE.Color(0x44AAFF),
+    };
+  }
+
+  init(sc, cam) {
+    super.init(sc, cam);
+    this._buildOuterNetwork(sc);
+  }
+
+  _buildOuterNetwork(sc) {
+    const N = 28, SEGS = 6, R = 18; // outer radius > GlobeMode sphere (R=12)
+    const phi = Math.PI * (3 - Math.sqrt(5));
+    const nodePos = [];
+    for (let i = 0; i < N; i++) {
+      const y = 1 - (i / (N-1)) * 2, r = Math.sqrt(Math.max(0, 1-y*y)), th = phi*i;
+      nodePos.push(new THREE.Vector3(Math.cos(th)*r*R, y*R, Math.sin(th)*r*R));
+    }
+    this._outerNodePositions = nodePos;
+
+    const edgePairs = [], edgeSet = new Set();
+    for (let i = 0; i < N; i++) {
+      const d = [];
+      for (let j = 0; j < N; j++) { if (i !== j) d.push([j, nodePos[i].distanceTo(nodePos[j])]); }
+      d.sort((a, b) => a[1] - b[1]);
+      for (let k = 0; k < 3; k++) {
+        const j = d[k][0], key = Math.min(i,j)+','+Math.max(i,j);
+        if (!edgeSet.has(key)) { edgeSet.add(key); edgePairs.push([i,j]); }
+      }
+    }
+    this._outerEdgePairs = edgePairs;
+    const E = edgePairs.length;
+
+    this._outerGroup = new THREE.Group(); sc.add(this._outerGroup);
+
+    // Node dots — PE-driven activation
+    const nodePosArr = new Float32Array(N*3);
+    const nodeActArr = new Float32Array(N).fill(0.3);
+    nodePos.forEach((v,i)=>{ nodePosArr[i*3]=v.x; nodePosArr[i*3+1]=v.y; nodePosArr[i*3+2]=v.z; });
+    const nodeGeo = new THREE.BufferGeometry();
+    nodeGeo.setAttribute('position', new THREE.BufferAttribute(nodePosArr, 3));
+    const nodeActAttr = new THREE.BufferAttribute(nodeActArr, 1); nodeActAttr.setUsage(THREE.DynamicDrawUsage);
+    nodeGeo.setAttribute('aActivation', nodeActAttr);
+    const nodeFlashArr = new Float32Array(N);
+    const nodeFlashAttr = new THREE.BufferAttribute(nodeFlashArr, 1); nodeFlashAttr.setUsage(THREE.DynamicDrawUsage);
+    nodeGeo.setAttribute('nodeFireFlash', nodeFlashAttr);
+    this._outerNodeMat = new THREE.ShaderMaterial({
+      uniforms: { uAudioLevel:{value:0}, uHealthRatio:{value:1}, uColor:{value:new THREE.Color(0x00D4FF)} },
+      vertexShader: _NX_NODE_VS, fragmentShader: _NX_NODE_FS,
+      transparent:true, depthWrite:false, blending:THREE.AdditiveBlending,
+    });
+    this._outerNodeDots = new THREE.Points(nodeGeo, this._outerNodeMat);
+    this._outerNodeActData = nodeActArr; this._outerNodeActAttr = nodeActAttr;
+    this._outerNodeFlashData = nodeFlashArr; this._outerNodeFlashAttr = nodeFlashAttr;
+    this._outerGroup.add(this._outerNodeDots);
+
+    // Subdivided edges — billboard quads with pulse (NO_FAKE: BPM+PE-driven)
+    const VERTS = E*SEGS*4;
+    const edgePosArr=new Float32Array(VERTS*3), edgeTArr=new Float32Array(VERTS);
+    const edgeDirArr=new Float32Array(VERTS*3), edgeSideArr=new Float32Array(VERTS);
+    const edgePulseTArr=new Float32Array(VERTS), edgeActArr=new Float32Array(VERTS);
+    edgePairs.forEach(([ai,bi],ei)=>{
+      const a=nodePos[ai], b=nodePos[bi];
+      const dx=b.x-a.x, dy=b.y-a.y, dz=b.z-a.z;
+      const len=Math.sqrt(dx*dx+dy*dy+dz*dz)||1;
+      const dirX=dx/len, dirY=dy/len, dirZ=dz/len;
+      for (let s=0; s<SEGS; s++) {
+        const t0=s/SEGS, t1=(s+1)/SEGS;
+        for (let k=0; k<4; k++) {
+          const vi=(ei*SEGS+s)*4+k, t=(k<2)?t0:t1, side=(k%2===0)?-1:1;
+          edgePosArr[vi*3]=a.x+(b.x-a.x)*t; edgePosArr[vi*3+1]=a.y+(b.y-a.y)*t; edgePosArr[vi*3+2]=a.z+(b.z-a.z)*t;
+          edgeTArr[vi]=t;
+          edgeDirArr[vi*3]=dirX; edgeDirArr[vi*3+1]=dirY; edgeDirArr[vi*3+2]=dirZ;
+          edgeSideArr[vi]=side;
+        }
+      }
+    });
+    const edgeIdx=[];
+    edgePairs.forEach((_,ei)=>{ for(let s=0;s<SEGS;s++){const b0=(ei*SEGS+s)*4; edgeIdx.push(b0,b0+1,b0+2,b0+1,b0+3,b0+2);} });
+    const edgeGeo=new THREE.BufferGeometry();
+    edgeGeo.setAttribute('position', new THREE.BufferAttribute(edgePosArr,3));
+    edgeGeo.setAttribute('aT',       new THREE.BufferAttribute(edgeTArr,1));
+    edgeGeo.setAttribute('aEdgeDir', new THREE.BufferAttribute(edgeDirArr,3));
+    edgeGeo.setAttribute('aSide',    new THREE.BufferAttribute(edgeSideArr,1));
+    edgeGeo.setIndex(edgeIdx);
+    const ePulseTAttr=new THREE.BufferAttribute(edgePulseTArr,1); ePulseTAttr.setUsage(THREE.DynamicDrawUsage);
+    edgeGeo.setAttribute('aPulseT', ePulseTAttr);
+    const eActAttr=new THREE.BufferAttribute(edgeActArr,1); eActAttr.setUsage(THREE.DynamicDrawUsage);
+    edgeGeo.setAttribute('aActivation', eActAttr);
+    this._outerEdgeMat = new THREE.ShaderMaterial({
+      uniforms:{uColor:{value:new THREE.Color(0x00D4FF)},uAudioLevel:{value:0},uAnomalyScore:{value:0},
+               uLineWidth:{value:2.5},uResolution:{value:new THREE.Vector2(innerWidth,innerHeight)}},
+      vertexShader:_NX_EDGE_VS, fragmentShader:_NX_EDGE_FS,
+      transparent:true, depthWrite:false, blending:THREE.AdditiveBlending, side:THREE.DoubleSide,
+    });
+    this._outerEdges = new THREE.Mesh(edgeGeo, this._outerEdgeMat);
+    this._outerEdgePulseTData=edgePulseTArr; this._outerEdgePulseTAttr=ePulseTAttr;
+    this._outerEdgeActData=edgeActArr; this._outerEdgeActAttr=eActAttr;
+    this._outerPulseT = new Float32Array(E); for(let i=0;i<E;i++) this._outerPulseT[i]=i/E;
+    this._outerGroup.add(this._outerEdges);
+
+    // Background particles (sparse deep-field — init-only random, OK per NO_FAKE)
+    const NP=150, ppos=new Float32Array(NP*3), pcol=new Float32Array(NP*3);
+    const c1=new THREE.Color(0x00D4FF), c2=new THREE.Color(0x003355);
+    for(let i=0;i<NP;i++){
+      ppos[i*3]=(Math.random()-0.5)*60; ppos[i*3+1]=(Math.random()-0.5)*60; ppos[i*3+2]=(Math.random()-0.5)*60;
+      const t=Math.random();
+      pcol[i*3]=c1.r*t+c2.r*(1-t); pcol[i*3+1]=c1.g*t+c2.g*(1-t); pcol[i*3+2]=c1.b*t+c2.b*(1-t);
+    }
+    const pgeo=new THREE.BufferGeometry();
+    pgeo.setAttribute('position',new THREE.BufferAttribute(ppos,3));
+    pgeo.setAttribute('color',new THREE.BufferAttribute(pcol,3));
+    this._outerParticleMat=new THREE.ShaderMaterial({
+      uniforms:{uTime:{value:0},uAudioLevel:{value:0}},
+      vertexShader:_NX_PART_VS, fragmentShader:_NX_PART_FS,
+      transparent:true, depthWrite:false, blending:THREE.AdditiveBlending,
+    });
+    this._outerParticles=new THREE.Points(pgeo,this._outerParticleMat); sc.add(this._outerParticles);
+  }
+
+  _updateOuter(state, dt) {
+    if (!this._outerGroup) return;
+    this._outerTime += dt;
+    const energy  = state.audio_energy_level||0;
+    const bpm     = state.audio_bpm||state.drift_bpm||90;
+    const anomaly = Math.min(1,(state.anomaly_score||0)/10);
+    const terr    = state.drift_territory||'ambient';
+    const col     = this._NX_COLS[terr]||this._NX_COLS.ambient;
+    const hVals   = Object.values(state.source_health||{});
+    const healthRatio = hVals.length ? hVals.filter(Boolean).length/hVals.length : 1;
+    const peVals  = Object.values(state.prediction_errors||{});
+    const maxPE   = peVals.length ? Math.max(0.01,...peVals.map(v=>Math.abs(v))) : 1;
+
+    this._outerNodeMat.uniforms.uAudioLevel.value  = energy;
+    this._outerNodeMat.uniforms.uHealthRatio.value = healthRatio;
+    this._outerNodeMat.uniforms.uColor.value.copy(col);
+    this._outerEdgeMat.uniforms.uAudioLevel.value  = energy;
+    this._outerEdgeMat.uniforms.uAnomalyScore.value= anomaly;
+    this._outerEdgeMat.uniforms.uColor.value.copy(col);
+    this._outerEdgeMat.uniforms.uResolution.value.set(innerWidth,innerHeight);
+
+    // Pulse: speed = BPM/60 * 0.30, activation = PE per-edge (NO_FAKE)
+    const pulseSpeed = (bpm/60)*dt*0.30;
+    const SEGS=6, ep=this._outerEdgePairs;
+    for (let ei=0; ei<ep.length; ei++) {
+      const prevT=this._outerPulseT[ei];
+      this._outerPulseT[ei]=(prevT+pulseSpeed)%1.0;
+      const pev=peVals.length ? Math.min(1,Math.abs(peVals[ei%peVals.length]||0)/maxPE) : energy*0.5;
+      const pT=this._outerPulseT[ei];
+      if(prevT>0.85&&pT<0.15&&this._outerNodeFlashData&&pev>0.08){
+        const destIdx=ep[ei][1];
+        this._outerNodeFlashData[destIdx]=Math.max(this._outerNodeFlashData[destIdx],pev*0.7);
+      }
+      for(let s=0;s<SEGS;s++){
+        const b=(ei*SEGS+s)*4;
+        this._outerEdgePulseTData[b]=this._outerEdgePulseTData[b+1]=this._outerEdgePulseTData[b+2]=this._outerEdgePulseTData[b+3]=pT;
+        this._outerEdgeActData[b]=this._outerEdgeActData[b+1]=this._outerEdgeActData[b+2]=this._outerEdgeActData[b+3]=pev;
+      }
+    }
+    this._outerEdgePulseTAttr.needsUpdate=true;
+    this._outerEdgeActAttr.needsUpdate=true;
+
+    if(this._outerNodeFlashData){
+      for(let ni=0;ni<this._outerNodeFlashData.length;ni++) this._outerNodeFlashData[ni]*=0.91;
+      this._outerNodeFlashAttr.needsUpdate=true;
+    }
+
+    // Per-node activation — PE-driven, different index offset from inner globe
+    const N=this._outerNodePositions.length;
+    for(let ni=0;ni<N;ni++){
+      this._outerNodeActData[ni]=peVals.length
+        ? Math.min(1,Math.abs(peVals[(ni*3+7)%peVals.length]||0)/maxPE*1.3)
+        : energy*0.4;
+    }
+    this._outerNodeActAttr.needsUpdate=true;
+
+    if(this._outerParticleMat){
+      this._outerParticleMat.uniforms.uTime.value=this._outerTime;
+      this._outerParticleMat.uniforms.uAudioLevel.value=energy;
+    }
+
+    // Slow independent rotation — visual parallax vs inner globe (NO_FAKE: display constant)
+    // rotSpeed in rad/s: 0.010 was per-frame at 40fps → ×40 to convert to per-second
+    const rotSpeed=(bpm/120)*0.40;
+    this._outerGroup.rotation.y+=rotSpeed*0.55*dt+(state.drift_velocity||0)*0.16*dt;
+    this._outerGroup.rotation.x+=rotSpeed*0.18*dt;
+  }
+
+  update(state, dt) {
+    this._updateOuter(state, dt);  // update outer uniforms before render
+    return super.update(state, dt);
+  }
+
+  dispose(sc) {
+    super.dispose(sc);
+    if(this._outerGroup){
+      this._outerGroup.traverse(c=>{if(c.geometry)c.geometry.dispose();if(c.material)c.material.dispose();});
+      sc.remove(this._outerGroup); this._outerGroup=null;
+    }
+    if(this._outerParticles){sc.remove(this._outerParticles);this._outerParticles.geometry.dispose();this._outerParticles.material.dispose();this._outerParticles=null;}
+    this._outerNodeDots=this._outerEdges=null;
+    this._outerNodeMat=this._outerEdgeMat=this._outerParticleMat=null;
+    this._outerNodeFlashData=this._outerNodeFlashAttr=null;
+  }
 }
 
 
@@ -2418,67 +2289,6 @@ class NetworkMode {
   }
 }
 
-// ── Mode NEXUS — shaders ──────────────────────────────────────────────────────
-
-// Vertex shader : icosaèdre wireframe déformé par simplex noise + audio_energy_level
-const _NX_OUTER_VS = `
-uniform float uTime; uniform float uAudioLevel; uniform float uDistortion;
-uniform vec3 uColor;
-vec3 nx289(vec3 x){return x-floor(x*(1.0/289.0))*289.0;}
-vec4 nx289v(vec4 x){return x-floor(x*(1.0/289.0))*289.0;}
-vec4 nxperm(vec4 x){return nx289v(((x*34.0)+1.0)*x);}
-vec4 nxtis(vec4 r){return 1.79284291400159-0.85373472095314*r;}
-float snoise(vec3 v){
-  const vec2 C=vec2(1.0/6.0,1.0/3.0);const vec4 D=vec4(0.0,0.5,1.0,2.0);
-  vec3 i=floor(v+dot(v,C.yyy));vec3 x0=v-i+dot(i,C.xxx);
-  vec3 g=step(x0.yzx,x0.xyz);vec3 l=1.0-g;
-  vec3 i1=min(g.xyz,l.zxy);vec3 i2=max(g.xyz,l.zxy);
-  vec3 x1=x0-i1+C.xxx;vec3 x2=x0-i2+C.yyy;vec3 x3=x0-D.yyy;
-  i=nx289(i);
-  vec4 p=nxperm(nxperm(nxperm(i.z+vec4(0.0,i1.z,i2.z,1.0))+i.y+vec4(0.0,i1.y,i2.y,1.0))+i.x+vec4(0.0,i1.x,i2.x,1.0));
-  float n_=0.142857142857;vec3 ns=n_*D.wyz-D.xzx;
-  vec4 j=p-49.0*floor(p*ns.z*ns.z);
-  vec4 x_=floor(j*ns.z);vec4 y_=floor(j-7.0*x_);
-  vec4 x=x_*ns.x+ns.yyyy;vec4 y=y_*ns.x+ns.yyyy;vec4 h=1.0-abs(x)-abs(y);
-  vec4 b0=vec4(x.xy,y.xy);vec4 b1=vec4(x.zw,y.zw);
-  vec4 s0=floor(b0)*2.0+1.0;vec4 s1=floor(b1)*2.0+1.0;vec4 sh=-step(h,vec4(0.0));
-  vec4 a0=b0.xzyw+s0.xzyw*sh.xxyy;vec4 a1=b1.xzyw+s1.xzyw*sh.zzww;
-  vec3 p0=vec3(a0.xy,h.x);vec3 p1=vec3(a0.zw,h.y);vec3 p2=vec3(a1.xy,h.z);vec3 p3=vec3(a1.zw,h.w);
-  vec4 norm=nxtis(vec4(dot(p0,p0),dot(p1,p1),dot(p2,p2),dot(p3,p3)));
-  p0*=norm.x;p1*=norm.y;p2*=norm.z;p3*=norm.w;
-  vec4 m=max(0.6-vec4(dot(x0,x0),dot(x1,x1),dot(x2,x2),dot(x3,x3)),0.0);m=m*m;
-  return 42.0*dot(m*m,vec4(dot(p0,x0),dot(p1,x1),dot(p2,x2),dot(p3,x3)));
-}
-void main(){
-  vec3 pos=position;
-  float noise=snoise(vec3(position.x*0.5,position.y*0.5,position.z*0.5+uTime*0.3));
-  float signal=max(0.05,uAudioLevel); // 5% floor — NO_FAKE base minimal
-  pos+=normal*noise*0.3*uDistortion*signal;
-  gl_Position=projectionMatrix*modelViewMatrix*vec4(pos,1.0);
-}`;
-
-const _NX_OUTER_FS = `
-uniform vec3 uColor;uniform float uAudioLevel;
-void main(){gl_FragColor=vec4(uColor,0.55+uAudioLevel*0.45);}`;
-
-const _NX_GLOW_VS = `
-varying vec3 vNormal;varying vec3 vPos;
-void main(){
-  vNormal=normalize(normalMatrix*normal);
-  vPos=(modelMatrix*vec4(position,1.0)).xyz;
-  gl_Position=projectionMatrix*modelViewMatrix*vec4(position,1.0);
-}`;
-
-// Fresnel glow — pow() remplacé par triple multiplication (pas de transcendante)
-const _NX_GLOW_FS = `
-uniform vec3 uColor;uniform float uAudioLevel;
-varying vec3 vNormal;varying vec3 vPos;
-void main(){
-  vec3 vd=normalize(cameraPosition-vPos);
-  float f=1.0-max(0.0,dot(vd,vNormal));
-  float g=f*f*f*(0.4+uAudioLevel*1.6);
-  gl_FragColor=vec4(uColor*g,g*0.75);
-}`;
 
 const _NX_PART_VS = `
 uniform float uTime;uniform float uAudioLevel;
@@ -2575,766 +2385,312 @@ void main(){
   gl_FragColor=vec4(col,alpha);
 }`;
 
-// ── Mode NEXUS — anomalie + réseau neural driven par GlobalState ──────────────
-class NexusMode {
-  constructor(){
-    this._time=0; this._SEGS=6;
-    this._anomaly=null; this._glowMesh=null; this._particles=null;
-    this._outerMat=null; this._glowMat=null; this._particleMat=null;
-    this._networkGroup=null;
-    this._nodeDots=null; this._edges=null;
-    this._nodeMat=null; this._edgeMat=null;
-    this._nodePositions=null; this._edgePairs=null; this._pulseT=null;
-    this._nodeActData=null; this._nodeActAttr=null;
-    this._edgePulseTData=null; this._edgePulseTAttr=null;
-    this._edgeActData=null; this._edgeActAttr=null;
-    this._nodeFlashData=null; this._nodeFlashAttr=null;
-    this._COLS={
-      ambient:      new THREE.Color(0x00D4FF),
-      crisis:       new THREE.Color(0xFF4444),
-      peak:         new THREE.Color(0xFFD700),
-      drift:        new THREE.Color(0xAA44FF),
-      storm:        new THREE.Color(0xFF8844),
-      contemplative:new THREE.Color(0x44AAFF),
-    };
+
+
+// ── Mode LOGO — ChatGPT logo, pseudo-extruded particle system ────────────────
+
+
+const _LOGO_SCALE     = 1.6;
+const _LOGO_DEPTH     = 0.35;
+const _LOGO_COUNT     = 3200;
+const _LOGO_ROT_SPEED = 0.08;  // rad/s — constant orbit, explicit user requirement
+const _LOGO_CAM_R     = 4.5;
+const _LOGO_BURST_DUR = 2.0;
+const _LOGO_PALETTE   = [0x10a37f, 0x0dd3a3, 0x06b6d4, 0x22d3ee, 0x4ade80];
+
+function _logoSampleFill(svgEl, pathEl, n) {
+  const pts = [], sp = svgEl.createSVGPoint(), MAX = n * 120;
+  let tries = 0;
+  while (pts.length < n && tries++ < MAX) {
+    sp.x = Math.random() * 24; sp.y = Math.random() * 24;
+    if (pathEl.isPointInFill(sp))
+      pts.push([(sp.x - 12) / 12 * _LOGO_SCALE, -(sp.y - 12) / 12 * _LOGO_SCALE]);
   }
-
-  init(sc, cam){
-    cam.position.set(0,0,8); cam.lookAt(0,0,0);
-    sc.fog=new THREE.FogExp2(0x0a0e17,0.025);
-    this._buildAnomaly(sc);
-    this._buildNetwork(sc);
-    this._buildParticles(sc);
-  }
-
-  _buildAnomaly(sc){
-    const geo=new THREE.IcosahedronGeometry(2,2);
-    const mat=new THREE.ShaderMaterial({
-      uniforms:{uTime:{value:0},uAudioLevel:{value:0},uDistortion:{value:0.5},uColor:{value:new THREE.Color(0x00D4FF)}},
-      vertexShader:_NX_OUTER_VS, fragmentShader:_NX_OUTER_FS,
-      wireframe:true, transparent:true,
-    });
-    this._anomaly=new THREE.Mesh(geo,mat); this._outerMat=mat; sc.add(this._anomaly);
-  }
-
-  _buildNetwork(sc){
-    const N=28, SEGS=this._SEGS;
-    // Fibonacci sphere — uniform node distribution around the anomaly core
-    const nodePos=[], phi=Math.PI*(3-Math.sqrt(5));
-    for(let i=0;i<N;i++){
-      const y=1-(i/(N-1))*2, r=Math.sqrt(Math.max(0,1-y*y)), th=phi*i;
-      nodePos.push(new THREE.Vector3(Math.cos(th)*r*4.2, y*4.2, Math.sin(th)*r*4.2));
-    }
-    this._nodePositions=nodePos;
-
-    // KNN-3 adjacency
-    const edgePairs=[], edgeSet=new Set();
-    for(let i=0;i<N;i++){
-      const d=[];
-      for(let j=0;j<N;j++){ if(i!==j) d.push([j,nodePos[i].distanceTo(nodePos[j])]); }
-      d.sort((a,b)=>a[1]-b[1]);
-      for(let k=0;k<3;k++){
-        const j=d[k][0], key=Math.min(i,j)+','+Math.max(i,j);
-        if(!edgeSet.has(key)){ edgeSet.add(key); edgePairs.push([i,j]); }
-      }
-    }
-    this._edgePairs=edgePairs;
-    const E=edgePairs.length;
-
-    this._networkGroup=new THREE.Group(); sc.add(this._networkGroup);
-
-    // Node dots — per-node aActivation (dynamic, PE-driven)
-    const nodePosArr=new Float32Array(N*3);
-    const nodeActArr=new Float32Array(N).fill(0.3);
-    nodePos.forEach((v,i)=>{ nodePosArr[i*3]=v.x; nodePosArr[i*3+1]=v.y; nodePosArr[i*3+2]=v.z; });
-    const nodeGeo=new THREE.BufferGeometry();
-    nodeGeo.setAttribute('position',new THREE.BufferAttribute(nodePosArr,3));
-    const nodeActAttr=new THREE.BufferAttribute(nodeActArr,1);
-    nodeActAttr.setUsage(THREE.DynamicDrawUsage);
-    nodeGeo.setAttribute('aActivation',nodeActAttr);
-    this._nodeMat=new THREE.ShaderMaterial({
-      uniforms:{uAudioLevel:{value:0},uHealthRatio:{value:1},uColor:{value:new THREE.Color(0x00D4FF)}},
-      vertexShader:_NX_NODE_VS, fragmentShader:_NX_NODE_FS,
-      transparent:true, depthWrite:false, blending:THREE.AdditiveBlending,
-    });
-    this._nodeDots=new THREE.Points(nodeGeo,this._nodeMat);
-    this._nodeActData=nodeActArr; this._nodeActAttr=nodeActAttr;
-    const nodeFlashArr=new Float32Array(N);
-    const nodeFlashAttr=new THREE.BufferAttribute(nodeFlashArr,1); nodeFlashAttr.setUsage(THREE.DynamicDrawUsage);
-    nodeGeo.setAttribute('nodeFireFlash',nodeFlashAttr);
-    this._nodeFlashData=nodeFlashArr; this._nodeFlashAttr=nodeFlashAttr;
-    this._networkGroup.add(this._nodeDots);
-
-    // Subdivided edges — billboard quads: 4 vertices per segment (t0_L, t0_R, t1_L, t1_R)
-    const VERTS=E*SEGS*4;
-    const edgePosArr  =new Float32Array(VERTS*3);
-    const edgeTArr    =new Float32Array(VERTS);
-    const edgeDirArr  =new Float32Array(VERTS*3);
-    const edgeSideArr =new Float32Array(VERTS);
-    const edgePulseTArr=new Float32Array(VERTS);
-    const edgeActArr   =new Float32Array(VERTS);
-    edgePairs.forEach(([ai,bi],ei)=>{
-      const a=nodePos[ai], b=nodePos[bi];
-      const dx=b.x-a.x, dy=b.y-a.y, dz=b.z-a.z;
-      const len=Math.sqrt(dx*dx+dy*dy+dz*dz)||1;
-      const dirX=dx/len, dirY=dy/len, dirZ=dz/len;
-      for(let s=0;s<SEGS;s++){
-        const t0=s/SEGS, t1=(s+1)/SEGS;
-        // 4 vertices: index = (ei*SEGS+s)*4 + k
-        for(let k=0;k<4;k++){
-          const vi=(ei*SEGS+s)*4+k;
-          const t=(k<2)?t0:t1, side=(k%2===0)?-1:1;
-          edgePosArr[vi*3  ]=a.x+(b.x-a.x)*t;
-          edgePosArr[vi*3+1]=a.y+(b.y-a.y)*t;
-          edgePosArr[vi*3+2]=a.z+(b.z-a.z)*t;
-          edgeTArr[vi]=t;
-          edgeDirArr[vi*3  ]=dirX; edgeDirArr[vi*3+1]=dirY; edgeDirArr[vi*3+2]=dirZ;
-          edgeSideArr[vi]=side;
-        }
-      }
-    });
-    const edgeIdx=[];
-    edgePairs.forEach((_,ei)=>{
-      for(let s=0;s<SEGS;s++){
-        const b0=(ei*SEGS+s)*4;
-        edgeIdx.push(b0,b0+1,b0+2, b0+1,b0+3,b0+2);
-      }
-    });
-    const edgeGeo=new THREE.BufferGeometry();
-    edgeGeo.setAttribute('position',  new THREE.BufferAttribute(edgePosArr,3));
-    edgeGeo.setAttribute('aT',        new THREE.BufferAttribute(edgeTArr,1));
-    edgeGeo.setAttribute('aEdgeDir',  new THREE.BufferAttribute(edgeDirArr,3));
-    edgeGeo.setAttribute('aSide',     new THREE.BufferAttribute(edgeSideArr,1));
-    edgeGeo.setIndex(edgeIdx);
-    const ePulseTAttr=new THREE.BufferAttribute(edgePulseTArr,1);
-    ePulseTAttr.setUsage(THREE.DynamicDrawUsage);
-    edgeGeo.setAttribute('aPulseT',ePulseTAttr);
-    const eActAttr=new THREE.BufferAttribute(edgeActArr,1);
-    eActAttr.setUsage(THREE.DynamicDrawUsage);
-    edgeGeo.setAttribute('aActivation',eActAttr);
-    this._edgeMat=new THREE.ShaderMaterial({
-      uniforms:{
-        uColor:{value:new THREE.Color(0x00D4FF)},uAudioLevel:{value:0},uAnomalyScore:{value:0},
-        uLineWidth:{value:2.5},uResolution:{value:new THREE.Vector2(innerWidth,innerHeight)},
-      },
-      vertexShader:_NX_EDGE_VS, fragmentShader:_NX_EDGE_FS,
-      transparent:true, depthWrite:false, blending:THREE.AdditiveBlending, side:THREE.DoubleSide,
-    });
-    this._edges=new THREE.Mesh(edgeGeo,this._edgeMat);
-    this._edgePulseTData=edgePulseTArr; this._edgePulseTAttr=ePulseTAttr;
-    this._edgeActData=edgeActArr; this._edgeActAttr=eActAttr;
-    this._pulseT=new Float32Array(E).map((_,i)=>i/E);
-    this._networkGroup.add(this._edges);
-  }
-
-  _buildParticles(sc){
-    const N=150, pos=new Float32Array(N*3), col=new Float32Array(N*3);
-    const c1=new THREE.Color(0x00D4FF), c2=new THREE.Color(0x003355);
-    for(let i=0;i<N;i++){
-      pos[i*3]=(Math.random()-0.5)*60; pos[i*3+1]=(Math.random()-0.5)*60; pos[i*3+2]=(Math.random()-0.5)*60;
-      const t=Math.random();
-      col[i*3]=c1.r*t+c2.r*(1-t); col[i*3+1]=c1.g*t+c2.g*(1-t); col[i*3+2]=c1.b*t+c2.b*(1-t);
-    }
-    const geo=new THREE.BufferGeometry();
-    geo.setAttribute('position',new THREE.BufferAttribute(pos,3));
-    geo.setAttribute('color',new THREE.BufferAttribute(col,3));
-    const mat=new THREE.ShaderMaterial({
-      uniforms:{uTime:{value:0},uAudioLevel:{value:0}},
-      vertexShader:_NX_PART_VS, fragmentShader:_NX_PART_FS,
-      transparent:true, depthWrite:false, blending:THREE.AdditiveBlending,
-    });
-    this._particles=new THREE.Points(geo,mat); this._particleMat=mat; sc.add(this._particles);
-  }
-
-  update(state,dt){
-    const energy  =state.audio_energy_level||0;
-    const bpm     =state.audio_bpm||90;
-    const anomaly =Math.min(1,(state.anomaly_score||0)/10);
-    const terr    =state.drift_territory||'ambient';
-    const col     =this._COLS[terr]||this._COLS.ambient;
-    const driftVel=state.drift_velocity||0;
-
-    const hVals=Object.values(state.source_health||{});
-    const healthRatio=hVals.length ? hVals.filter(Boolean).length/hVals.length : 1;
-
-    // prediction_errors → per-edge + per-node activation (NO_FAKE: PE signal)
-    const peVals=Object.values(state.prediction_errors||{});
-    const maxPE=peVals.length ? Math.max(0.01,...peVals.map(v=>Math.abs(v))) : 1;
-
-    this._time+=Math.max(0.02,energy)*dt;
-
-    // Anomaly core
-    this._outerMat.uniforms.uTime.value      =this._time;
-    this._outerMat.uniforms.uAudioLevel.value=energy;
-    this._outerMat.uniforms.uDistortion.value=0.5+anomaly*1.5;
-    this._outerMat.uniforms.uColor.value.copy(col);
-
-    // Network
-    this._nodeMat.uniforms.uAudioLevel.value  =energy;
-    this._nodeMat.uniforms.uHealthRatio.value =healthRatio;
-    this._nodeMat.uniforms.uColor.value.copy(col);
-    this._edgeMat.uniforms.uAudioLevel.value  =energy;
-    this._edgeMat.uniforms.uAnomalyScore.value=anomaly;
-    this._edgeMat.uniforms.uColor.value.copy(col);
-    this._edgeMat.uniforms.uResolution.value.set(innerWidth,innerHeight);
-
-    // Pulse speed = BPM/60, activation = PE per-edge (NO_FAKE)
-    const pulseSpeed=(bpm/60)*dt*0.30;
-    const SEGS=this._SEGS, ep=this._edgePairs;
-    for(let ei=0;ei<ep.length;ei++){
-      const prevT=this._pulseT[ei];
-      this._pulseT[ei]=(prevT+pulseSpeed)%1.0;
-      const pev=peVals.length ? Math.min(1,Math.abs(peVals[ei%peVals.length]||0)/maxPE) : energy*0.5;
-      const pT=this._pulseT[ei];
-      // destination node flash when pulse wraps (NO_FAKE: activation-gated)
-      if(prevT>0.85&&pT<0.15&&this._nodeFlashData&&pev>0.08){
-        const destIdx=ep[ei][1];
-        this._nodeFlashData[destIdx]=Math.max(this._nodeFlashData[destIdx],pev*0.7);
-      }
-      for(let s=0;s<SEGS;s++){
-        const v=(ei*SEGS+s)*4;
-        this._edgePulseTData[v]=this._edgePulseTData[v+1]=this._edgePulseTData[v+2]=this._edgePulseTData[v+3]=pT;
-        this._edgeActData[v]=this._edgeActData[v+1]=this._edgeActData[v+2]=this._edgeActData[v+3]=pev;
-      }
-    }
-    this._edgePulseTAttr.needsUpdate=true;
-    this._edgeActAttr.needsUpdate=true;
-    // decay node flash
-    if(this._nodeFlashData){
-      for(let ni=0;ni<this._nodeFlashData.length;ni++)this._nodeFlashData[ni]*=0.91;
-      this._nodeFlashAttr.needsUpdate=true;
-    }
-
-    // Per-node activation — different PE index offset (NO_FAKE: PE signal)
-    const N=this._nodePositions.length;
-    for(let ni=0;ni<N;ni++){
-      this._nodeActData[ni]=peVals.length
-        ? Math.min(1,Math.abs(peVals[(ni*3+7)%peVals.length]||0)/maxPE*1.3)
-        : energy*0.4;
-    }
-    this._nodeActAttr.needsUpdate=true;
-
-    // Background particles
-    this._particleMat.uniforms.uTime.value      =this._time;
-    this._particleMat.uniforms.uAudioLevel.value=energy;
-
-    const rotSpeed=(bpm/120)*0.010;
-    this._anomaly.rotation.y+=rotSpeed;
-    this._anomaly.rotation.z+=rotSpeed*0.4;
-    this._networkGroup.rotation.y+=rotSpeed*0.55+driftVel*0.004;
-    this._networkGroup.rotation.x+=rotSpeed*0.18;
-
-    renderer.render(scene,camera);
-    return true;
-  }
-
-  dispose(sc){
-    sc.fog=null;
-    const d=obj=>{ if(!obj)return; if(obj.geometry)obj.geometry.dispose(); if(obj.material)obj.material.dispose(); sc.remove(obj); };
-    d(this._anomaly); d(this._particles);
-    if(this._networkGroup){
-      this._networkGroup.traverse(c=>{ if(c.geometry)c.geometry.dispose(); if(c.material)c.material.dispose(); });
-      sc.remove(this._networkGroup);
-    }
-    this._anomaly=this._glowMesh=this._particles=this._networkGroup=null;
-    this._nodeDots=this._edges=null;
-    this._outerMat=this._glowMat=this._particleMat=null;
-    this._nodeMat=this._edgeMat=null;
-    this._nodeFlashData=this._nodeFlashAttr=null;
-  }
-}
-
-// ─── WARPMODE — Computation-graph warp tunnel ─────────────────────────────────
-// N rings of wireframe cuboid panels fly toward the camera along the Z axis.
-// Each ring has one panel per tracked PE channel (8 channels displayed).
-// Panel radial extent ∝ |PE(ch)| / σ(ch)  (precision-weighted z-score).
-// Tunnel speed ∝ drift_velocity. Fog ∝ crisis_level. Opacity ∝ anomaly_score.
-// NO_FAKE: base scroll is a display constant (tunnel must move to be visible,
-// analogous to OrbitControls autoRotate). All extents and opacity = GlobalState.
-// Geometry: 8 merged LineSegments (one per channel) instead of 160 separate objects.
-// Per frame: positions written into DynamicDrawUsage Float32Array buffers.
-class WarpMode {
-  static _NR  = 20;   // ring count
-  static _NS  = 8;    // segments per ring = PE channels tracked
-  static _R   = 2.4;  // tunnel radius (world units)
-  static _D   = 3.0;  // ring Z-spacing
-  static _CH  = ['excitement','anxiety','frustration','curiosity',
-                  'crisis_level','audience_energy','drift_velocity','anomaly_score'];
-  // Couleurs par canal — palette OpenAI/ChatGPT
-  // excitement, anxiety, frustration, curiosity, crisis_level, audience_energy, drift_velocity, anomaly_score
-  static _COL = [0x10A37F, 0x74aa9c, 0xef4444, 0xab68ff,
-                 0xd97706, 0xececf1, 0x10B981, 0x6366f1];
-
-  constructor() {
-    this._group    = null;
-    this._lines    = [];   // LineSegments[NS] — one merged geometry per channel
-    this._mats     = [];   // LineBasicMaterial[NS]
-    this._posArrs  = [];   // Float32Array[NS] — raw position buffers (DynamicDrawUsage)
-    this._posAttrs = [];   // BufferAttribute[NS]
-    this._ringZs   = null; // Float32Array[NR] — ring z positions
-    this._baseBox  = null; // Float32Array[24*3] — local box template (12 edges × 2 verts)
-    this._csArr    = null; // Float32Array[NS] — precomputed cos(θs)
-    this._ssArr    = null; // Float32Array[NS] — precomputed sin(θs)
-    this._sigCur   = new Float32Array(WarpMode._NS);
-    this._sigTgt   = new Float32Array(WarpMode._NS);
-    this._roll     = 0;
-  }
-
-  init(sc, cam) {
-    cam.position.set(0, 0, 9);
-    cam.lookAt(0, 0, 0);
-    sc.fog = new THREE.FogExp2(0x000402, 0.022); // micro-teinte verte OpenAI
-    this._group = new THREE.Group();
-    sc.add(this._group);
-
-    const { _NR: NR, _NS: NS, _R: R, _D: D } = WarpMode;
-    const dθ    = (Math.PI * 2) / NS;
-    const chord = 2 * R * Math.sin(Math.PI / NS) * 0.86;
-    const depth = D * 0.90;
-
-    // Per-channel angles (fixed; group.rotation.z drives tunnel spin)
-    this._csArr = new Float32Array(NS);
-    this._ssArr = new Float32Array(NS);
-    for (let s = 0; s < NS; s++) {
-      const θ = s * dθ; this._csArr[s] = Math.cos(θ); this._ssArr[s] = Math.sin(θ);
-    }
-
-    // Box template: BoxGeometry(1, chord, depth) → 12 edges × 2 verts = 24 verts
-    // Local X is the scale target (radial extent driven by sigCur[s])
-    const hw = 0.5, hh = chord / 2, hd = depth / 2;
-    const cx = [[-hw,-hh,-hd],[+hw,-hh,-hd],[+hw,+hh,-hd],[-hw,+hh,-hd],
-                [-hw,-hh,+hd],[+hw,-hh,+hd],[+hw,+hh,+hd],[-hw,+hh,+hd]];
-    const ei = [[0,1],[1,2],[2,3],[3,0],[4,5],[5,6],[6,7],[7,4],[0,4],[1,5],[2,6],[3,7]];
-    this._baseBox = new Float32Array(24 * 3);
-    let bi = 0;
-    for (const [a, b] of ei) {
-      this._baseBox[bi++]=cx[a][0]; this._baseBox[bi++]=cx[a][1]; this._baseBox[bi++]=cx[a][2];
-      this._baseBox[bi++]=cx[b][0]; this._baseBox[bi++]=cx[b][1]; this._baseBox[bi++]=cx[b][2];
-    }
-
-    // Ring z positions
-    this._ringZs = new Float32Array(NR);
-    for (let r = 0; r < NR; r++) this._ringZs[r] = -(NR - 1 - r) * D;
-
-    // One merged LineSegments per channel (8 draw calls, not 160)
-    for (let s = 0; s < NS; s++) {
-      const posArr  = new Float32Array(NR * 24 * 3);
-      const posAttr = new THREE.BufferAttribute(posArr, 3);
-      posAttr.setUsage(THREE.DynamicDrawUsage);
-      const geo  = new THREE.BufferGeometry();
-      geo.setAttribute('position', posAttr);
-      const mat  = new THREE.LineBasicMaterial({ color: WarpMode._COL[s], transparent: true, opacity: 0.5, fog: true });
-      const line = new THREE.LineSegments(geo, mat);
-      this._group.add(line);
-      this._lines.push(line); this._mats.push(mat);
-      this._posArrs.push(posArr); this._posAttrs.push(posAttr);
-    }
-    this._writePositions(NR, NS, R, 0.12, 0.85);
-  }
-
-  // Rewrite all vertex positions from ring z-positions and per-channel scale.
-  // Transform: local → scale X → rotate θs → translate (R·cos θs, R·sin θs, ringZ)
-  _writePositions(NR, NS, R, BASE, GAIN) {
-    const bb = this._baseBox;
-    for (let s = 0; s < NS; s++) {
-      const cs = this._csArr[s], ss = this._ssArr[s];
-      const sx = BASE + this._sigCur[s] * GAIN;
-      const arr = this._posArrs[s];
-      for (let r = 0; r < NR; r++) {
-        const rz = this._ringZs[r], base = r * 24 * 3;
-        for (let v = 0; v < 24; v++) {
-          const lx = bb[v*3] * sx, ly = bb[v*3+1], lz = bb[v*3+2];
-          const o = base + v * 3;
-          arr[o]   = cs * (R + lx) - ss * ly;
-          arr[o+1] = ss * (R + lx) + cs * ly;
-          arr[o+2] = rz + lz;
-        }
-      }
-      this._posAttrs[s].needsUpdate = true;
-    }
-  }
-
-  update(state, dt) {
-    if (!this._group) return false;
-    const pe  = state?.prediction_errors  || {};
-    const vol = state?.signal_volatilities || {};
-    const { _NS: NS, _CH: CH, _NR: NR, _D: D, _R: R } = WarpMode;
-
-    for (let c = 0; c < NS; c++) {
-      const k = CH[c];
-      this._sigTgt[c] = Math.min(Math.abs((pe[k]||0) / Math.max(vol[k]||0.1, 0.01)), 3.0);
-    }
-    for (let c = 0; c < NS; c++) this._sigCur[c] += (this._sigTgt[c] - this._sigCur[c]) * 0.06;
-
-    const dv   = Math.max(0, Math.min(1, state?.drift_velocity || 0));
-    // dt-based speed — frame-rate independent; base = display constant (~75s/pass at 30fps)
-    const spd  = (0.8 + dv * 2.2) * dt;
-    const anom = Math.max(0, Math.min(1, state?.anomaly_score || 0));
-    const cris = Math.max(0, Math.min(1, state?.crisis_level  || 0));
-
-    scene.fog.density = 0.022 + cris * 0.03;
-    // Slow tunnel spin — display constant (autoRotate equivalent, NO_FAKE OK)
-    // One full revolution ≈ 90s at base; makes different PE channels cycle into focus
-    this._roll += 0.07 * dt;
-    this._group.rotation.z = this._roll;
-
-    // BASE = 0.12 — floor ~4% of full range [0.12..2.67] — évite tunnel invisible à PE=0
-    const BASE = 0.12, GAIN = 0.85;
-    const WRAP = 9 + D * 0.5;
-
-    for (let s = 0; s < NS; s++)
-      this._mats[s].opacity = Math.max(0.06, Math.min(0.90, 0.10 + this._sigCur[s] * 0.50 + anom * 0.28));
-
-    for (let r = 0; r < NR; r++) {
-      this._ringZs[r] += spd;
-      if (this._ringZs[r] > WRAP) this._ringZs[r] -= NR * D;
-    }
-    this._writePositions(NR, NS, R, BASE, GAIN);
-
-    renderer.render(scene, camera);
-    return true;
-  }
-
-  dispose(sc) {
-    this._lines.forEach(l => l.geometry.dispose());
-    this._mats.forEach(m => m.dispose());
-    if (this._group) sc.remove(this._group);
-    sc.fog = null;
-    this._group = null; this._lines = []; this._mats = []; this._posArrs = []; this._posAttrs = [];
-  }
-}
-
-// ── Mode LOGO — ChatGPT logo, vertex shader deformation ──────────────────────
-
-// Simplex noise helpers (verbatim from _NX_OUTER_VS)
-const _LM_SNOISE_GLSL = `
-vec3 lm289(vec3 x){return x-floor(x*(1.0/289.0))*289.0;}
-vec4 lm289v(vec4 x){return x-floor(x*(1.0/289.0))*289.0;}
-vec4 lmperm(vec4 x){return lm289v(((x*34.0)+1.0)*x);}
-vec4 lmtis(vec4 r){return 1.79284291400159-0.85373472095314*r;}
-float snoise(vec3 v){
-  const vec2 C=vec2(1.0/6.0,1.0/3.0);const vec4 D=vec4(0.0,0.5,1.0,2.0);
-  vec3 i=floor(v+dot(v,C.yyy));vec3 x0=v-i+dot(i,C.xxx);
-  vec3 g=step(x0.yzx,x0.xyz);vec3 l=1.0-g;
-  vec3 i1=min(g.xyz,l.zxy);vec3 i2=max(g.xyz,l.zxy);
-  vec3 x1=x0-i1+C.xxx;vec3 x2=x0-i2+C.yyy;vec3 x3=x0-D.yyy;
-  i=lm289(i);
-  vec4 p=lmperm(lmperm(lmperm(i.z+vec4(0.0,i1.z,i2.z,1.0))+i.y+vec4(0.0,i1.y,i2.y,1.0))+i.x+vec4(0.0,i1.x,i2.x,1.0));
-  float n_=0.142857142857;vec3 ns=n_*D.wyz-D.xzx;
-  vec4 j=p-49.0*floor(p*ns.z*ns.z);
-  vec4 x_=floor(j*ns.z);vec4 y_=floor(j-7.0*x_);
-  vec4 x=x_*ns.x+ns.yyyy;vec4 y=y_*ns.x+ns.yyyy;vec4 h=1.0-abs(x)-abs(y);
-  vec4 b0=vec4(x.xy,y.xy);vec4 b1=vec4(x.zw,y.zw);
-  vec4 s0=floor(b0)*2.0+1.0;vec4 s1=floor(b1)*2.0+1.0;vec4 sh=-step(h,vec4(0.0));
-  vec4 a0=b0.xzyw+s0.xzyw*sh.xxyy;vec4 a1=b1.xzyw+s1.xzyw*sh.zzww;
-  vec3 p0=vec3(a0.xy,h.x);vec3 p1=vec3(a0.zw,h.y);vec3 p2=vec3(a1.xy,h.z);vec3 p3=vec3(a1.zw,h.w);
-  vec4 norm=lmtis(vec4(dot(p0,p0),dot(p1,p1),dot(p2,p2),dot(p3,p3)));
-  p0*=norm.x;p1*=norm.y;p2*=norm.z;p3*=norm.w;
-  vec4 m=max(0.6-vec4(dot(x0,x0),dot(x1,x1),dot(x2,x2),dot(x3,x3)),0.0);m=m*m;
-  return 42.0*dot(m*m,vec4(dot(p0,x0),dot(p1,x1),dot(p2,x2),dot(p3,x3)));
-}`;
-
-// Logo vertex shader — displacement driven entirely by uDeformAmp (0 at rest = NO_FAKE)
-const _LM_VS = `
-${_LM_SNOISE_GLSL}
-uniform float uTime;
-uniform float uDeformAmp;
-uniform float uTimeScale;
-void main(){
-  vec3 pos=position;
-  float n1=snoise(vec3(pos.xy*0.55,uTime*uTimeScale*0.12));
-  float n2=snoise(vec3(pos.xy*1.1+4.3,uTime*uTimeScale*0.08));
-  pos.xy+=vec2(n1,n2)*uDeformAmp*0.38;
-  pos.z+=snoise(vec3(pos.xy*0.4,uTime*uTimeScale*0.06))*uDeformAmp*0.22;
-  gl_Position=projectionMatrix*modelViewMatrix*vec4(pos,1.0);
-}`;
-
-const _LM_FS = `
-uniform vec3 uColor;
-uniform float uAlpha;
-void main(){gl_FragColor=vec4(uColor,uAlpha);}`;
-
-const _LM_GLOW_FS = `
-uniform vec3 uGlowColor;
-uniform float uGlowAlpha;
-void main(){gl_FragColor=vec4(uGlowColor,uGlowAlpha);}`;
-
-const _LM_SPARK_VS = `
-attribute float aLife;
-varying float vLife;
-void main(){
-  vLife=aLife;
-  vec4 mvPos=modelViewMatrix*vec4(position,1.0);
-  gl_PointSize=3.0*vLife;
-  gl_Position=projectionMatrix*mvPos;
-}`;
-
-const _LM_SPARK_FS = `
-varying float vLife;
-uniform vec3 uSparkColor;
-void main(){
-  float d=length(gl_PointCoord-0.5)*2.0;
-  if(d>1.0) discard;
-  gl_FragColor=vec4(uSparkColor,vLife*(1.0-d));
-}`;
-
-// Helper: build 6-petal logo geometry merged into one BufferGeometry (≥2000 vertices)
-function _buildLogoGeometry() {
-  const geos = [];
-  for (let i = 0; i < 6; i++) {
-    const shape = new THREE.Shape();
-    shape.absellipse(0, 0, 0.275, 1.0, 0, Math.PI * 2, false, 0);
-    const geo = new THREE.ShapeGeometry(shape, 128);
-    geo.applyMatrix4(new THREE.Matrix4().makeRotationZ(i * Math.PI / 3));
-    geos.push(geo);
-  }
-  return mergeGeometries(geos, false);
+  return pts;
 }
 
 class LogoMode {
   constructor() {
-    this._logoMesh     = null;
-    this._glowMesh     = null;
-    this._sparkMesh    = null;
-    this._sparkGeo     = null;
-    this._sparkMat     = null;
-    this._sparkLifeAttr= null;
-    this._sparkPos     = new Float32Array(600 * 3);
-    this._sparkVel     = new Float32Array(600);
-    this._sparkLat     = new Float32Array(600);   // lateral drift velocity
-    this._sparkLife    = new Float32Array(600);
-    this._sparkActive  = new Uint8Array(600);
-    this._sparkEmitAccum = 0;
-    this._sparkHomePos = null;
-    this._uTime        = 0;
-    this._sigSmooth    = 0;
-    this._logoGeo      = null;
-    this._logoMat      = null;
-    this._glowMat      = null;
-    this._colorBase    = new THREE.Color(0x10A37F);
-    this._colorCrisis  = new THREE.Color(0xef4444);
-    this._colorCur     = new THREE.Color(0x10A37F);
+    this._particles   = null;
+    this._stars       = null;
+    this._cam         = null;
+    this._camAngle    = 0;
+    this._burstT      = -1;
+    this._prevAnomaly = 0;
   }
 
   init(sc, cam) {
-    cam.position.set(0, 0, 7);
-    cam.lookAt(0, 0, 0);
-    sc.fog  = null;
+    this._cam         = cam;
+    this._camAngle    = 0;
+    this._burstT      = -1;
+    this._prevAnomaly = 0;
+    sc.fog = null;
     sc.background = new THREE.Color(0x000000);
-
-    this._logoGeo = _buildLogoGeometry();
-    this._buildLogo(sc);
-    this._buildGlow(sc, this._logoGeo);
-    this._initSparks(sc, this._logoGeo);
+    this._buildParticles(sc);
+    this._buildStars(sc);
   }
 
-  _buildLogo(sc) {
-    this._logoMat = new THREE.ShaderMaterial({
+  _buildParticles(sc) {
+    const svgEl  = document.getElementById('_logo-hidden-svg');
+    const pathEl = document.getElementById('_logo-hidden-path');
+
+    const COUNT  = _LOGO_COUNT;
+    const nFront = Math.round(COUNT * 0.45);
+    const nEdge  = Math.round(COUNT * 0.35);
+    const nBack  = COUNT - nFront - nEdge;
+
+    const frontOut = _logoSampleFill(svgEl, pathEl, nFront);
+    const edgePts  = _logoSampleFill(svgEl, pathEl, nEdge);
+    const backOut  = _logoSampleFill(svgEl, pathEl, nBack);
+
+    const pal = _LOGO_PALETTE.map(c => new THREE.Color(c));
+    const pos  = new Float32Array(COUNT * 3);
+    const col  = new Float32Array(COUNT * 3);
+    const sz   = new Float32Array(COUNT);
+    const rnd  = new Float32Array(COUNT * 3);
+    const lyr  = new Float32Array(COUNT);
+
+    let i = 0;
+    const hz  = _LOGO_DEPTH / 2;
+    const jit = () => (Math.random() - 0.5) * 0.04;
+
+    const add = (xy, z, layerV) => {
+      pos[i*3] = xy[0]; pos[i*3+1] = xy[1]; pos[i*3+2] = z;
+      const base = pal[i % pal.length];
+      const hsl  = { h:0, s:0, l:0 };
+      base.getHSL(hsl);
+      hsl.h += (Math.random() - 0.5) * 0.06;
+      hsl.s  = Math.min(1,   Math.max(0.55, hsl.s + (Math.random() - 0.5) * 0.18));
+      hsl.l  = Math.min(0.9, Math.max(0.36, hsl.l + (Math.random() - 0.5) * 0.22));
+      const c = new THREE.Color().setHSL(hsl.h, hsl.s, hsl.l);
+      col[i*3] = c.r; col[i*3+1] = c.g; col[i*3+2] = c.b;
+      const dCue = 1.0 + layerV * 0.20;
+      sz[i] = (0.65 + Math.random() * 0.85) * dCue;
+      rnd[i*3]   = Math.random() * 10;
+      rnd[i*3+1] = Math.random() * Math.PI * 2;
+      rnd[i*3+2] = 0.35 + 0.65 * Math.random();
+      lyr[i] = layerV;
+      i++;
+    };
+
+    frontOut.forEach(xy => add(xy,  hz + jit(),  1.0));
+    edgePts .forEach(xy => add(xy, (Math.random() - 0.5) * _LOGO_DEPTH,  0.0));
+    backOut .forEach(xy => add(xy, -hz + jit(), -1.0));
+
+    const geo = new THREE.BufferGeometry();
+    geo.setAttribute('position', new THREE.BufferAttribute(pos, 3));
+    geo.setAttribute('color',    new THREE.BufferAttribute(col, 3));
+    geo.setAttribute('size',     new THREE.BufferAttribute(sz,  1));
+    geo.setAttribute('random',   new THREE.BufferAttribute(rnd, 3));
+    geo.setAttribute('layer',    new THREE.BufferAttribute(lyr, 1));
+
+    const mat = new THREE.ShaderMaterial({
       uniforms: {
-        uTime:       { value: 0 },
-        uDeformAmp:  { value: 0 },
-        uTimeScale:  { value: 1.0 },
-        uColor:      { value: new THREE.Color(0x10A37F) },
-        uAlpha:      { value: 1.0 },
+        uTime:        { value: 0 },
+        uExcitement:  { value: 0 }, uAnxiety:    { value: 0 },
+        uFrustration: { value: 0 }, uCuriosity:  { value: 0 },
+        uCreativity:  { value: 0 }, uWonder:     { value: 0 },
+        uMelancholy:  { value: 0 }, uUrgency:    { value: 0 },
+        uCrisis:      { value: 0 }, uAnomaly:    { value: 0 },
+        uBurstT:      { value: -1 },
+        uAudience:    { value: 0 }, uWorldTemp:  { value: 0 },
+        uFearGreed:   { value: .5 },uHappiness:  { value: .5 },
+        uChatSent:    { value: 0 }, uDivergence: { value: 0 },
+        uPredError:   { value: 0 },
       },
-      vertexShader:   _LM_VS,
-      fragmentShader: _LM_FS,
-      transparent: true,
-      side: THREE.DoubleSide,
+      vertexShader: `
+uniform float uTime;
+uniform float uExcitement, uAnxiety, uCuriosity, uMelancholy, uUrgency, uCrisis;
+uniform float uBurstT, uAudience;
+attribute float size;
+attribute float layer;
+attribute vec3  random;
+varying vec3  vCol;
+varying float vR, vLayer;
+void main() {
+  vCol   = color;
+  vR     = random.z;
+  vLayer = layer;
+  vec3 p = position;
+  // constant center void — artistic resting shape matching the real logo's open center
+  if (length(p.xy) > 0.01) p.xy += normalize(p.xy) * (0.08 + random.z * 0.06);
+  // excitement: Z-only deformation — floor 4% of range prevents dead-screen
+  float zAmp = (0.005 + uExcitement * 0.115) * random.z;
+  p.z += sin(uTime * 0.08 * random.z + random.y + p.x * 0.9) * zAmp;
+  p.z += cos(uTime * 0.06 * random.z + random.x + p.y * 0.7) * zAmp * 0.4;
+  p.z  = clamp(p.z, -0.54, 0.54);
+  // anxiety: micro-jitter XY
+  float jAmp = uAnxiety * 0.015 * random.z;
+  p.x += sin(uTime * 9.1 + random.y * 22.0) * jAmp;
+  p.y += cos(uTime * 8.4 + random.x * 19.0) * jAmp;
+  // curiosity: radial edge probe
+  if (length(p.xy) > 0.01) {
+    float probe = uCuriosity * 0.08 * random.z * sin(uTime * 0.35 + random.y * 3.14);
+    p.xy += normalize(p.xy) * probe;
+  }
+  // melancholy: slow gravity drift downward
+  p.y -= uMelancholy * 0.06 * random.z * abs(sin(uTime * 0.05 + random.x * 6.28));
+  // urgency + crisis: Z push toward viewer
+  p.z += (uUrgency * 0.07 + uCrisis * 0.05) * random.z;
+  p.z  = clamp(p.z, -0.60, 0.60);
+  // anomaly burst: radial explosion → snap back
+  if (uBurstT >= 0.0) {
+    float prog = 1.0 - uBurstT;
+    float bAmp = sin(prog * 3.14159) * 0.45;
+    vec2 bDir  = length(p.xy) > 0.01 ? normalize(p.xy) : vec2(cos(random.y), sin(random.y));
+    p.xy += bDir * bAmp;
+  }
+  vec4 mv      = modelViewMatrix * vec4(p, 1.0);
+  float dMod   = 1.0 + layer * 0.18;
+  float aPulse = uAudience * 0.28 * random.z;
+  gl_PointSize = size * dMod * (190.0 / -mv.z) * (1.0 + aPulse);
+  gl_Position  = projectionMatrix * mv;
+}`,
+      fragmentShader: `
+uniform float uTime;
+uniform float uExcitement, uFrustration, uCreativity, uWonder, uMelancholy, uUrgency;
+uniform float uCrisis, uAudience, uWorldTemp, uFearGreed, uHappiness;
+uniform float uChatSent, uDivergence, uPredError;
+varying vec3  vCol;
+varying float vR, vLayer;
+vec3 hueShift(vec3 c, float h) {
+  const vec3 k = vec3(0.57735);
+  float ca = cos(h), sa = sin(h);
+  return c * ca + cross(k, c) * sa + k * dot(k, c) * (1.0 - ca);
+}
+void main() {
+  vec2  uv    = gl_PointCoord - 0.5;
+  float d     = length(uv);
+  // All discs use 1-smoothstep(inner,outer,d) — edge0<edge1 required by GLSL spec
+  float glowR = max(0.07, 0.28 - uExcitement * 0.06);
+  float glow  = 1.0 - smoothstep(0.0, glowR, d);
+  float core  = 1.0 - smoothstep(0.0, 0.055, d);
+  float ring  = smoothstep(0.36, 0.40, d) * (1.0 - smoothstep(0.40, 0.44, d)) * uFrustration;
+  float spark = step(0.70, vR) * (1.0 - smoothstep(0.0, 0.09, d)) * uAudience * 1.6;
+  float peFlash = uPredError * (1.0 - smoothstep(0.0, 0.42, d)) * 0.9;
+  float alpha = core + glow * (0.28 + uExcitement * 0.22) + ring * 0.7 + spark + peFlash;
+  if (alpha < 0.01) discard;
+  vec3 col = vCol;
+  col = hueShift(col, uCreativity * (vR - 0.5) * 1.6 + uTime * 0.018 * uCreativity);
+  col = mix(col, vec3(0.04, 0.78, 0.96), uWonder * 0.55);
+  col = mix(col, vec3(0.38, 0.14, 0.54), uMelancholy * 0.45);
+  col *= 1.0 - uMelancholy * 0.18;
+  col = mix(col, vec3(1.0, 0.44, 0.04), uUrgency * 0.42);
+  col = mix(col, vec3(1.0, 0.78, 0.08), uFrustration * 0.28);
+  float lum = dot(col, vec3(0.299, 0.587, 0.114));
+  col = mix(vec3(lum), col, 1.0 + uFrustration * 0.75);
+  col = mix(col, vec3(1.0, 0.06, 0.04), uCrisis * 0.60);
+  float fgLum = dot(col, vec3(0.299, 0.587, 0.114));
+  if (uFearGreed < 0.5) col = mix(col, vec3(fgLum), (0.5 - uFearGreed) * 1.4);
+  if (uFearGreed > 0.5) col = mix(col, vec3(1.0, 0.82, 0.18), (uFearGreed - 0.5) * 0.6);
+  col *= 0.65 + uWorldTemp * 0.55 + uHappiness * 0.30;
+  if (spark > 0.01) col = mix(col, vec3(0.04, 0.92, 0.62), uChatSent * 0.65 + 0.15);
+  col = hueShift(col, uDivergence * (vR - 0.5) * 1.4);
+  col = mix(col, vec3(1.0), core * 0.35);
+  if (uPredError > 0.01) col = mix(col, vec3(1.0), uPredError * 0.55);
+  col *= (vLayer < -0.5 ? 0.60 : 1.0);
+  gl_FragColor = vec4(col, alpha);
+}`,
+      transparent: true, depthWrite: false, vertexColors: true,
+      blending: THREE.AdditiveBlending,
     });
-    this._logoMesh = new THREE.Mesh(this._logoGeo, this._logoMat);
-    sc.add(this._logoMesh);
+
+    this._particles = new THREE.Points(geo, mat);
+    sc.add(this._particles);
   }
 
-  _buildGlow(sc, logoGeo) {
-    this._glowMat = new THREE.ShaderMaterial({
-      uniforms: {
-        uTime:      { value: 0 },
-        uDeformAmp: { value: 0 },
-        uTimeScale: { value: 1.0 },
-        uGlowColor: { value: new THREE.Color(0x10A37F) },
-        uGlowAlpha: { value: 0.0 },
-      },
-      vertexShader:   _LM_VS,
-      fragmentShader: _LM_GLOW_FS,
-      transparent:  true,
-      depthWrite:   false,
-      blending:     THREE.AdditiveBlending,
-      side:         THREE.DoubleSide,
-    });
-    this._glowMesh = new THREE.Mesh(logoGeo, this._glowMat);
-    this._glowMesh.scale.set(1.04, 1.04, 1.04);
-    sc.add(this._glowMesh);
-  }
-
-  _initSparks(sc, logoGeo) {
-    const COUNT = 600;
-    // Sample home positions from logo geometry vertices
-    const srcPos = logoGeo.attributes.position;
-    const nVerts  = srcPos.count;
-    this._sparkHomePos = new Float32Array(nVerts * 3);
-    for (let i = 0; i < nVerts; i++) {
-      this._sparkHomePos[i * 3]     = srcPos.getX(i);
-      this._sparkHomePos[i * 3 + 1] = srcPos.getY(i);
-      this._sparkHomePos[i * 3 + 2] = srcPos.getZ(i);
+  _buildStars(sc) {
+    const geo = new THREE.BufferGeometry();
+    const pos = new Float32Array(280 * 3);
+    for (let j = 0; j < 280; j++) {
+      const th = Math.random() * 2 * Math.PI;
+      const ph = Math.acos(2 * Math.random() - 1);
+      const r  = 70 + Math.random() * 130;
+      pos[j*3]   = r * Math.sin(ph) * Math.cos(th);
+      pos[j*3+1] = r * Math.sin(ph) * Math.sin(th);
+      pos[j*3+2] = r * Math.cos(ph);
     }
-
-    // Initialize spark arrays to zero (all inactive at rest)
-    this._sparkPos.fill(0);
-    this._sparkLife.fill(0);
-    this._sparkActive.fill(0);
-
-    // Random upward velocities (set once at init — not in animation loop)
-    for (let i = 0; i < COUNT; i++) {
-      // Seed velocities at init time only — these are fixed per-particle constants
-      this._sparkVel[i] = 0.8 + (i * 0.000493) % 0.3;      // 0.8..1.1 deterministic spread
-      this._sparkLat[i] = ((i * 0.001739) % 0.4) - 0.2;     // ±0.2 deterministic lateral
-    }
-
-    const lifeArr = new Float32Array(COUNT).fill(0);
-    const posAttr  = new THREE.BufferAttribute(this._sparkPos, 3);
-    posAttr.setUsage(THREE.DynamicDrawUsage);
-    const lifeAttr = new THREE.BufferAttribute(lifeArr, 1);
-    lifeAttr.setUsage(THREE.DynamicDrawUsage);
-    this._sparkLifeAttr = lifeAttr;
-
-    this._sparkGeo = new THREE.BufferGeometry();
-    this._sparkGeo.setAttribute('position', posAttr);
-    this._sparkGeo.setAttribute('aLife',    lifeAttr);
-
-    this._sparkMat = new THREE.ShaderMaterial({
-      uniforms: { uSparkColor: { value: new THREE.Color(0x10A37F) } },
-      vertexShader:   _LM_SPARK_VS,
-      fragmentShader: _LM_SPARK_FS,
-      transparent: true,
-      depthWrite:  false,
-      blending:    THREE.AdditiveBlending,
-    });
-
-    this._sparkMesh = new THREE.Points(this._sparkGeo, this._sparkMat);
-    sc.add(this._sparkMesh);
-  }
-
-  _updateSparks(audienceEnergy, dt) {
-    const COUNT   = 600;
-    const MAX_LIFE = 2.5;
-    const nHome   = this._sparkHomePos.length / 3;
-    let activeCnt = 0, lifeSum = 0;
-
-    // Update active particles
-    for (let i = 0; i < COUNT; i++) {
-      if (!this._sparkActive[i]) continue;
-      this._sparkPos[i * 3]     += this._sparkLat[i] * dt;
-      this._sparkPos[i * 3 + 1] += this._sparkVel[i] * dt;
-      this._sparkLife[i]        -= dt;
-      if (this._sparkLife[i] <= 0) {
-        this._sparkActive[i] = 0;
-        this._sparkLife[i]   = 0;
-        this._sparkLifeAttr.array[i] = 0;
-      } else {
-        lifeSum += this._sparkLife[i] / MAX_LIFE;
-        activeCnt++;
-        this._sparkLifeAttr.array[i] = Math.max(0, this._sparkLife[i] / MAX_LIFE);
-      }
-    }
-
-    // Emit new sparks proportional to audienceEnergy — strictly 0 when audienceEnergy === 0
-    if (audienceEnergy > 0) {
-      this._sparkEmitAccum += audienceEnergy * 8 * dt;
-      const toEmit = Math.floor(this._sparkEmitAccum);
-      this._sparkEmitAccum -= toEmit;
-      let emitted = 0;
-      for (let i = 0; i < COUNT && emitted < toEmit; i++) {
-        if (this._sparkActive[i]) continue;
-        // Sample a home position from logo geometry vertices (deterministic index cycling)
-        const hi = (i * 7 + Math.floor(this._uTime * 10)) % nHome;
-        this._sparkPos[i * 3]     = this._sparkHomePos[hi * 3];
-        this._sparkPos[i * 3 + 1] = this._sparkHomePos[hi * 3 + 1];
-        this._sparkPos[i * 3 + 2] = this._sparkHomePos[hi * 3 + 2];
-        this._sparkLife[i]        = MAX_LIFE * (0.5 + (i * 0.001317) % 0.5);
-        this._sparkActive[i]      = 1;
-        this._sparkLifeAttr.array[i] = this._sparkLife[i] / MAX_LIFE;
-        emitted++;
-        activeCnt++;
-        lifeSum += this._sparkLife[i] / MAX_LIFE;
-      }
-    }
-
-    this._sparkGeo.attributes.position.needsUpdate = true;
-    this._sparkLifeAttr.needsUpdate = true;
-    // Opacity = average remaining life fraction across active particles (0 at rest)
-    this._sparkMat.opacity = activeCnt > 0 ? lifeSum / activeCnt : 0;
+    geo.setAttribute('position', new THREE.BufferAttribute(pos, 3));
+    this._stars = new THREE.Points(geo, new THREE.PointsMaterial({
+      color: 0xffffff, size: .22, depthWrite: false, transparent: true, opacity: .2,
+    }));
+    sc.add(this._stars);
   }
 
   update(st, dt) {
-    if (!this._logoMesh) return false;
+    if (!this._particles) return false;
 
-    this._uTime += dt;
+    const u = this._particles.material.uniforms;
+    u.uTime.value += dt;
 
-    // ── Signal extraction ────────────────────────────────────────────────────
-    const excitement    = Math.max(0, Math.min(1, st?.excitement     || 0));
-    const crisisLevel   = Math.max(0, Math.min(1, st?.crisis_level   || 0));
-    const anomalyScore  = Math.max(0, Math.min(1, st?.anomaly_score  || 0));
-    const audienceEnergy= Math.max(0, Math.min(1, st?.audience_energy|| 0));
+    const c01 = v => Math.max(0, Math.min(1, v || 0));
 
-    // ── EMA-smoothed combined signal (τ ≈ 1s, 5% target at 20fps) ─────────
-    const combinedRaw = excitement * 0.5 + crisisLevel * 0.35 + anomalyScore * 0.15;
-    const alpha       = 1 - Math.pow(0.05, dt);  // LERP factor, τ ≈ 1s
-    this._sigSmooth   = this._sigSmooth + (combinedRaw - this._sigSmooth) * alpha;
+    // Anomaly burst: rising edge above 0.7 triggers one-shot radial explosion
+    const anomaly = c01(st.anomaly_score);
+    if (anomaly > 0.7 && this._prevAnomaly <= 0.7 && this._burstT < 0) {
+      this._burstT = _LOGO_BURST_DUR;
+    }
+    this._prevAnomaly = anomaly;
+    if (this._burstT >= 0) this._burstT = Math.max(-1, this._burstT - dt);
 
-    const uDeformAmp  = this._sigSmooth;  // 0.0 at rest — NO_FAKE compliant
+    // Constant camera orbit — explicit user requirement
+    this._camAngle += _LOGO_ROT_SPEED * dt;
+    this._cam.position.x = _LOGO_CAM_R * Math.cos(this._camAngle);
+    this._cam.position.y = 0;
+    this._cam.position.z = _LOGO_CAM_R * Math.sin(this._camAngle);
+    this._cam.lookAt(0, 0, 0);
 
-    // ── Color lerp: base → crisis ────────────────────────────────────────────
-    this._colorCur.copy(this._colorBase).lerp(this._colorCrisis, crisisLevel * 0.6);
-
-    // ── Update logo shader uniforms ──────────────────────────────────────────
-    this._logoMat.uniforms.uTime.value      = this._uTime;
-    this._logoMat.uniforms.uDeformAmp.value = uDeformAmp;
-    this._logoMat.uniforms.uTimeScale.value = 1.0;
-    this._logoMat.uniforms.uColor.value.copy(this._colorCur);
-    this._logoMat.uniforms.uAlpha.value     = 1.0;
-
-    // ── Update glow shader uniforms ──────────────────────────────────────────
-    const glowAlpha = this._sigSmooth * 0.18;  // 0.0 at rest
-    this._glowMat.uniforms.uTime.value       = this._uTime;
-    this._glowMat.uniforms.uDeformAmp.value  = uDeformAmp;
-    this._glowMat.uniforms.uTimeScale.value  = 1.0;
-    this._glowMat.uniforms.uGlowColor.value.copy(this._colorCur);
-    this._glowMat.uniforms.uGlowAlpha.value  = glowAlpha;
-
-    // ── Spark color tracks logo color ────────────────────────────────────────
-    this._sparkMat.uniforms.uSparkColor.value.copy(this._colorCur);
-
-    // ── Update sparks ────────────────────────────────────────────────────────
-    this._updateSparks(audienceEnergy, dt);
+    u.uExcitement.value  = c01(st.excitement);
+    u.uAnxiety.value     = c01(st.anxiety);
+    u.uFrustration.value = c01(st.frustration) * 0.50;
+    u.uCuriosity.value   = c01(st.curiosity);
+    u.uCreativity.value  = c01(st.creativity);
+    u.uWonder.value      = c01(st.wonder);
+    u.uMelancholy.value  = c01(st.melancholy);
+    u.uUrgency.value     = c01(st.urgency);
+    u.uCrisis.value      = c01(st.crisis_level);
+    u.uAnomaly.value     = anomaly;
+    u.uBurstT.value      = this._burstT >= 0 ? this._burstT / _LOGO_BURST_DUR : -1;
+    u.uAudience.value    = c01(st.audience_energy);
+    u.uWorldTemp.value   = c01(st.world_temperature);
+    u.uFearGreed.value   = c01(st.fear_greed_index ?? 0.5);
+    u.uHappiness.value   = c01(st.hedonometer_happiness ?? 0.5);
+    u.uChatSent.value    = c01(st.chat_sentiment);
+    u.uDivergence.value  = c01(st.source_divergence);
+    const _peVals = Object.values(st.prediction_errors || {});
+    u.uPredError.value   = (_peVals.length ? Math.min(1, Math.max(..._peVals.map(v => Math.abs(v || 0)))) : 0) * 0.10;
 
     renderer.render(scene, camera);
     return true;
   }
 
   dispose(sc) {
-    if (this._logoMesh)  { this._logoGeo.dispose(); this._logoMat.dispose(); sc.remove(this._logoMesh); }
-    if (this._glowMesh)  { this._glowMat.dispose(); sc.remove(this._glowMesh); }
-    if (this._sparkMesh) { this._sparkGeo.dispose(); this._sparkMat.dispose(); sc.remove(this._sparkMesh); }
-    this._logoMesh = null; this._glowMesh = null; this._sparkMesh = null;
-    this._sparkGeo = null; this._sparkMat = null; this._sparkLifeAttr = null;
-    this._logoGeo  = null; this._logoMat  = null; this._glowMat = null;
+    if (this._particles) {
+      this._particles.geometry.dispose();
+      this._particles.material.dispose();
+      sc.remove(this._particles);
+      this._particles = null;
+    }
+    if (this._stars) {
+      this._stars.geometry.dispose();
+      this._stars.material.dispose();
+      sc.remove(this._stars);
+      this._stars = null;
+    }
+    this._cam = null;
   }
 }
 
 // ── Système de modes ──────────────────────────────────────────────────────────
 
-const MODES = { neural: NeuralMode, chaos: ChaosMode, globe: GlobeMode, network: NetworkMode, nexus: NexusMode, warp: WarpMode, logo: LogoMode };
-const _SCENE_NAMES = { neural: 'neural', chaos: 'spectre', globe: 'globe', network: 'network', nexus: 'nexus', warp: 'warp', logo: 'logo' };
+const MODES = { chaos: ChaosMode, globe: GlobeMode, network: NetworkMode, logo: LogoMode };
+const _SCENE_NAMES = { chaos: 'spectre', globe: 'globe', network: 'network', logo: 'ChatGPT' };
 
-// Declared early — NeuralMode.init() reads liveNodes (let TDZ would crash otherwise)
 let liveState = {};
-let liveNodes  = [];   // real @node registry from WebSocket
+let liveNodes  = [];   // @node registry from WebSocket
 
-let activeModeName = 'neural';
-// Initialize NeuralMode immediately — avoids blank canvas until first WS message
-// (the graph builds lazily in update() once liveNodes arrives from WebSocket)
-let activeMode = new NeuralMode();
+let activeModeName = 'chaos';
+let activeMode = new ChaosMode();
 activeMode.init(scene, camera);
 
 let _switchInProgress = false;
@@ -3494,6 +2850,30 @@ function _ewCycle() {
 _ewCycle();  // affiché immédiatement au démarrage
 setInterval(_ewCycle, _EW_CYCLE_MS);
 
+// ── Restart banner ────────────────────────────────────────────────────────────
+function _showRestartBanner() {
+  const el = document.getElementById('restart-banner');
+  el.classList.remove('hiding'); el.classList.add('visible');
+}
+function _hideRestartBanner() {
+  const el = document.getElementById('restart-banner');
+  el.classList.add('hiding'); el.classList.remove('visible');
+  setTimeout(() => el.classList.remove('hiding'), 520);
+}
+
+// ── Mood / viewer command notification — drop-in depuis le haut ───────────────
+let _lastMoodCmd = '';
+let _moodTimer   = null;
+const _MOOD_SHOW_MS = 6000;
+
+function _showMoodNotif(text) {
+  document.getElementById('mood-notif-text').textContent = text;
+  const el = document.getElementById('mood-notif');
+  el.classList.add('visible');
+  clearTimeout(_moodTimer);
+  _moodTimer = setTimeout(() => el.classList.remove('visible'), _MOOD_SHOW_MS);
+}
+
 function updateHUD(st) {
   const crisis = st.crisis_level || 0;
   const wt = st.world_temperature || 0;
@@ -3533,14 +2913,12 @@ function updateHUD(st) {
     barEl.style.width = '0%';
   }
 
-  // viewer command notification
-  const vcEl = document.getElementById('viewer-cmd');
-  if (st.viewer_cmd_label) {
-    vcEl.textContent = st.viewer_cmd_label;
-    vcEl.classList.add('active');
-  } else {
-    vcEl.classList.remove('active');
+  // viewer command → mood notification drop-in depuis le haut (fires only on new value)
+  if (st.viewer_cmd_label && st.viewer_cmd_label !== _lastMoodCmd) {
+    _lastMoodCmd = st.viewer_cmd_label;
+    _showMoodNotif(st.viewer_cmd_label);
   }
+  if (!st.viewer_cmd_label) _lastMoodCmd = '';
 
   // sources: summary dot + expandable detail
   const sh = st.source_health || {};
@@ -3607,22 +2985,24 @@ function connect() {
   ws.onopen = () => {
     _isRestarting = false;
     clearTimeout(_restartingTimer);
+    _hideRestartBanner();
     document.getElementById('ws-status').className = 'connected';
     document.getElementById('ws-status').innerHTML = '<span class="status-dot dot-ok" style="margin-right:5px"></span>connected';
     updateHUD(liveState);  // preserve last known state on reconnect — avoids track name flash
-    // Don't force neural here — wait for first WS message so user keeps current mode on reconnect
+    // Don't force a mode here — wait for first WS message so user keeps current mode on reconnect
   };
   ws.onmessage = e => {
     const msg = JSON.parse(e.data);
     if (msg._restarting) {
       _isRestarting = true;
       clearTimeout(_restartingTimer);
-      _restartingTimer = setTimeout(() => { _isRestarting = false; }, 90000); // 90s fallback
+      _restartingTimer = setTimeout(() => { _isRestarting = false; _hideRestartBanner(); }, 90000);
+      _showRestartBanner();
       document.getElementById('ws-status').className = 'restarting';
       document.getElementById('ws-status').innerHTML = '<span class="status-dot dot-warn" style="margin-right:5px"></span>updating…';
     }
     const st = msg.state || {};
-    const newMode = st.visual_mode || 'neural';
+    const newMode = MODES[st.visual_mode] ? st.visual_mode : 'chaos';
     if (newMode !== wsLastMode) {
       // Server explicitly changed visual_mode — clear user override and follow
       wsLastMode = newMode;
@@ -3722,11 +3102,11 @@ function animate() {
 }
 animate();
 
-// Keyboard shortcuts: 1=neural 2=chaos 3=globe 4=network 5=nexus
+// Keyboard shortcuts: 1=chaos 2=globe 3=network 4=logo
 window.addEventListener('keydown', (e) => {
-  const map = { '1':'neural', '2':'chaos', '3':'globe', '4':'network', '5':'nexus', '6':'warp', '7':'logo' };
+  const map = { '1':'chaos', '2':'globe', '3':'network', '4':'logo' };
   if (map[e.key]) {
-    userOverride = true;  // keep user's choice even when WS heartbeat sends visual_mode:'neural'
+    userOverride = true;  // keep user's choice even when WS heartbeat sends a stale visual_mode
     switchMode(map[e.key]);
   }
 });
