@@ -3099,14 +3099,24 @@ const _FRAME_MS = 1000 / 30;  // 30fps — matches x11grab capture rate (force-c
 let _lastFrameTime = 0;
 
 // ── Diagnostic renderer.info — log toutes les 2min pour détecter fuites WebGL ─
+let _diagFrameTimes = [];  // rolling buffer des temps de frame (ms)
 setInterval(() => {
   const m = renderer.info.memory;
   const heap = performance.memory ? Math.round(performance.memory.usedJSHeapSize / 1048576) : '?';
+  const avg = _diagFrameTimes.length
+    ? (_diagFrameTimes.reduce((a, b) => a + b, 0) / _diagFrameTimes.length).toFixed(1)
+    : '?';
+  const p99 = _diagFrameTimes.length
+    ? _diagFrameTimes.slice().sort((a,b)=>a-b)[Math.floor(_diagFrameTimes.length * 0.99)].toFixed(1)
+    : '?';
+  _diagFrameTimes = [];  // reset rolling buffer
   console.log('[DIAG]', new Date().toISOString(),
     'geom=' + m.geometries,
     'tex=' + m.textures,
     'prog=' + (renderer.info.programs ? renderer.info.programs.length : '?'),
     'heapMB=' + heap,
+    'frameAvgMs=' + avg,
+    'frameP99Ms=' + p99,
     'mode=' + activeModeName);
 }, 2 * 60 * 1000);
 
@@ -3114,6 +3124,7 @@ function animate() {
   setTimeout(animate, _FRAME_MS); // schedule first — prevents compounding delay when render takes >33ms
   const now = performance.now();
   const dt = Math.min((now - _lastFrameTime) * 0.001, 0.05); // capped at 50ms — prevents jump on lag spike
+  if (_lastFrameTime > 0) _diagFrameTimes.push(now - _lastFrameTime);
   _lastFrameTime = now;
   if (_hudDirty) { updateHUD(liveState); _hudDirty = false; }
   _updateEmotionWheel(dt);
