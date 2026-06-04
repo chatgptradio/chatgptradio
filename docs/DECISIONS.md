@@ -248,6 +248,67 @@
 
 ---
 
+## Décisions 2026-05-31 — Optimisation RAM & stabilité FPS
+
+| Décision | Choix retenu | Alternative rejetée | Raison |
+|----------|-------------|---------------------|--------|
+| Throttle `persist_snapshot` | 1 snapshot toutes les 30s (timestamp monotonic dans `StateUpdater`) | Snapshot à chaque signal (précédent) | `persist_snapshot` appelée ~3 800×/h générait 805 MB/jour → DB 5,5 GB en 7j → WAL/checkpoint constant → iowait 5% → swap reads lents → drops de frames. 30s = granularité suffisante pour rejouer l'historique, 32× moins d'I/O disque. |
+| Rétention snapshots | 1 jour | 7 jours (précédent) | 7j × 120 snapshots/h × 9 KB = 800 MB de DB à régime (avec le throttle). 1j = 25 MB, la DB tient en page cache sans pression swap. L'historique 7j n'avait aucun usage analytique actif. |
+| Rétention signal_history | 7 jours | 30 jours (précédent) | 30j d'historique de signaux représentait ~100 MB additionnel sans usage. 7j couvre une semaine complète de patterns pour d'éventuelles analyses. |
+| VACUUM périodique | Supprimé des runs périodiques — uniquement au startup (délai 90s) | VACUUM toutes les 6h sur DB live (précédent) | VACUUM sur 5,5 GB = lecture complète du fichier + écriture d'une copie compactée → sature `sda` pendant 5–10 min → swap reads bloqués → drops de frames toutes les 6h exactement. Avec throttle + rétention 1j, la DB reste <100 MB → VACUUM startup est rapide et sans impact live. |
+| Purge périodique intervalle | 1h | 6h (précédent) | Avec 25 MB/j de croissance, purger toutes les 6h = 6 MB delta/purge — opération triviale. 6h n'avait de sens que pour amortir le coût du VACUUM, qui est supprimé. |
+| x11grab framerate | 30fps | 40fps (précédent) | 40fps = 33% de frames capturées et encodées inutilement. YouTube recommande 30fps. Sur SwiftShader déjà à 80% CPU, les 10fps supplémentaires préemptaient ffmpeg et Python. Gain : −25% charge encodeur x264. |
+| `thread_queue_size` pipe audio | 512 packets | 10 000 000 (précédent) | 10M AVPacket slots = ~80 MB de ring buffer. La profondeur réelle en régime est ≤ 4 packets (PCM à 94% real-time, mux à 90%). 512 = headroom ×128 sans overhead mémoire. |
+| `CPUWeight` systemd | 800 (cgroup v2, 8× le poids default=100) | `renice -n -5` (besoin root, non disponible) | Sans root, `renice` ne peut pas aller en négatif (ulimit -e = 0). cgroup v2 `CPUWeight` fonctionne en user service sans privilèges et s'applique au cgroup entier (main.py + ffmpeg enfants). Appliqué en live sans restart via `systemctl set-property`. |
+| Chromium GPU nice | +10 au startup (via `restart.sh`) | nice -n 5 dans `browser_display.py` (précédent) | SwiftShader à 80% CPU concurrence ffmpeg sur les mêmes cores. nice +10 garantit que ffmpeg (nice 0) gagne les timeslices lors de la contention sans starver Chromium. Persisté dans `restart.sh` pour survivre aux redémarrages. |
+
+---
+
+## Décisions 2026-05-31 — Debug FPS saccades (session 2)
+
+| Décision | Choix retenu | Alternative rejetée | Raison |
+|----------|-------------|---------------------|--------|
+| Fix `NetworkMode.dispose()` | `traverse()` complet sur `_group` + `material.dispose()` sur `_starField` + `bm.geometry.dispose()` immédiat après BoxHelper | Réduire l'intervalle de restart Chromium à 50min | L'enquête ffmpeg log a montré le pattern exact : 30fps stable jusqu'à 57min, effondrement à partir de 67min sur 2 runs. Délai de 10min correspond à la latence GC V8 après la 3ème visite "network" (55-60min). Root cause = fuite WebGL, pas SwiftShader en général — corriger la fuite est propre et permanent. |
+| `bm.geometry.dispose()` immédiat | Dispose juste après `new THREE.BoxHelper(bm, ...)` | Garder une référence `this._bm` pour dispose plus tard | Three.js `BoxHelper` copie les sommets AABB dans sa propre géométrie `LineSegments` au moment de la construction — `bm.geometry` n'est plus référencé ensuite. Dispose immédiat = zéro leak sans stocker une référence inutile. |
+| Watchdog check port | `ss -tnl \| grep ':8765'` | `nc -z localhost 8765` (précédent) | `nc -z` établit une vraie connexion TCP. Le serveur WebSocket reçoit une connexion sans handshake HTTP valide → lève `InvalidMessage` loggé comme erreur toutes les 2min. `ss` interroge le kernel sans connexion réseau = aucune erreur générée. |
+| Chromium restart interval | Maintenu à 3h | 50min (envisagé) | Avec le fix dispose(), la dégradation FPS n'est plus causée par SwiftShader/V8 heap. Réduire à 50min aurait introduit des coupures overlay inutiles toutes les 50min. Monitoring à faire sur la prochaine session de 4h+ pour confirmer la stabilité. |
+| Renice GPU après restart périodique | `os.setpriority(PRIO_PROCESS, int(pid), 10)` dans `browser_display.py` après chaque restart | `restart.sh` uniquement (précédent) | `restart.sh` renicait le GPU process au démarrage initial mais pas après les restarts périodiques. Après chaque restart Chromium (toutes les 3h), le nouveau GPU process tournait à priorité normale, concurrençant ffmpeg. Fix dans `browser_display.py` couvre tous les cas. |
+
+---
+
+## Décisions 2026-05-31 — Debug FPS (session 2 — cause racine NetworkMode)
+
+| Décision | Choix retenu | Alternative rejetée | Raison |
+|----------|-------------|---------------------|--------|
+| Fix fps dégradé | `NetworkMode.dispose()` — `traverse()` + material dispose | Réduire `_CHROMIUM_RESTART_INTERVAL` 3h→50min | Le log ffmpeg confirme que les deux runs (avant et après les fixes DB) montrent exactement le même onset à ~67min. La cause est dans le JS de l'overlay, pas dans Chromium lui-même. Réduire le restart masquerait le symptôme sans corriger la fuite mémoire WebGL. |
+| Périmètre du fix dispose | `_group.traverse()` pour disposer tous les enfants (boxHelper + pointCloud + linesMesh) + `_starField.material.dispose()` + `bm.geometry.dispose()` après BoxHelper | Ne corriger que le material starField | Laisser les deux ShaderMaterials (`pMat`, `lMat`) non disposés laisse des programmes GLSL compilés en heap SwiftShader. Sans `traverse()`, la fuite principale persist. |
+| `_CHROMIUM_RESTART_INTERVAL` | Maintenu à 3h | Réduit à 50min | Avec le dispose correctement implémenté, pas d'accumulation inter-visites. 3h est un filet de sécurité pour d'éventuelles fuites non identifiées dans les autres modes (ChaosMode, GlobeMode, LogoMode semblent corrects à l'audit). |
+| watchdog health-check WS | `ss -tnl \| grep ':8765 '` (pas de connexion TCP) | `nc -z localhost 8765` (précédent) | `nc -z` ouvre une connexion TCP sans handshake WebSocket → la librairie `websockets` logue `InvalidMessage` à chaque check (toutes les 2min). `ss` vérifie si le port est en écoute sans aucune connexion. |
+| GPU renice restart périodique | `os.setpriority(PRIO_PROCESS, pid, 10)` après chaque restart Chromium interne | Uniquement dans `restart.sh` (précédent) | Le restart périodique `browser_display.py` spawne un nouveau GPU process non renicé → compète avec ffmpeg à priorité égale entre deux restarts service complets. |
+
+---
+
+## Décisions 2026-06-01 — Debug FPS persistant (session 3)
+
+| Décision | Choix retenu | Alternative rejetée | Raison |
+|----------|-------------|---------------------|--------|
+| **Fréquence render loop overlay** | `_FRAME_MS = 1000/30` (30fps) | 40fps (précédent) | x11grab capture à 30fps (`-framerate 30` dans ffmpeg). Avec 40fps JS, dès que SwiftShader dépasse 25ms/frame, le buffer IPC se sature et x11grab manque ses créneaux. Synchro 30fps/30fps élimine ce beat-frequency effect. |
+| **Suppression WAL/SHM après VACUUM INTO** | Supprimer `state.db-wal` et `state.db-shm` après `os.replace(compact, db)` | Garder les fichiers WAL existants | Après VACUUM INTO + os.replace, le nouveau `state.db` est un fichier frais sans WAL. L'ancien `-wal` référence les pages de l'ancien DB (361MB) → incompatible avec le nouveau (68MB) → `database disk image is malformed` au prochain démarrage. |
+| **Suppression du `.compact` stale** | `os.remove(tmp)` avant VACUUM INTO si le fichier existe | Laisser VACUUM INTO échouer avec "table already exists" | Si un VACUUM INTO précédent a échoué après la création du fichier `.compact` mais avant `os.replace`, le fichier reste. VACUUM INTO vers un fichier non vide provoque `OperationalError: table X already exists`. Nettoyage préventif. |
+| **Check fps dans watchdog** | Restart si fps < 15 pendant 3 checks consécutifs (6min) | Watchdog uniquement basé sur la liveness des processus | Les processus restaient vivants à 7fps pendant des heures. Un check fps détecte la dégradation silencieuse que les checks liveness manquent. Seuil 15fps et délai 6min pour éviter les faux positifs pendant le démarrage ou les transitions. |
+
+---
+
+## Décisions 2026-06-03 — Debug FPS persistant (session 4)
+
+| Décision | Choix retenu | Alternative rejetée | Raison |
+|----------|-------------|---------------------|--------|
+| **`gl_PointSize` clampé dans tous les shaders** | `clamp(sz * K / -mv.z, min, max)` dans ChaosMode (4→64px), NetworkMode (4→80px), LogoMode (1→48px) | Pas de clamp (précédent) | Sans clamp, un nœud proche de la caméra → gl_PointSize = sz × 1200 / 0.5 = 2400px. SwiftShader remplit π×1200² = 4.5M pixels par point en AdditiveBlending → fill rate ×5 la surface de l'écran. Sur 2 vCPU à 2200MHz, render time dépasse 125ms/frame → fps=8. ChaosMode et LogoMode avaient aussi des shaders non bornés découverts lors de l'audit. |
+| **Chromium restart interval 3h → 55min** | `_CHROMIUM_RESTART_INTERVAL = 55 * 60` dans `browser_display.py` | 3h (précédent, aussi 50min envisagé) | Analyse ffmpeg log sur 3 runs consécutifs : fps=30 stable 0-60min, dégradation onset à t=60min exact (drops de 37→528→4475 en 10min). Chromium restart à 3h laissait 2h de fps dégradé. 55min = restart avant le seuil de dégradation, avec 5min de marge. La cause racine du seuil 60min reste non identifiée (accumulation SwiftShader, growth GlobalState via anomaly_score=952, ou les deux). |
+| **Watchdog fps : delta frame/time (instantané)** | Calcul `(frame2-frame1)/(time2-time1)` entre deux checks watchdog successifs, stocké dans `/tmp/stream_watchdog_fps_prev` | Lecture du champ `fps=` ffmpeg (EMA) | L'EMA ffmpeg restait à 18-19fps pendant que l'instantané était à 5-8fps : watchdog affichait "OK" pendant 47min de stream dégradé. Le delta entre deux checks watchdog (2min d'intervalle) reflète le fps instantané réel et déclenche le restart quand fps_inst < 15fps pendant 3 checks (6min). |
+
+---
+
 ## Décisions rejetées
 
 | Décision | Raison |
@@ -259,3 +320,24 @@
 | `phase_nuit`, `lunar_phase`, `is_weekend` | Rythme humain externe — entité sans horloge biologique |
 | `guidance_scale > 1.5` (Stable Audio) | Artifacts audio — max opérationnel 1.2 |
 | `num_inference_steps > 8` (audio-to-audio) | API fal.ai rejette avec 422 |
+
+## Décisions 2026-06-04 — Debug FPS persistant (session 5)
+
+### D-2026-06-04-1 : Suppression des `backdrop-filter: blur()` du HUD overlay
+
+**Décision** : Supprimer tous les `backdrop-filter: blur(Xpx)` et `-webkit-backdrop-filter` du CSS de `visualizer.html`.
+
+**Contexte** : 10 éléments HUD (drift panel, sources panel, journal, on-air badge, status panel, news panel, event banner, emotion wheel, restart banner, fade) utilisaient `backdrop-filter: blur(14-24px)`.
+
+**Root cause** : SwiftShader (renderer WebGL software) gère aussi le compositing CSS via le GPU process. `backdrop-filter: blur()` force le compositor à calculer un flou Gaussien software sur tout le contenu WebGL derrière chaque élément — à chaque frame du compositor (60fps). Avec 10 éléments et des zones de blur de 200×300px à 82 samples par pixel, le GPU process saturait à 101% CPU → fps chutait à 10fps.
+
+**Pourquoi l'onset à 60min** : La complexité de la scène WebGL croît pendant les 60 premières minutes (signaux GlobalState partant de zéro). En dessous d'un seuil de complexité, le compositor pouvait optimiser les backdrop-filters (contenu très sombre ≈ blur trivial). Au-dessus du seuil (~t=60min), le calcul devenait complet et saturait le CPU.
+
+**Vérification empirique** :
+- Avant fix : GPU CPU=101%, fps_ema=10fps
+- Après fix : GPU CPU=51%, fps=30fps stable, drops=34 stables
+
+**Impact visuel** : Les éléments HUD perdent l'effet "verre dépoli" mais conservent leur background semi-transparent (`rgba(255,255,255,0.08)`). Compromis acceptable pour un stream 24/7 en software rendering.
+
+**Fichiers** : `overlays/visualizer.html` (10 lignes supprimées), `overlays/visualizer_dev.html` (sync).
+
