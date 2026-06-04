@@ -379,6 +379,8 @@ const renderer = new THREE.WebGLRenderer({antialias:false, powerPreference:'high
 renderer.setSize(innerWidth, innerHeight);
 renderer.setPixelRatio(1.0);
 renderer.debug.checkShaderErrors = false;  // disable runtime GLSL validation — ~5% CPU saving
+const _BLACK = new THREE.Color(0x000000);  // reusable — avoids per-frame GC pressure
+function _c01(v) { return Math.max(0, Math.min(1, v || 0)); }
 document.body.prepend(renderer.domElement);
 scene.add(new THREE.AmbientLight(0x223344, 3.5));
 const fill = new THREE.PointLight(0x00D4FF, 5, 80);
@@ -999,7 +1001,7 @@ class SynapseMode {
           uFlowSpeed: { value: 0 },  // driven by chat_rate + urgency
           uCrisis:    { value: 0 },  // driven by crisis_level — teinte orange-rouge
           uPulseTime: { value: -1000 }, uPulsePos: { value: new THREE.Vector3() }, uPulseSpeed: { value: 12.0 },
-          uLineWidth:  { value: 5.5 },
+          uLineWidth:  { value: 3.0 },
           uResolution: { value: new THREE.Vector2(innerWidth, innerHeight) }
         },
         vertexShader: _SYN_CONN_VS, fragmentShader: _SYN_CONN_FS,
@@ -1199,10 +1201,10 @@ class SynapseMode {
       this._cMesh.material.uniforms.uTime.value = t;
       this._cMesh.material.uniforms.uFlowSpeed.value = (state.chat_rate ?? 0) * 4.0 + (state.urgency ?? 0) * 2.0;
       this._cMesh.material.uniforms.uCrisis.value    = Math.min(1, Math.max(0, state.crisis_level ?? 0));
-      // Épaisseur data-driven : 1.5px au repos → 3.5px en pic (world_temperature + urgency)
+      // Épaisseur data-driven : 2px repos → 4px pic (world_temperature + urgency)
       const wt = Math.max(0, Math.min(1, state.world_temperature || 0));
       const urg = Math.max(0, Math.min(1, state.urgency || 0));
-      this._cMesh.material.uniforms.uLineWidth.value  = 3.5 + wt * 2.5 + urg * 1.5;
+      this._cMesh.material.uniforms.uLineWidth.value  = 2.0 + wt * 1.5 + urg * 1.0;
       this._cMesh.material.uniforms.uResolution.value.set(innerWidth, innerHeight);
     }
 
@@ -1584,8 +1586,7 @@ void main(){
       this._controls.autoRotateSpeed = 0.3 + (Math.max(0, Math.min(1, state.excitement || 0))) * 1.5;
     }
 
-    // Background: dark
-    scene.background = new THREE.Color(0, 0, 0);
+    scene.background = _BLACK;
 
     if (this._controls) this._controls.update();
     renderer.render(scene, this._cam);
@@ -1726,7 +1727,7 @@ class GlobeMode extends SynapseMode {
     edgeGeo.setAttribute('aActivation', eActAttr);
     this._outerEdgeMat = new THREE.ShaderMaterial({
       uniforms:{uColor:{value:new THREE.Color(0x00D4FF)},uAudioLevel:{value:0},uAnomalyScore:{value:0},
-               uLineWidth:{value:2.5},uResolution:{value:new THREE.Vector2(innerWidth,innerHeight)}},
+               uLineWidth:{value:1.5},uResolution:{value:new THREE.Vector2(innerWidth,innerHeight)}},
       vertexShader:_NX_EDGE_VS, fragmentShader:_NX_EDGE_FS,
       transparent:true, depthWrite:false, blending:THREE.AdditiveBlending, side:THREE.DoubleSide,
     });
@@ -2552,7 +2553,7 @@ void main() {
   vec4 mv      = modelViewMatrix * vec4(p, 1.0);
   float dMod   = 1.0 + layer * 0.18;
   float aPulse = uAudience * 0.28 * random.z;
-  gl_PointSize = clamp(size * dMod * (190.0 / -mv.z) * (1.0 + aPulse), 1.0, 48.0);
+  gl_PointSize = clamp(size * dMod * (100.0 / -mv.z) * (1.0 + aPulse), 1.0, 32.0);
   gl_Position  = projectionMatrix * mv;
 }`,
       fragmentShader: `
@@ -2632,10 +2633,8 @@ void main() {
     const u = this._particles.material.uniforms;
     u.uTime.value += dt;
 
-    const c01 = v => Math.max(0, Math.min(1, v || 0));
-
     // Anomaly burst: rising edge above 0.7 triggers one-shot radial explosion
-    const anomaly = c01(st.anomaly_score);
+    const anomaly = _c01(st.anomaly_score);
     if (anomaly > 0.7 && this._prevAnomaly <= 0.7 && this._burstT < 0) {
       this._burstT = _LOGO_BURST_DUR;
     }
@@ -2649,23 +2648,23 @@ void main() {
     this._cam.position.z = _LOGO_CAM_R * Math.sin(this._camAngle);
     this._cam.lookAt(0, 0, 0);
 
-    u.uExcitement.value  = c01(st.excitement);
-    u.uAnxiety.value     = c01(st.anxiety);
-    u.uFrustration.value = c01(st.frustration) * 0.50;
-    u.uCuriosity.value   = c01(st.curiosity);
-    u.uCreativity.value  = c01(st.creativity);
-    u.uWonder.value      = c01(st.wonder);
-    u.uMelancholy.value  = c01(st.melancholy);
-    u.uUrgency.value     = c01(st.urgency);
-    u.uCrisis.value      = c01(st.crisis_level);
+    u.uExcitement.value  = _c01(st.excitement);
+    u.uAnxiety.value     = _c01(st.anxiety);
+    u.uFrustration.value = _c01(st.frustration) * 0.50;
+    u.uCuriosity.value   = _c01(st.curiosity);
+    u.uCreativity.value  = _c01(st.creativity);
+    u.uWonder.value      = _c01(st.wonder);
+    u.uMelancholy.value  = _c01(st.melancholy);
+    u.uUrgency.value     = _c01(st.urgency);
+    u.uCrisis.value      = _c01(st.crisis_level);
     u.uAnomaly.value     = anomaly;
     u.uBurstT.value      = this._burstT >= 0 ? this._burstT / _LOGO_BURST_DUR : -1;
-    u.uAudience.value    = c01(st.audience_energy);
-    u.uWorldTemp.value   = c01(st.world_temperature);
-    u.uFearGreed.value   = c01(st.fear_greed_index ?? 0.5);
-    u.uHappiness.value   = c01(st.hedonometer_happiness ?? 0.5);
-    u.uChatSent.value    = c01(st.chat_sentiment);
-    u.uDivergence.value  = c01(st.source_divergence);
+    u.uAudience.value    = _c01(st.audience_energy);
+    u.uWorldTemp.value   = _c01(st.world_temperature);
+    u.uFearGreed.value   = _c01(st.fear_greed_index ?? 0.5);
+    u.uHappiness.value   = _c01(st.hedonometer_happiness ?? 0.5);
+    u.uChatSent.value    = _c01(st.chat_sentiment);
+    u.uDivergence.value  = _c01(st.source_divergence);
     const _peVals = Object.values(st.prediction_errors || {});
     u.uPredError.value   = (_peVals.length ? Math.min(1, Math.max(..._peVals.map(v => Math.abs(v || 0)))) : 0) * 0.10;
 
