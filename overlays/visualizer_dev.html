@@ -3021,7 +3021,6 @@ function connect() {
         if (isFinite(n) && n > _nm) _nm = n;
       }
       _peCache.normMax = _nm;
-      const _sv = st.signal_volatilities || {};
       _peCache.volMax = Object.values(_sv).reduce((m, v) => { const n = Number(v); return isFinite(n) ? Math.max(m, n) : m; }, 0);
       const _hv = Object.values(st.source_health || {});
       _healthCache.ratio = _hv.length ? _hv.filter(Boolean).length / _hv.length : 1;
