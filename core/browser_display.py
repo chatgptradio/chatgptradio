@@ -74,9 +74,11 @@ async def run_browser_display(
             "--disable-background-timer-throttling",
             "--disable-renderer-backgrounding",
             f"--display={display}",
+            "--enable-logging=stderr",
+            "--log-level=0",
             f"--app={overlay_url}",
             stdout=asyncio.subprocess.DEVNULL,
-            stderr=asyncio.subprocess.DEVNULL,
+            stderr=open("/tmp/chromium_console.log", "a"),
         )
 
     chrome = await _start_chromium()

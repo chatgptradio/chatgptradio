@@ -3099,6 +3099,18 @@ setTimeout(() => setInterval(_newsCycle, _NEWS_CYCLE_MS), _NEWS_CYCLE_MS);
 const _FRAME_MS = 1000 / 30;  // 30fps — matches x11grab capture rate (force-cfr=1 in ffmpeg)
 let _lastFrameTime = 0;
 
+// ── Diagnostic renderer.info — log toutes les 2min pour détecter fuites WebGL ─
+setInterval(() => {
+  const m = renderer.info.memory;
+  const heap = performance.memory ? Math.round(performance.memory.usedJSHeapSize / 1048576) : '?';
+  console.log('[DIAG]', new Date().toISOString(),
+    'geom=' + m.geometries,
+    'tex=' + m.textures,
+    'prog=' + (renderer.info.programs ? renderer.info.programs.length : '?'),
+    'heapMB=' + heap,
+    'mode=' + activeModeName);
+}, 2 * 60 * 1000);
+
 function animate() {
   setTimeout(animate, _FRAME_MS); // schedule first — prevents compounding delay when render takes >33ms
   const now = performance.now();
