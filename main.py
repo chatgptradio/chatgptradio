@@ -59,14 +59,16 @@ async def run() -> None:
         await asyncio.sleep(90)
         await purge_old_data(db_conn, config.sqlite.snapshot_retention_days, config.sqlite.history_retention_days)
         await db_conn.execute("PRAGMA wal_checkpoint(TRUNCATE)")
-        await db_conn.execute("VACUUM")
         log.info("db_purge_startup_done")
-        # Subsequent runs: every 6h
+        # VACUUM handled by restart.sh (VACUUM INTO) before service start —
+        # VACUUM via aiosqlite blocks indefinitely in WAL mode when WAL writers
+        # are active on the same connection.
+        # Subsequent runs: every 1h — no VACUUM (too expensive on live disk,
+        # handled at startup when DB is smallest)
         while True:
-            await asyncio.sleep(6 * 3600)
+            await asyncio.sleep(3600)
             await purge_old_data(db_conn, config.sqlite.snapshot_retention_days, config.sqlite.history_retention_days)
             await db_conn.execute("PRAGMA wal_checkpoint(TRUNCATE)")
-            await db_conn.execute("VACUUM")
             log.info("db_purge_done")
 
     # Restore self-model baselines from last session

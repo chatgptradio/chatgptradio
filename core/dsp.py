@@ -110,16 +110,16 @@ def _build_chain(
     ladder_resonance = _clamp(hc * 0.8, 0.0, 1.0)
 
     # Reverb: kept subtle — source audio should dominate.
-    # wet ceiling 0.10, room ceiling 0.40, dry 0.92 keeps presence without mud.
-    wet = _clamp(cr * 0.15 + me * 0.06, 0.0, 0.10)
+    # wet ceiling 0.07, room ceiling 0.25, dry 0.92 keeps presence without mud.
+    wet = _clamp(cr * 0.10 + me * 0.04, 0.0, 0.07)
     wet = _clamp(wet * auto_reverb_factor, 0.0, 1.0)
 
     # RT2 — world_event_burst: brief dramatic reverb for this rebuild window only
     if burst_reverb:
-        wet = 0.35
-        room = 0.70
+        wet = 0.20
+        room = 0.50
     else:
-        room = _clamp(0.10 + wt * 0.2 + cr * 0.10, 0.0, 0.40)
+        room = _clamp(0.08 + wt * 0.12 + cr * 0.05, 0.0, 0.25)
 
     effects: list = [
         Reverb(
@@ -145,11 +145,11 @@ def _build_chain(
     ]
 
     # DSP+3 — Delay: territory-conditional (psych/experimental only — NO FAKE)
-    # Feedback cap lowered 0.6→0.35, mix cap 0.4→0.25 — at source_divergence=1.0 the
-    # previous values produced an audible 3-echo trail that sat on top of a2a reverb.
+    # Feedback cap lowered 0.6→0.35→0.18, mix cap 0.4→0.25→0.10 — reduced further to
+    # limit echo build-up compounding with reverb.
     if state.drift_territory in ("psych", "experimental"):
-        delay_feedback = _clamp(state.source_divergence * 0.18, 0.0, 0.25)
-        delay_mix = _clamp(state.source_divergence * 0.10, 0.0, 0.15)
+        delay_feedback = _clamp(state.source_divergence * 0.12, 0.0, 0.18)
+        delay_mix = _clamp(state.source_divergence * 0.07, 0.0, 0.10)
         effects.append(Delay(delay_seconds=0.375, feedback=delay_feedback, mix=delay_mix))
 
         # DSP+4 — Phaser: territory-conditional (psych/experimental only — NO FAKE)
@@ -386,7 +386,7 @@ async def run_dsp(
         video_input = [
             "-thread_queue_size", "64",
             "-f", "x11grab",
-            "-framerate", "40",
+            "-framerate", "30",
             "-video_size", "1280x720",
             "-draw_mouse", "0",
             "-i", f"{display}.0",
@@ -395,7 +395,7 @@ async def run_dsp(
         video_input = [
             "-re",                           # read lavfi at native rate (10fps real-time)
             "-f", "lavfi",
-            "-i", "color=c=0x0a0a1a:s=1280x720:r=40",  # static bg at 40fps
+            "-i", "color=c=0x0a0a1a:s=1280x720:r=30",  # static bg at 30fps
         ]
 
     video_encode = [
@@ -403,8 +403,8 @@ async def run_dsp(
         # nal-hrd=cbr forces filler NAL units so libx264 actually hits 2500k on static content
         # (without it, skip-heavy frames produce ~200-500 Kbps despite minrate=2500k)
         "-b:v", "2500k", "-minrate", "2500k", "-maxrate", "2500k", "-bufsize", "5000k",
-        "-x264opts", "nal-hrd=cbr:force-cfr=1:threads=2",  # force-cfr=1 ensures 40fps CFR
-        "-g", "80",                        # keyframe every 2s at 40fps (YouTube ≤4s)
+        "-x264opts", "nal-hrd=cbr:force-cfr=1:threads=2",  # force-cfr=1 ensures 30fps CFR
+        "-g", "60",                        # keyframe every 2s at 30fps (YouTube ≤4s)
         "-pix_fmt", "yuv420p",
     ]
     if not use_x11grab:
@@ -413,14 +413,9 @@ async def run_dsp(
     ffmpeg_cmd = [
         "ffmpeg", "-y",
         *video_input,
-        # thread_queue_size -1 = unlimited: s16le demuxer never blocks even when the
-        # mux temporarily pauses audio consumption. PCM timestamps from sample count
-        # remain accurate regardless of queue depth, so A/V sync is preserved by the mux.
-        # Memory: 44100 pkt/s × 4B × max_delay. With PCM thread at 94% and mux at 90%,
-        # excess = 1588 pkt/s × 4B = 6.3KB/s max accumulation rate.
-        # thread_queue_size 10M: never blocks even with PCM slightly faster than mux.
-        # Memory: 10M × 4B = 40MB. A/V sync preserved by mux via PCM timestamps.
-        "-thread_queue_size", "10000000",
+        # PCM pipe writes at ~94% real-time, mux drains at ~90% → max ~4 packets queued.
+        # 512 is ample headroom without the overhead of a 10M-slot ring buffer.
+        "-thread_queue_size", "512",
         "-f", "s16le", "-ar", str(_SR), "-ac", "2", "-i", "pipe:0",
         *video_encode,
         "-c:a", "aac", "-b:a", "160k",

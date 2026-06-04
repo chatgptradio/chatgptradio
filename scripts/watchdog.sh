@@ -112,9 +112,71 @@ if ! pgrep -f "chromium" > /dev/null 2>&1; then
 fi
 
 # ── Check 5: WebSocket port 8765 accepting connections ───────────────────────
-if ! nc -z localhost 8765 2>/dev/null; then
+# Use ss (no TCP connection opened) — nc -z triggers InvalidMessage errors in
+# the WebSocket server logs every 2 min because it connects without a WS handshake.
+if ! ss -tnl 2>/dev/null | grep -q ':8765 '; then
     (( fail++ )) || true
     reasons+=("WebSocket :8765 not responding")
+fi
+
+# ── Check 6: fps degradation — restart if instantaneous fps < 15 for 3 checks ─
+# Uses delta(frame)/delta(encoded_time) — NOT ffmpeg's running-average fps= field
+# which stays above threshold for minutes after degradation starts.
+_FPS_FAIL_FILE="/tmp/stream_watchdog_fps_fail_count"
+_FPS_PREV_FILE="/tmp/stream_watchdog_fps_prev"  # stores "frame:time_sec" from last check
+_fps_fail_count=$(cat "$_FPS_FAIL_FILE" 2>/dev/null || echo 0)
+_fps_threshold=15
+_fps_fail_max=3  # 3 checks × 2 min = 6 min sustained low-fps → restart
+
+if systemctl --user is-active --quiet chatgpt-radio.service 2>/dev/null; then
+    _svc_start=$(systemctl --user show chatgpt-radio.service --property=ActiveEnterTimestamp \
+        --value 2>/dev/null | xargs -I{} date -d "{}" +%s 2>/dev/null || echo 0)
+    _svc_uptime=$(( $(date +%s) - _svc_start ))
+
+    if [ "$_svc_uptime" -ge 300 ] && [ -f "/tmp/ffmpeg_live.log" ]; then
+        # Extract latest frame count and encoded time from ffmpeg log
+        _raw=$(tail -c 4096 /tmp/ffmpeg_live.log 2>/dev/null | tr '\r' '\n' | \
+            grep -oP 'frame=\s*\K\d+(?=.*?time=)|time=\K\d+:\d+:\d+\.\d+' | tail -4)
+        _cur_frame=$(echo "$_raw" | grep -E '^\d+$' | tail -1)
+        _cur_time=$(echo "$_raw" | grep -E '^\d+:\d+:\d+' | tail -1)
+
+        if [ -n "$_cur_frame" ] && [ -n "$_cur_time" ]; then
+            # Convert time HH:MM:SS.xx to seconds
+            _cur_sec=$(echo "$_cur_time" | awk -F: '{printf "%.2f", $1*3600+$2*60+$3}')
+
+            # Compute instantaneous fps from delta vs. previous check
+            _prev=$(cat "$_FPS_PREV_FILE" 2>/dev/null || echo "0:0")
+            _prev_frame=$(echo "$_prev" | cut -d: -f1)
+            _prev_sec=$(echo "$_prev" | cut -d: -f2)
+
+            # Save current for next check
+            echo "${_cur_frame}:${_cur_sec}" > "$_FPS_PREV_FILE"
+
+            _inst_fps=$(awk "BEGIN{
+                df=$_cur_frame - $_prev_frame;
+                dt=$_cur_sec - $_prev_sec;
+                if (dt > 5) printf \"%.1f\", df/dt; else print \"skip\"
+            }")
+
+            if [ "$_inst_fps" != "skip" ] && [ -n "$_inst_fps" ]; then
+                if awk "BEGIN{exit !($_inst_fps < $_fps_threshold)}"; then
+                    (( _fps_fail_count++ )) || true
+                    echo "$_fps_fail_count" > "$_FPS_FAIL_FILE"
+                    log "WARN: fps_inst=${_inst_fps} < ${_fps_threshold} (low-fps count: ${_fps_fail_count}/${_fps_fail_max})"
+                    if [ "$_fps_fail_count" -ge "$_fps_fail_max" ]; then
+                        log "fps degraded for ${_fps_fail_count} checks — triggering restart."
+                        echo 0 > "$_FPS_FAIL_FILE"
+                        rm -f "$_FPS_PREV_FILE"
+                        bash "$RESTART_SCRIPT" >> "$LOGFILE" 2>&1
+                        log "fps-restart completed (exit: $?)"
+                        exit 0
+                    fi
+                else
+                    echo 0 > "$_FPS_FAIL_FILE"
+                fi
+            fi
+        fi
+    fi
 fi
 
 # ── Decision: restart if 2+ checks fail, or if service/main.py is down ──────

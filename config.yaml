@@ -27,5 +27,5 @@ websocket:
 
 sqlite:
   path: streams/state.db
-  snapshot_retention_days: 7
-  history_retention_days: 30
+  snapshot_retention_days: 1
+  history_retention_days: 7

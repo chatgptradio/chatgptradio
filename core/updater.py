@@ -204,6 +204,7 @@ class StateUpdater:
             territory=state.drift_territory,
         )
         self._last_ts = time.monotonic()
+        self._last_snapshot_ts = 0.0  # throttle: persist snapshot at most every 30s
 
     async def enqueue(self, signal: str, value: Any) -> None:
         await self.queue.put((signal, value))
@@ -255,7 +256,9 @@ class StateUpdater:
                     self.state.time_in_territory_h += dt_h
 
                 self.state.updated_at = datetime.now(timezone.utc)
-                await persist_snapshot(self.db, self.state)
+                if now - self._last_snapshot_ts >= 30.0:
+                    await persist_snapshot(self.db, self.state)
+                    self._last_snapshot_ts = now
 
                 for signal, value in signals_to_persist:
                     annotation = GlobalState.model_fields.get(signal, None)

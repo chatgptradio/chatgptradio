@@ -85,6 +85,11 @@ async def run_browser_display(
     ready_event.set()
     log.info("browser_display_ready")
 
+    # Restart Chromium every 55min — SwiftShader state degrades at ~60min causing
+    # fps drop. 55min keeps SwiftShader fresh before the onset threshold.
+    _CHROMIUM_RESTART_INTERVAL = 55 * 60
+    _last_chromium_start = _time.monotonic()
+
     try:
         while True:
             # Check if xvfb died
@@ -101,8 +106,36 @@ async def run_browser_display(
             if chrome.returncode is not None:
                 log.warning("chromium_died", returncode=chrome.returncode)
                 chrome = await _start_chromium()
+                _last_chromium_start = _time.monotonic()
                 log.info("chromium_restarted")
                 await asyncio.sleep(2.0)
+            elif _time.monotonic() - _last_chromium_start >= _CHROMIUM_RESTART_INTERVAL:
+                # Proactive restart to clear V8/SwiftShader memory accumulation
+                log.info("chromium_periodic_restart", interval_min=_CHROMIUM_RESTART_INTERVAL // 60)
+                chrome.terminate()
+                await asyncio.sleep(2.0)
+                chrome = await _start_chromium()
+                _last_chromium_start = _time.monotonic()
+                await asyncio.sleep(2.0)
+                # Renice new GPU process — same as restart.sh does at initial start.
+                # Without this, the GPU process runs at normal priority after each
+                # periodic restart and competes with ffmpeg for CPU → frame drops.
+                try:
+                    import subprocess as _sp
+                    _gpu_pids = _sp.run(
+                        ["pgrep", "-f", "gpu-process"],
+                        capture_output=True, text=True,
+                    ).stdout.split()
+                    for _pid in _gpu_pids:
+                        try:
+                            import os as _os
+                            _os.setpriority(_os.PRIO_PROCESS, int(_pid), 10)
+                        except (OSError, ValueError):
+                            pass
+                    if _gpu_pids:
+                        log.info("chromium_gpu_reniced", count=len(_gpu_pids))
+                except Exception:
+                    pass
 
             await asyncio.sleep(5.0)
     finally:

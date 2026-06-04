@@ -419,8 +419,8 @@ ADR : [ADR-0007](adr/0007-emotion-synthesis.md)
 
 | Titre | Fichier(s) | État |
 |-------|------------|------|
-| **Purge DB au démarrage + périodique 6h** : `purge_old_data()` dans `main.py` + tâche asyncio `VACUUM` toutes les 6h | `main.py` | ✅ |
-| **Rétention réduite** : `snapshot_retention_days` 30→7j, `history_retention_days` 90→30j | `config.yaml` | ✅ |
+| **Purge DB au démarrage + périodique 6h** : `purge_old_data()` dans `main.py` + tâche asyncio `VACUUM` toutes les 6h *(remplacé 2026-05-31 — voir Optimisation RAM)* | `main.py` | ✅ |
+| **Rétention réduite** : `snapshot_retention_days` 30→7j, `history_retention_days` 90→30j *(remplacé 2026-05-31 — voir Optimisation RAM)* | `config.yaml` | ✅ |
 | **Watchdog OOM restart** : `memory_available < 150 MB` → restart (était WARN seulement). WARN étendu à 300 MB. Rotation `ffmpeg_live.log` à 50 MB. | `scripts/watchdog.sh` | ✅ |
 
 ### Fixes production — 2026-05-25
@@ -488,6 +488,94 @@ Spec : `docs/specs/2026-05-28-telegram-bot-design.md`
 | #216 | Command handlers (/status /music /viewers /health /restart) | `telegram_bot.py` | #224 | ✅ |
 | #217 | Service systemd + script d'installation | `scripts/install_tg_service.sh` | #224 | ✅ |
 | #218 | Tests (13 tests) | `tests/test_telegram_bot.py` | #224 | ✅ |
+
+---
+
+---
+
+### Optimisation RAM & FPS — 2026-05-31
+
+Cause racine identifiée : `persist_snapshot()` appelée à chaque signal reçu (≈3 818 rows/h × 9 KB = 805 MB/jour). Avec rétention 7 jours = 5,5 GB de DB. VACUUM périodique toutes les 6h sur 5,5 GB saturait le disque → swap reads lents → drops de frames. Par ailleurs, x11grab à 40fps + Chromium SwiftShader à 80% CPU = l'encodeur x264 était préempté en permanence.
+
+| Titre | Fichier(s) | État |
+|-------|------------|------|
+| **Throttle snapshots DB à 1/30s** : `_last_snapshot_ts` dans `StateUpdater` — persist_snapshot uniquement si `now - _last_snapshot_ts ≥ 30s`. Réduit de 3 818 rows/h à 120 rows/h (−97%), 805 MB/j → 25 MB/j. | `core/updater.py` | ✅ |
+| **Rétention snapshots 7j → 1j** : régime permanent 25 MB vs 800 MB précédent. | `config.yaml` | ✅ |
+| **Rétention history 30j → 7j** : signal_history sous 10 MB à régime. | `config.yaml` | ✅ |
+| **Purge périodique 6h → 1h, sans VACUUM** : VACUUM sur une DB vivante (5,5 GB) saturait le disque 5–10 min toutes les 6h → drops de frames à intervalles réguliers. VACUUM conservé uniquement au startup (délai 90s, DB au plus petit). | `main.py` | ✅ |
+| **x11grab 40fps → 30fps** : −25% charge x11grab + encodeur x264. `-g 80 → 60` (keyframe toutes les 2s). 30fps = standard YouTube, non perceptible pour les viewers. | `core/dsp.py` | ✅ |
+| **`thread_queue_size` audio pipe 10M → 512** : ring buffer AVPacket réduit (~80 MB → quelques KB). 512 packets = largement suffisant, le queue réel en régime est ≤ 4 packets. | `core/dsp.py` | ✅ |
+| **`CPUWeight=800` systemd** (cgroup v2) : main.py + ffmpeg ont 8× le poids CPU vs les autres processus user. Appliqué en live via `systemctl set-property`. | `~/.config/systemd/user/chatgpt-radio.service` | ✅ |
+| **Chromium GPU renice +10** : SwiftShader (WebGL logiciel) cède les cycles à ffmpeg sans starvation. Persisté dans `restart.sh`. | `scripts/restart.sh` | ✅ |
+| **Purge manuelle avant restart** : 212 147 state_snapshots + 209 490 signal_history supprimés (rétention 1j appliquée à la DB de 4,7 GB). | DB | ✅ |
+
+---
+
+---
+
+### Debug FPS saccades (causes racines) — 2026-05-31
+
+Enquête systématique sur les saccades persistantes après les fixes RAM du matin. Trois causes racines distinctes identifiées et corrigées.
+
+| Titre | Fichier(s) | État |
+|-------|------------|------|
+| **NetworkMode.dispose() — fuite WebGL** (cause racine #1) : `this._group` retiré du scene graph sans appeler `traverse()` → géométries et ShaderMaterials de `_boxHelper`, `_pointCloud`, `_linesMesh` jamais libérés. `_starField.material` également oublié. Chaque visite à la scène "network" (toutes les 20min) laissait des programmes GLSL et buffers GPU dans le heap SwiftShader. Après 3 visites (~60min), pression GC V8 → pauses render > 33ms → drops x11grab. Pattern confirmé sur 2 runs consécutifs : stable 30fps jusqu'à 57min, puis effondrement à 29→25→21fps entre 67min et 2h30. Fix : `traverse()` complet + `material.dispose()` dans `dispose(sc)`. Aussi : `bm.geometry.dispose()` immédiat après création du `BoxHelper` (géométrie temporaire jamais libérée). | `overlays/visualizer.html` | ✅ |
+| **Chromium GPU non renicé après restart périodique** (bug #2) : le restart Chromium toutes les 3h dans `browser_display.py` ne renicait pas le nouveau GPU process à +10. Seul `restart.sh` le faisait au démarrage initial. Fix : `os.setpriority(PRIO_PROCESS, pid, 10)` après chaque restart périodique. | `core/browser_display.py` | ✅ |
+| **Watchdog `nc -z :8765` → `ss -tnl`** : `nc -z` ouvrait une connexion TCP sans handshake WS → `InvalidMessage` dans les logs toutes les 2min. Remplacé par `ss -tnl \| grep ':8765'` (pas de connexion, pas d'erreur). | `scripts/watchdog.sh` | ✅ |
+| **`visualizer_dev.html` synchronisé** : remplacé par copie de `visualizer.html` (qui contient tous les fixes). Titre "DEV" retiré de `visualizer.html`. | `overlays/visualizer.html`, `overlays/visualizer_dev.html` | ✅ |
+| **`VACUUM INTO` au restart** : ajouté dans `restart.sh` (étape 8) — s'exécute pendant que le service est arrêté, élimine les pages mortes sans contention WAL. DB 4,7 GB → 569 MB en 13s. | `scripts/restart.sh` | ✅ |
+
+---
+
+---
+
+### Debug FPS — 2026-05-31 (session 2)
+
+**Cause racine** : `NetworkMode.dispose()` dans `visualizer.html` ne libérait pas les ressources WebGL de ses enfants (`_boxHelper`, `_pointCloud`, `_linesMesh`) ni le `material` du `_starField`. Chaque sortie de la scène "network" laissait des ShaderMaterials compilés et des BufferGeometries en mémoire SwiftShader. Après 3 visites (à 10, 30, 50min — cycle 5min × 4 scènes), la pression GC V8 franchissait un seuil → pauses render > 33ms → drops x11grab → fps 30→21 à partir de ~67min. Pattern identique dans les deux runs consécutifs (old log + session courante).
+
+| Titre | Fichier(s) | État |
+|-------|------------|------|
+| **`NetworkMode.dispose()` — traverse children** : ajout de `this._group.traverse(c => { c.geometry?.dispose(); c.material?.dispose(); })` avant `sc.remove(this._group)`. Sans cela, boxHelper + pointCloud + linesMesh (deux ShaderMaterials) leakaient à chaque sortie de scène. | `overlays/visualizer.html` | ✅ |
+| **`_starField.material.dispose()` manquant** : `PointsMaterial` du fond étoilé non libéré à chaque sortie NetworkMode. | `overlays/visualizer.html` | ✅ |
+| **`bm.geometry.dispose()` immédiat** : `BoxGeometry` temporaire créée pour `BoxHelper` disposée juste après construction (BoxHelper copie l'AABB immédiatement, ne conserve pas de référence). | `overlays/visualizer.html` | ✅ |
+| **Chromium GPU renice dans restart périodique** : le restart automatique toutes les 3h dans `browser_display.py` ne renicait pas le nouveau GPU process. Ajout de `os.setpriority(PRIO_PROCESS, pid, 10)` après chaque restart Chromium périodique. | `core/browser_display.py` | ✅ |
+| **watchdog `nc -z` → `ss -tnl`** : `nc -z localhost 8765` ouvrait une connexion TCP sans handshake WS → `InvalidMessage` toutes les 2min dans les logs. Remplacé par `ss -tnl | grep ':8765 '` (pas de connexion). | `scripts/watchdog.sh` | ✅ |
+| **`visualizer_dev.html` synchronisé** : remplacé par copie exacte de `visualizer.html` (toutes les corrections incluses). Titre "DEV" supprimé de `visualizer.html`. | `overlays/visualizer.html`, `overlays/visualizer_dev.html` | ✅ |
+
+---
+
+---
+
+### Debug FPS persistant — 2026-06-01 (session 3)
+
+**Problème** : après les fixes de la session 2 (NetworkMode dispose), le fps continuait de chuter après 60-70min. Chromium redémarré à 07:20 → fps ne récupérait pas. DB corrompue au redémarrage.
+
+**Root causes identifiées :**
+
+| Titre | Fichier(s) | État |
+|-------|------------|------|
+| **DB corrompue après VACUUM INTO** : `os.replace(compact, db)` remplace `state.db` mais le `state.db-wal` de l'ancienne DB reste. Le service suivant ouvre le nouveau DB compact + l'ancien WAL → mismatch de pages → `database disk image is malformed`. Fix : supprimer le fichier `.compact` stale avant VACUUM + supprimer `-wal`/`-shm` après `os.replace`. | `scripts/restart.sh` | ✅ |
+| **Overlay à 40fps vs x11grab à 30fps** : `_FRAME_MS = 1000/40` faisait tourner le render loop à 40fps mais x11grab capture à 30fps. Dès que SwiftShader dépasse 25ms/frame (seuil 40fps), le command buffer IPC Chromium→GPU sature → x11grab manque ses créneaux de capture → drops croissants. Timing identique à la dégradation constatée (~60-70min). | `overlays/visualizer.html` | ✅ |
+| **ChaosMode `_starField.material` non disposé** : `PointsMaterial` laissé en heap à chaque sortie du mode chaos (exit à 5, 25, 45, 65min…). Leak léger mais contribue à l'augmentation du coût de rendu SwiftShader au fil du temps. | `overlays/visualizer.html` | ✅ |
+| **Watchdog ne détectait pas la dégradation fps** : le stream tournait à 6-9fps pendant des heures sans restart automatique. Ajout d'un Check 6 : si fps < 15 pendant 3 checks consécutifs (6min), déclencher restart. | `scripts/watchdog.sh` | ✅ |
+
+**Contexte du diagnostic** : 2 CPUs, GPU process SwiftShader à 109% CPU quand dégradé. Chromium restart (3h) ne récupérait pas le fps car la dégradation se re-produisait en 30min. La DB corrompue causait des crash loops répétés pendant le debug.
+
+---
+
+### Debug FPS persistant — 2026-06-03 (session 4)
+
+**Problème** : le fps ne tournait toujours pas à 30fps constant. Le restart Chromium 3h ne suffisait pas — fps restait bas pendant 46min après chaque restart Chromium, puis récupérait brièvement avant de dégrader de nouveau à t≈60min.
+
+**Root causes identifiées :**
+
+| Titre | Fichier(s) | État |
+|-------|------------|------|
+| **`gl_PointSize` sans `clamp()` dans 3 shaders** : ChaosMode (`350/z`, max ~99px sans clamp), NetworkMode (`1200/z`, max ~80px sans clamp), LogoMode (`190/z`, max ~53px sans clamp). Sans borne, un point proche de la caméra peut atteindre plusieurs centaines de px → fill rate ×5 de la surface d'écran → SwiftShader à 100% CPU → fps=5-8. | `overlays/visualizer.html` | ✅ |
+| **Chromium restart interval 3h > onset dégradation 60min** : analysis ffmpeg log (3 runs) montre fps=30 stable 0-60min, puis onset exact à 60min (drops de 37→528→4475 en 20min). Un restart à 3h laissait 2h de fps dégradé par cycle. Réduction à 55min : restart avant le seuil. | `core/browser_display.py` | ✅ |
+| **Watchdog lit l'EMA `fps=` au lieu du fps instantané** : pendant 46min de fps=5-8 réel, l'EMA ffmpeg restait à 18-19fps (au-dessus du seuil 15fps) → watchdog affichait "OK" sans déclencher de restart. Nouveau calcul via `(frame2-frame1)/(time2-time1)` entre deux checks watchdog (2min d'intervalle). | `scripts/watchdog.sh` | ✅ |
+
+**Contexte du diagnostic** : GPU process à 98-100% CPU constant. ffmpeg PID changé (respawn spontané à 09:38 dû à un drop RTMP suite au fps bas). Pattern clair : `drops=37` stable 50min, puis explosion exponentielle → onset SwiftShader exact à t=60min post-Chromium-start.
 
 ---
 
