@@ -85,9 +85,9 @@ async def run_browser_display(
     ready_event.set()
     log.info("browser_display_ready")
 
-    # Restart Chromium every 55min — SwiftShader state degrades at ~60min causing
-    # fps drop. 55min keeps SwiftShader fresh before the onset threshold.
-    _CHROMIUM_RESTART_INTERVAL = 55 * 60
+    # Restart Chromium every 35min — SwiftShader state degrades at ~47min causing
+    # fps drop. 35min keeps the JS heap fresh well before the onset threshold.
+    _CHROMIUM_RESTART_INTERVAL = 35 * 60
     _last_chromium_start = _time.monotonic()
 
     try:

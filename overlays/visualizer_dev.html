@@ -380,7 +380,12 @@ renderer.setSize(innerWidth, innerHeight);
 renderer.setPixelRatio(1.0);
 renderer.debug.checkShaderErrors = false;  // disable runtime GLSL validation — ~5% CPU saving
 const _BLACK = new THREE.Color(0x000000);  // reusable — avoids per-frame GC pressure
+const _TC    = new THREE.Color();           // reusable temp for SynapseMode color lerp
 function _c01(v) { return Math.max(0, Math.min(1, v || 0)); }
+
+// Caches refreshed at WebSocket rate (4fps) — avoid Object.values/map inside 30fps loop
+const _peCache     = { vals: [], absMax: 0, normMax: 0, volMax: 0 };
+const _healthCache = { ratio: 1.0 };
 document.body.prepend(renderer.domElement);
 scene.add(new THREE.AmbientLight(0x223344, 3.5));
 const fill = new THREE.PointLight(0x00D4FF, 5, 80);
@@ -1080,16 +1085,7 @@ class SynapseMode {
   update(state, dt) {
     const t = this._clock.getElapsedTime();
     const burstSignal = state.world_event_burst ?? 0;
-    const predErrors = state.prediction_errors ?? {};
-    const sigVols = state.signal_volatilities ?? {};
-    // Normaliser PE/σ, borné [0,1] — les valeurs brutes (ex: cpu_percent error=15)
-    // rendaient targetNodeScale > 9, créant des sprites de 300px+ qui saturaient l'AdditiveBlending
-    const normPEList = Object.keys(predErrors).map(k => {
-      const err = Math.abs(Number(predErrors[k]) || 0);
-      const vol = Math.max(Number(sigVols[k]) || 0.1, 0.001);
-      return Math.min(err / vol, 3.0) / 3.0;
-    }).filter(isFinite);
-    const maxPredError = normPEList.length > 0 ? Math.max(0, ...normPEList) : 0;
+    const maxPredError = _peCache.normMax;
 
     const formation = this._getFormation(state); // B1
     if (formation !== this._currentFormation) {
@@ -1108,11 +1104,10 @@ class SynapseMode {
     const territory = state.drift_territory || 'ambient';
     const tCol = _NN_TERRITORY_COLORS[territory] || _NN_TERRITORY_COLORS.ambient;
     if (this._nodeColorAttr && this._nodes.length) {
-      const _tc = new THREE.Color();
       this._nodes.forEach((n, i) => {
         if (!n.currentColor) return;
-        _tc.copy(n.color).lerp(tCol, 0.35);
-        n.currentColor.lerp(_tc, 0.04);
+        _TC.copy(n.color).lerp(tCol, 0.35);
+        n.currentColor.lerp(_TC, 0.04);
         this._nodeColorAttr.setXYZ(i, n.currentColor.r, n.currentColor.g, n.currentColor.b);
       });
       this._nodeColorAttr.needsUpdate = true;
@@ -1157,8 +1152,8 @@ class SynapseMode {
     // speed = f(excitement, bpm) — NO_FAKE; base 0.025 = ~2.5% minimal resting activity
     if (this._edgePulseT && this._pulseFrontData) {
       const SEG = 12;
-      const peArr = Object.values(predErrors);
-      const maxPE2 = Math.max(0.01, ...peArr.map(v => Math.abs(Number(v)||0)));
+      const peArr = _peCache.vals;
+      const maxPE2 = Math.max(0.01, _peCache.absMax);
       const excite = Math.max(0, Math.min(1, state.excitement || 0));
       const pulseSpd = 0.025 + excite * 0.25 + ((state.drift_bpm || state.audio_bpm || 90) / 60) * 0.025;
       const E2 = this._edges.length;
@@ -1365,15 +1360,10 @@ class ChaosMode {
 
   _computeTargetAttractor(state) {
     const territory = state.drift_territory ?? 0;
-    const predErrors = state.prediction_errors ?? {};
-    const sigVols = state.signal_volatilities ?? {};
-    const maxPredError = Math.max(0, ...Object.values(predErrors).map(Number).filter(isFinite));
-    const maxVolatility = Math.max(0, ...Object.values(sigVols).map(Number).filter(isFinite));
-
-    if (maxVolatility > 0.3 && maxVolatility >= maxPredError) return 1; // halvorsen
-    if (territory >= 0.5 && territory < 0.75) return 2;                 // dualHelix
-    if (maxPredError > 0.3) return 3;                                    // deJong
-    return 0;                                                            // torusKnot (rest/fallback)
+    if (_peCache.volMax > 0.3 && _peCache.volMax >= _peCache.absMax) return 1; // halvorsen
+    if (territory >= 0.5 && territory < 0.75) return 2;                        // dualHelix
+    if (_peCache.absMax > 0.3) return 3;                                        // deJong
+    return 0;                                                                   // torusKnot (rest/fallback)
   }
 
   _makeParticles(count) {
@@ -1764,10 +1754,9 @@ class GlobeMode extends SynapseMode {
     const anomaly = Math.min(1,(state.anomaly_score||0)/10);
     const terr    = state.drift_territory||'ambient';
     const col     = this._NX_COLS[terr]||this._NX_COLS.ambient;
-    const hVals   = Object.values(state.source_health||{});
-    const healthRatio = hVals.length ? hVals.filter(Boolean).length/hVals.length : 1;
-    const peVals  = Object.values(state.prediction_errors||{});
-    const maxPE   = peVals.length ? Math.max(0.01,...peVals.map(v=>Math.abs(v))) : 1;
+    const healthRatio = _healthCache.ratio;
+    const peVals  = _peCache.vals;
+    const maxPE   = _peCache.vals.length ? Math.max(0.01, _peCache.absMax) : 1;
 
     this._outerNodeMat.uniforms.uAudioLevel.value  = energy;
     this._outerNodeMat.uniforms.uHealthRatio.value = healthRatio;
@@ -2665,8 +2654,7 @@ void main() {
     u.uHappiness.value   = _c01(st.hedonometer_happiness ?? 0.5);
     u.uChatSent.value    = _c01(st.chat_sentiment);
     u.uDivergence.value  = _c01(st.source_divergence);
-    const _peVals = Object.values(st.prediction_errors || {});
-    u.uPredError.value   = (_peVals.length ? Math.min(1, Math.max(..._peVals.map(v => Math.abs(v || 0)))) : 0) * 0.10;
+    u.uPredError.value   = Math.min(0.1, _peCache.absMax * 0.10);
 
     renderer.render(scene, camera);
     return true;
@@ -3020,6 +3008,24 @@ function connect() {
     if (!userOverride && newMode !== activeModeName) switchMode(newMode);
     liveState = st;
     if (msg.nodes && msg.nodes.length) liveNodes = msg.nodes;
+    // Refresh derived caches once per WebSocket message (4fps) — not inside 30fps loop
+    {
+      const _pe = st.prediction_errors || {};
+      const _peKeys = Object.keys(_pe);
+      _peCache.vals = _peKeys.map(k => Number(_pe[k]) || 0);
+      _peCache.absMax = _peCache.vals.reduce((m, v) => Math.max(m, Math.abs(v)), 0);
+      const _sv = st.signal_volatilities || {};
+      let _nm = 0;
+      for (const k of _peKeys) {
+        const n = Math.min(Math.abs(Number(_pe[k]) || 0) / Math.max(Number(_sv[k]) || 0.1, 0.001), 3.0) / 3.0;
+        if (isFinite(n) && n > _nm) _nm = n;
+      }
+      _peCache.normMax = _nm;
+      const _sv = st.signal_volatilities || {};
+      _peCache.volMax = Object.values(_sv).reduce((m, v) => { const n = Number(v); return isFinite(n) ? Math.max(m, n) : m; }, 0);
+      const _hv = Object.values(st.source_health || {});
+      _healthCache.ratio = _hv.length ? _hv.filter(Boolean).length / _hv.length : 1;
+    }
     _hudDirty = true;
   };
   ws.onclose = () => {

@@ -125,8 +125,8 @@ fi
 _FPS_FAIL_FILE="/tmp/stream_watchdog_fps_fail_count"
 _FPS_PREV_FILE="/tmp/stream_watchdog_fps_prev"  # stores "frame:time_sec" from last check
 _fps_fail_count=$(cat "$_FPS_FAIL_FILE" 2>/dev/null || echo 0)
-_fps_threshold=15
-_fps_fail_max=3  # 3 checks × 2 min = 6 min sustained low-fps → restart
+_fps_threshold=24
+_fps_fail_max=3  # 3 checks × 2 min = 6 min sustained fps < 24 → restart
 
 if systemctl --user is-active --quiet chatgpt-radio.service 2>/dev/null; then
     _svc_start=$(systemctl --user show chatgpt-radio.service --property=ActiveEnterTimestamp \
