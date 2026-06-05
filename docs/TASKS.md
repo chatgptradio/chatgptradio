@@ -110,7 +110,6 @@ Vérifié le 2026-05-20 — smoke test OK : GlobalState 77 champs, WebSocket 4fp
 
 ## Phase 3 — Température du Monde (TERMINÉE ✅ — 2026-05-20)
 
-PRD : `.claude/prds/phase3-collectors.md` | Plan : `.claude/plans/phase3-collectors.md`
 281 tests verts. VADER uniquement (V1), Nitter RSS dégradation gracieuse.
 
 | Issue | Module | Fichier | PR | État | Clé requise |
@@ -187,7 +186,6 @@ Vérifié 2026-05-20 — 353+ tests verts. NO FAKE validé sur tous les overlays
 
 ### FPS Optimization (2026-05-21)
 
-PRD : `.claude/prds/fps-optimization.md` | Plan : `.claude/plans/fps-optimization.md`
 
 | Issue | Module | Fichier | PR | État |
 |-------|--------|---------|-----|------|
@@ -223,7 +221,6 @@ Résultat : Chromium GPU process 156% → 102% CPU (−35%).
 
 ## Audio Transitions & Librosa — Sprints 1–4 (2026-05-22)
 
-PRD : `.claude/prds/audio-transitions-librosa.md` | Plan : `.claude/plans/quizzical-tinkering-feather.md`
 ADR : [ADR-0007](adr/0007-emotion-synthesis.md)
 **474 tests verts** (Sprint 3 terminé).
 
@@ -369,7 +366,7 @@ ADR : [ADR-0007](adr/0007-emotion-synthesis.md)
 | **System prompts contextuels — `!mood`** : terse/instable (`anxiety/frustration + σ > 2`), vive/énergisée (`excitement/curiosity + σ > 2`), neutre (défaut) | `core/chat_commands.py` | ✅ |
 | **System prompts contextuels — track_namer** : atmospheric (`ambient/neoclassical/drone`), mechanical (`industrial`), abstract (`experimental/psych`), urgent/fragmentée (`crisis > 0.5`), neutre (défaut) | `core/track_namer.py` | ✅ |
 | **Watchdog crash-loop** : compteur de skips consécutifs (`/tmp/stream_watchdog_skip_count`) — après 3 skips d'affilée (6 min), les vérifications sont forcées même si le service vient de démarrer | `scripts/watchdog.sh` | ✅ |
-| **Watchdog nettoyage processus** : à chaque run (toutes les 2 min), tue les processus pytest orphelins et les shell-snapshots Claude Code de plus de 5 min — évite l'OOM par accumulation de processus dev | `scripts/watchdog.sh` | ✅ |
+| **Watchdog nettoyage processus** : à chaque run (toutes les 2 min), tue les processus pytest orphelins et les shell-snapshots de session dev de plus de 5 min — évite l'OOM par accumulation de processus dev | `scripts/watchdog.sh` | ✅ |
 | **Watchdog alerte mémoire** : log WARN si RAM disponible < 200 MB | `scripts/watchdog.sh` | ✅ |
 
 ---
@@ -477,7 +474,6 @@ Audit complet du pipeline — 17 bugs identifiés (B1–B17), tous corrigés en 
 
 ## Bot Telegram — Monitoring & Contrôle (TERMINÉ ✅ — 2026-05-28)
 
-PRD : `.claude/prds/telegram-bot.md` | Plan : `.claude/plans/telegram-bot.md`
 Spec : `docs/specs/2026-05-28-telegram-bot-design.md`
 13 tests verts. Service systemd indépendant de `main.py`.
 

@@ -197,7 +197,7 @@ rename → `decisions.log.1` (écrase), crée nouveau fichier vide.
 
 **Prior art dans le codebase :**
 - `tests/test_db.py` — pattern fixture `conn` (tmp_path + init_db) à réutiliser
-- `tests/test_journal.py` — pattern mock Anthropic client à réutiliser
+- `tests/test_journal.py` — pattern mock client API à réutiliser
 
 ---
 

@@ -99,7 +99,7 @@
 | `!replay` recherche display_name | Espaces → wildcards : `%echo%frontier%chasing%shadows%` | LIKE exact `%echo frontier chasing shadows%` | Les titres générés par GPT-4o-mini incluent un séparateur ` - ` entre artiste et titre (`"Echo Frontier - Chasing Shadows"`) — la chaîne sans séparateur ne matchait jamais |
 | `!replay` display_name en queue | Requête DB au moment du `pop_all()` pour récupérer le vrai nom | `""` (vide, ancien comportement) | Display_name vide → HUD affiche rien pendant la lecture du replay — brise la cohérence visuelle |
 | Watchdog crash-loop | Compteur de skips consécutifs persisté dans `/tmp` ; force checks après 3 skips (6 min) | Grace period 60 s inconditionnelle | Si systemd redémarre le service toutes les 30 s (OOM loop), le watchdog skipait indéfiniment — la boucle de crash passait inaperçue des heures |
-| Watchdog zombie cleanup | `pgrep pytest` + `pgrep bash.*shell-snapshot` tués à chaque run | Nettoyage manuel | Les sessions Claude Code accumulent des processus pytest et des shell-snapshots qui survivent à la session — 20 processus × 50 MB = 1 GB RAM → OOM stream |
+| Watchdog zombie cleanup | `pgrep pytest` + `pgrep bash.*shell-snapshot` tués à chaque run | Nettoyage manuel | Les sessions dev accumulent des processus pytest et des shell-snapshots qui survivent à la session — 20 processus × 50 MB = 1 GB RAM → OOM stream |
 
 ---
 

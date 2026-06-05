@@ -166,8 +166,7 @@ Escalader seulement quand le tier inférieur échoue avec un gap de raisonnement
 
 ## Contexte projet
 
-- **Repo :** `x230png/chatgptradio` (public)
+- **Repo :** `chatgptradio/chatgptradio`
 - **Stack :** Python 3.12, asyncio, aiosqlite, websockets, structlog, uv
 - **Spec architecture :** `streaming/DIRECTION.md`
-- **gh CLI :** `/home/stream/.local/bin/gh` (authentifié `x230png`)
 - **Phase 0+1 :** terminée ✅ — **Phase 2 :** terminée ✅ — **Phase 3 :** terminée ✅ — **Phase 4 :** EN COURS 🔄 (stream live actif)

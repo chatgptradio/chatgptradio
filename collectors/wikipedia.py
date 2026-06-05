@@ -15,7 +15,7 @@ COLLECTOR_META = {"name": "wikipedia", "interval_s": 900}
 
 _TITLES = ["ChatGPT", "OpenAI", "GPT-4"]
 _VIEWS_HIGH = 150_000.0
-_HEADERS = {"User-Agent": "ChatGPTRadio/1.0 (https://github.com/x230png/chatgptradio)"}
+_HEADERS = {"User-Agent": "ChatGPTRadio/1.0 (https://github.com/chatgptradio/chatgptradio)"}
 
 
 def _views_url(title: str, day: str) -> str:
