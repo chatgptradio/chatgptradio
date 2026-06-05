@@ -2391,7 +2391,7 @@ void main(){
 
 const _LOGO_SCALE     = 1.6;
 const _LOGO_DEPTH     = 0.35;
-const _LOGO_COUNT     = 3200;
+const _LOGO_COUNT     = 1500;
 const _LOGO_ROT_SPEED = 0.08;  // rad/s — constant orbit, explicit user requirement
 const _LOGO_CAM_R     = 4.5;
 const _LOGO_BURST_DUR = 2.0;
@@ -2542,7 +2542,7 @@ void main() {
   vec4 mv      = modelViewMatrix * vec4(p, 1.0);
   float dMod   = 1.0 + layer * 0.18;
   float aPulse = uAudience * 0.28 * random.z;
-  gl_PointSize = clamp(size * dMod * (100.0 / -mv.z) * (1.0 + aPulse), 1.0, 32.0);
+  gl_PointSize = clamp(size * dMod * (100.0 / -mv.z) * (1.0 + aPulse), 1.0, 20.0);
   gl_Position  = projectionMatrix * mv;
 }`,
       fragmentShader: `
@@ -2584,7 +2584,8 @@ void main() {
   if (uFearGreed > 0.5) col = mix(col, vec3(1.0, 0.82, 0.18), (uFearGreed - 0.5) * 0.6);
   col *= 0.65 + uWorldTemp * 0.55 + uHappiness * 0.30;
   if (spark > 0.01) col = mix(col, vec3(0.04, 0.92, 0.62), uChatSent * 0.65 + 0.15);
-  col = hueShift(col, uDivergence * (vR - 0.5) * 1.4);
+  // Cheap hue-rotation approx via component swap — avoids cos/sin in fragment (NO_FAKE: gated on uDivergence)
+  col = mix(col, col.zxy, uDivergence * abs(vR - 0.5) * 1.4);
   col = mix(col, vec3(1.0), core * 0.35);
   if (uPredError > 0.01) col = mix(col, vec3(1.0), uPredError * 0.55);
   col *= (vLayer < -0.5 ? 0.60 : 1.0);
