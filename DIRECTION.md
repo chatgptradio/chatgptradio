@@ -37,7 +37,7 @@
 
 ### En discussion
 
-- **[EN DISCUSSION]** Déploiement : systemd bare metal vs Docker Compose
+- **[VALIDÉ]** Déploiement : systemd bare metal (Docker Compose rejeté — overhead inutile, systemd en prod depuis 2026-05-21)
 
 ### Stack musique — Stable Audio 2.5 API (V1)
 
@@ -444,6 +444,11 @@ Représentation : forme d'énergie abstraite Three.js (pulse, contracte, couleur
 | 2026-05-23 | `total_seconds` text-to-audio : 47 → 45s. Audio-to-audio garde la durée de la référence [30-190s]. Réduction coût fal.ai, différence perceptive nulle. | VALIDÉ |
 | 2026-05-23 | `find_reusable` : max_play_count 10 → 999, cooldown 300 → 1800s. 94 clips disponibles étaient tous à play_count ≥ 10 → génération systématique malgré bibliothèque pleine. | VALIDÉ |
 | 2026-05-23 | Scripts ops : `restart.sh` (kill ordonné zombies + vérification) + `watchdog.sh` (5 checks : service/main.py/FFmpeg/Chromium/WS) remplacent `check_stream.sh`. `install_service.sh` : `KillMode=control-group` + `TimeoutStopSec=15` + kill FFmpeg dans `ExecStartPre`. | VALIDÉ |
+| 2026-06-04 | **LogoMode cause racine fps** : 3 200 particules × 32px max + 2 hueShift (cos/sin) par fragment = 63ms/frame (budget 33ms). Fix : 1 500 particules + 20px max + swap composante sans trig → frameAvgMs ~14ms. Diagnostic via `frameAvgMs`/`frameP99Ms` dans DIAG logging Chromium stderr. | VALIDÉ |
+| 2026-06-05 | **Restart Chromium périodique supprimé** : `_CHROMIUM_RESTART_INTERVAL` retiré de `browser_display.py`. Chromium redémarre uniquement sur crash. La cause racine (LogoMode coûteux) est corrigée — le restart préventif masquait le symptôme. | VALIDÉ |
+| 2026-06-05 | **Watchdog crash-only** : restarts uniquement sur crash (service/main.py/FFmpeg mort). FPS bas, RAM pressure, disque bas → alertes Telegram (pas de restart). Telegram bot existant réutilisé (token `.env`). | VALIDÉ |
+| 2026-06-05 | **rotate_clips.sh retiré du cron** : la librairie audio (`streams/audio/`, 256 clips, 1.1GB) est le moat du stream — aucune suppression automatique. Cron 3h désactivé, script conservé. | VALIDÉ |
+| 2026-06-05 | **restart.sh : nettoyage double convention** : nettoie `.compact_ready` (ancienne) et `.compact` (courante) pour éviter les fichiers stale après VACUUM interrompu. | VALIDÉ |
 
 ---
 

@@ -276,16 +276,6 @@
 
 ---
 
-## Décisions 2026-05-31 — Debug FPS (session 2 — cause racine NetworkMode)
-
-| Décision | Choix retenu | Alternative rejetée | Raison |
-|----------|-------------|---------------------|--------|
-| Fix fps dégradé | `NetworkMode.dispose()` — `traverse()` + material dispose | Réduire `_CHROMIUM_RESTART_INTERVAL` 3h→50min | Le log ffmpeg confirme que les deux runs (avant et après les fixes DB) montrent exactement le même onset à ~67min. La cause est dans le JS de l'overlay, pas dans Chromium lui-même. Réduire le restart masquerait le symptôme sans corriger la fuite mémoire WebGL. |
-| Périmètre du fix dispose | `_group.traverse()` pour disposer tous les enfants (boxHelper + pointCloud + linesMesh) + `_starField.material.dispose()` + `bm.geometry.dispose()` après BoxHelper | Ne corriger que le material starField | Laisser les deux ShaderMaterials (`pMat`, `lMat`) non disposés laisse des programmes GLSL compilés en heap SwiftShader. Sans `traverse()`, la fuite principale persist. |
-| `_CHROMIUM_RESTART_INTERVAL` | Maintenu à 3h | Réduit à 50min | Avec le dispose correctement implémenté, pas d'accumulation inter-visites. 3h est un filet de sécurité pour d'éventuelles fuites non identifiées dans les autres modes (ChaosMode, GlobeMode, LogoMode semblent corrects à l'audit). |
-| watchdog health-check WS | `ss -tnl \| grep ':8765 '` (pas de connexion TCP) | `nc -z localhost 8765` (précédent) | `nc -z` ouvre une connexion TCP sans handshake WebSocket → la librairie `websockets` logue `InvalidMessage` à chaque check (toutes les 2min). `ss` vérifie si le port est en écoute sans aucune connexion. |
-| GPU renice restart périodique | `os.setpriority(PRIO_PROCESS, pid, 10)` après chaque restart Chromium interne | Uniquement dans `restart.sh` (précédent) | Le restart périodique `browser_display.py` spawne un nouveau GPU process non renicé → compète avec ffmpeg à priorité égale entre deux restarts service complets. |
-
 ---
 
 ## Décisions 2026-06-01 — Debug FPS persistant (session 3)
@@ -309,18 +299,6 @@
 
 ---
 
-## Décisions rejetées
-
-| Décision | Raison |
-|----------|--------|
-| LangGraph pour orchestration | Surcharge inutile — asyncio pur suffit (ADR-0004) |
-| Third-party LLM SDK for journal | OpenAI exclusively (ADR-0006) |
-| `STABILITY_API_KEY` | Remplacé par `FAL_API_KEY` pour fal.ai |
-| `random.random()` dans drift | Viole NO FAKE — PE réels uniquement (ADR-0002) |
-| `phase_nuit`, `lunar_phase`, `is_weekend` | Rythme humain externe — entité sans horloge biologique |
-| `guidance_scale > 1.5` (Stable Audio) | Artifacts audio — max opérationnel 1.2 |
-| `num_inference_steps > 8` (audio-to-audio) | API fal.ai rejette avec 422 |
-
 ## Décisions 2026-06-04 — Debug FPS persistant (session 5)
 
 ### D-2026-06-04-1 : Suppression des `backdrop-filter: blur()` du HUD overlay
@@ -341,3 +319,36 @@
 
 **Fichiers** : `overlays/visualizer.html` (10 lignes supprimées), `overlays/visualizer_dev.html` (sync).
 
+---
+
+## Décisions 2026-06-04/05 — Cause racine FPS finale + ops crash-only
+
+| Décision | Choix retenu | Alternative rejetée | Raison |
+|----------|-------------|---------------------|--------|
+| **Diagnostic DIAG overlay** | `setInterval(2min)` : log `frameAvgMs`/`frameP99Ms`/`heapMB`/`geom`/`prog` via Chromium stderr (`--enable-logging=stderr`) | Métriques ffmpeg EMA uniquement | L'EMA ffmpeg masquait les 60ms/frame de LogoMode pendant des minutes. `frameAvgMs` per-mode a permis d'isoler la cause exacte en 20min de collecte. |
+| **LogoMode particules** | 3 200 → 1 500 (−53%) | Réduire uniquement la taille des points | La réduction des particules diminue simultanément le vertex work et le fragment work ; la réduction de taille seule aurait laissé 3 200 drawcalls. |
+| **LogoMode `gl_PointSize` max** | 32px → 20px | 24px ou 28px | (32/20)² = 2.56 → réduction de 61% de l'aire fragment. Combiné à la réduction de particules : fragment work total ≈ 23% du coût initial → 63ms → ~14ms. |
+| **LogoMode hueShift #2** | `mix(col, col.zxy, uDivergence * abs(vR-0.5) * 1.4)` (composante swap) | Garder `hueShift()` avec cos/sin | Chaque `hueShift` = 1 cos + 1 sin + 3 ops vectorielles par fragment. Sur 1 500 × 20² = 600 000 fragments/frame, économie de ~2ms. NO FAKE préservé : gated sur `uDivergence`. |
+| **Restart Chromium périodique** | Supprimé (cause racine corrigée) | Réduire à 20min | Les workarounds 55min→35min masquaient le symptôme. Avec LogoMode corrigé, `frameAvgMs` est stable à 33ms sur tous les modes. Le restart add des coupures overlay inutiles. |
+| **Watchdog : politique crash-only** | Restart uniquement si service/main.py/FFmpeg mort | Restart si fps < 24 pendant 6min (précédent) | La cause racine fps (LogoMode) est corrigée. Un restart automatique sur fps bas = réponse à un symptôme qui n'existera plus. Les non-crash anormaux → alerte Telegram pour décision manuelle. |
+| **Alertes Telegram watchdog** | Telegram pour fps bas / RAM / disque / crash (avant+après restart) | Log fichier uniquement | Le Telegram bot (chatgpt-radio-tg.service) est déjà en prod depuis 2026-05-28. Réutiliser le token `.env` existant. Latence alerte ≤ 2min (watchdog cron). |
+| **Librairie audio protégée** | `rotate_clips.sh` retiré du cron — aucune suppression automatique | Garder le cron 3h/7j/2GB | La librairie audio (256 clips, 1.1GB, source=reused en majorité) est le moat long-terme du stream. Les clips sont réutilisés, pas régénérés. Suppression = perte irréversible de l'historique musical. |
+| **restart.sh : double convention compact** | Nettoie `state.db.compact_ready` ET `state.db.compact` | Nettoyer uniquement `.compact` (courant) | L'ancien code utilisait `.compact_ready`. Si un VACUUM est interrompu avec l'ancienne convention, le fichier stale persiste → prochain VACUUM INTO échoue avec "table already exists". |
+
+---
+
+## Décisions rejetées
+
+| Décision | Raison |
+|----------|--------|
+| LangGraph pour orchestration | Surcharge inutile — asyncio pur suffit (ADR-0004) |
+| Third-party LLM SDK for journal | OpenAI exclusivement (ADR-0006) |
+| `STABILITY_API_KEY` | Remplacé par `FAL_API_KEY` pour fal.ai |
+| `random.random()` dans drift | Viole NO FAKE — PE réels uniquement (ADR-0002) |
+| `phase_nuit`, `lunar_phase`, `is_weekend` | Rythme humain externe — entité sans horloge biologique |
+| `guidance_scale > 1.5` (Stable Audio) | Artifacts audio — max opérationnel 1.2 |
+| `num_inference_steps > 8` (audio-to-audio) | API fal.ai rejette avec 422 |
+| EGL + virglrenderer (`--use-gl=egl`) | virglrenderer bypasse le framebuffer Xvfb — x11grab capture uniquement la couche HTML, Three.js WebGL context échoue sur le display X11. SwiftShader + Xvfb est la seule chaîne compatible. (2026-05-27) |
+| Restart périodique Chromium 35min | Workaround pour le bug LogoMode 63ms/frame. Supprimé 2026-06-05 après correction de la cause racine. |
+| Restart watchdog si fps < 24 | Remplacé par alerte Telegram 2026-06-05 — cause racine fps corrigée, restart automatique non justifié. |
+| Rotation automatique librairie audio (`rotate_clips.sh` cron) | La librairie audio est le moat du stream — suppression irréversible. Cron désactivé 2026-06-05. |
