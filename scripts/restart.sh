@@ -74,10 +74,10 @@ if [ -f "$DB" ]; then
 import sqlite3, os, sys
 db = sys.argv[1]
 tmp = db + '.compact'
-# Remove stale compact file from a previous failed run to avoid
-# 'table already exists' error when VACUUM INTO reuses the destination.
-if os.path.exists(tmp):
-    os.remove(tmp)
+# Remove stale compact files from a previous failed run (both naming conventions).
+for stale_tmp in (tmp, db + '.compact_ready'):
+    if os.path.exists(stale_tmp):
+        os.remove(stale_tmp)
 conn = sqlite3.connect(db, timeout=30)
 conn.execute(f\"VACUUM INTO '{tmp}'\")
 conn.close()
