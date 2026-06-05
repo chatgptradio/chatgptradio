@@ -21,3 +21,10 @@ client_secret*.json
 .pytest_cache/
 .venv/
 venv/
+# Claude / superpowers internals
+.claude/
+.superpowers/
+# SQLite WAL runtime files
+streams/state.db-shm
+streams/state.db-wal
+streams/state.db.compact_ready

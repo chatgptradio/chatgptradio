@@ -1,0 +1,945 @@
+<!DOCTYPE html>
+<html>
+<head>
+  <meta charset="utf-8">
+  <title>ChatGPT Radio — HUD Emotion Panel Mockups</title>
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+  <link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600&family=JetBrains+Mono:wght@400;500&display=swap" rel="stylesheet">
+  <style>
+    *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
+
+    :root {
+      --green:    #10a37f;
+      --green-d:  #0d8a6c;
+      --amber:    #f59e0b;
+      --red:      #ef4444;
+      --purple:   #8b5cf6;
+      --cyan:     #06b6d4;
+      --indigo:   #6366f1;
+      --bg:       #0d0d0d;
+      --surface:  rgba(250,250,250,0.06);
+      --border:   rgba(255,255,255,0.10);
+      --text:     #ececf1;
+      --muted:    #9aa0a6;
+      --dim:      #6b7280;
+      --glass-blur: blur(16px) saturate(160%);
+    }
+
+    body {
+      background: #111;
+      color: var(--text);
+      font-family: 'Inter', -apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif;
+      font-size: 13px;
+      line-height: 1.5;
+      display: flex;
+      min-height: 100vh;
+    }
+
+    /* ── Sidebar ─────────────────────────────────────────────────────────────── */
+    .sidebar {
+      width: 220px;
+      flex-shrink: 0;
+      background: #161616;
+      border-right: 1px solid rgba(255,255,255,0.06);
+      padding: 24px 18px;
+      display: flex;
+      flex-direction: column;
+      gap: 20px;
+      position: sticky;
+      top: 0;
+      height: 100vh;
+      overflow-y: auto;
+    }
+    .sidebar h1 {
+      font-size: 11px;
+      font-weight: 600;
+      letter-spacing: 0.12em;
+      text-transform: uppercase;
+      color: var(--green);
+      border-bottom: 1px solid rgba(16,163,127,0.2);
+      padding-bottom: 10px;
+    }
+    .sidebar-section { display: flex; flex-direction: column; gap: 10px; }
+    .sidebar-section h2 {
+      font-size: 9px;
+      font-weight: 500;
+      letter-spacing: 0.1em;
+      text-transform: uppercase;
+      color: var(--dim);
+    }
+    .slider-row { display: flex; flex-direction: column; gap: 3px; }
+    .slider-row label {
+      display: flex;
+      justify-content: space-between;
+      align-items: center;
+      font-size: 10px;
+      color: var(--muted);
+      letter-spacing: 0.04em;
+    }
+    .slider-row label span {
+      font-family: 'JetBrains Mono', monospace;
+      font-size: 10px;
+      color: var(--text);
+      min-width: 28px;
+      text-align: right;
+    }
+    .slider-row input[type=range] {
+      width: 100%;
+      height: 3px;
+      appearance: none;
+      -webkit-appearance: none;
+      background: rgba(255,255,255,0.1);
+      border-radius: 2px;
+      outline: none;
+      cursor: pointer;
+    }
+    .slider-row input[type=range]::-webkit-slider-thumb {
+      -webkit-appearance: none;
+      width: 10px; height: 10px;
+      border-radius: 50%;
+      background: var(--green);
+      cursor: pointer;
+    }
+    .btn {
+      width: 100%;
+      padding: 8px 12px;
+      border: 1px solid rgba(255,255,255,0.12);
+      border-radius: 8px;
+      background: rgba(255,255,255,0.05);
+      color: var(--text);
+      font-family: inherit;
+      font-size: 11px;
+      font-weight: 500;
+      letter-spacing: 0.04em;
+      cursor: pointer;
+      transition: background 0.2s, border-color 0.2s;
+      text-align: center;
+    }
+    .btn:hover { background: rgba(255,255,255,0.10); border-color: rgba(255,255,255,0.22); }
+    .btn.primary {
+      background: rgba(16,163,127,0.15);
+      border-color: rgba(16,163,127,0.4);
+      color: var(--green);
+    }
+    .btn.primary:hover { background: rgba(16,163,127,0.25); }
+
+    /* ── Main ────────────────────────────────────────────────────────────────── */
+    .main {
+      flex: 1;
+      padding: 32px;
+      display: flex;
+      flex-direction: column;
+      gap: 40px;
+      overflow-x: auto;
+    }
+    .section-title {
+      font-size: 10px;
+      font-weight: 500;
+      letter-spacing: 0.14em;
+      text-transform: uppercase;
+      color: var(--dim);
+      margin-bottom: 16px;
+      display: flex;
+      align-items: center;
+      gap: 10px;
+    }
+    .section-title::after {
+      content: '';
+      flex: 1;
+      height: 1px;
+      background: rgba(255,255,255,0.06);
+    }
+
+    /* ── Variants grid ───────────────────────────────────────────────────────── */
+    .variants-grid {
+      display: grid;
+      grid-template-columns: repeat(3, 1fr);
+      gap: 24px;
+    }
+    .variant-card {
+      display: flex;
+      flex-direction: column;
+      gap: 12px;
+    }
+    .variant-label {
+      font-size: 10px;
+      font-weight: 600;
+      letter-spacing: 0.12em;
+      text-transform: uppercase;
+      color: var(--muted);
+    }
+    .variant-label span {
+      color: var(--green);
+      margin-right: 8px;
+    }
+    .variant-desc {
+      font-size: 11px;
+      color: var(--dim);
+      line-height: 1.6;
+    }
+
+    /* ── HUD preview window ──────────────────────────────────────────────────── */
+    .hud-preview {
+      background: var(--bg);
+      border: 1px solid rgba(255,255,255,0.08);
+      border-radius: 12px;
+      width: 100%;
+      aspect-ratio: 16/9;
+      position: relative;
+      overflow: hidden;
+    }
+    .hud-preview::after {
+      content: '1280 × 720';
+      position: absolute;
+      bottom: 8px;
+      right: 10px;
+      font-size: 9px;
+      color: rgba(255,255,255,0.15);
+      font-family: 'JetBrains Mono', monospace;
+      letter-spacing: 0.04em;
+      pointer-events: none;
+    }
+
+    /* ── HUD panel base (OpenAI glassmorphism) ───────────────────────────────── */
+    .hud-panel {
+      background: var(--surface);
+      backdrop-filter: var(--glass-blur);
+      -webkit-backdrop-filter: var(--glass-blur);
+      border: 1px solid var(--border);
+      border-radius: 10px;
+      padding: 10px 14px;
+      color: var(--text);
+      font-size: 12px;
+      line-height: 1.75;
+      letter-spacing: 0.02em;
+    }
+    .panel-header {
+      display: flex;
+      align-items: center;
+      gap: 6px;
+      font-size: 9px;
+      font-weight: 500;
+      color: var(--dim);
+      letter-spacing: 0.1em;
+      text-transform: uppercase;
+      padding-bottom: 8px;
+      margin-bottom: 8px;
+      border-bottom: 1px solid rgba(255,255,255,0.06);
+    }
+    .panel-header::before {
+      content: '';
+      display: inline-block;
+      width: 4px; height: 4px;
+      border-radius: 50%;
+      background: var(--green);
+      flex-shrink: 0;
+    }
+
+    /* ── Emotion panel (emotion widget) ─────────────────────────────────────── */
+    .emotion-panel {
+      position: absolute;
+      bottom: 18%;
+      left: 3%;
+      width: 25%;
+      transform: translateX(calc(-100% - 20px));
+      opacity: 0;
+      transition: transform 0.65s cubic-bezier(0.22,1,0.36,1), opacity 0.45s ease;
+    }
+    .emotion-panel.visible {
+      transform: translateX(0);
+      opacity: 1;
+    }
+
+    /* ── Drift panel (redesigned, bottom-left) ───────────────────────────────── */
+    .drift-panel {
+      position: absolute;
+      bottom: 3.5%;
+      left: 3%;
+      width: 25%;
+    }
+
+    /* ── Progress bars (drift redesign) ──────────────────────────────────────── */
+    .bar-row {
+      display: flex;
+      align-items: center;
+      gap: 8px;
+      margin-bottom: 5px;
+    }
+    .bar-label {
+      font-size: 9px;
+      font-weight: 500;
+      letter-spacing: 0.08em;
+      text-transform: uppercase;
+      color: var(--dim);
+      min-width: 42px;
+      flex-shrink: 0;
+    }
+    .bar-track {
+      flex: 1;
+      height: 3px;
+      background: rgba(255,255,255,0.08);
+      border-radius: 2px;
+      overflow: hidden;
+      position: relative;
+    }
+    .bar-fill {
+      height: 100%;
+      border-radius: 2px;
+      transition: width 0.4s ease;
+      position: relative;
+    }
+    .bar-fill::after {
+      content: '';
+      position: absolute;
+      right: 0; top: 0; bottom: 0;
+      width: 6px;
+      background: inherit;
+      filter: brightness(1.8) blur(2px);
+      border-radius: 2px;
+    }
+    .bar-val {
+      font-family: 'JetBrains Mono', monospace;
+      font-size: 9px;
+      color: var(--muted);
+      min-width: 28px;
+      text-align: right;
+      flex-shrink: 0;
+    }
+
+    /* ── SVG charts ──────────────────────────────────────────────────────────── */
+    .chart-svg { display: block; width: 100%; height: auto; overflow: visible; }
+
+    /* ── Status panel (top-left of preview) ──────────────────────────────────── */
+    .status-panel-mini {
+      position: absolute;
+      top: 5%;
+      left: 3%;
+      width: 22%;
+    }
+    .mode-dot {
+      width: 5px; height: 5px;
+      border-radius: 50%;
+      background: var(--green);
+      display: inline-block;
+      margin-right: 6px;
+      vertical-align: middle;
+      position: relative;
+      top: -1px;
+    }
+    .on-air-badge {
+      position: absolute;
+      top: 0; left: 0;
+      background: rgba(24,4,4,0.68);
+      border-right: 1px solid rgba(255,34,34,0.18);
+      border-bottom: 1px solid rgba(255,34,34,0.18);
+      border-radius: 0 0 8px 0;
+      padding: 4px 10px 4px 8px;
+      display: flex;
+      align-items: center;
+      gap: 6px;
+      font-size: 9px;
+      font-weight: 500;
+      letter-spacing: 0.1em;
+      text-transform: uppercase;
+    }
+    .on-air-dot {
+      width: 5px; height: 5px;
+      background: #ff2222;
+      border-radius: 50%;
+      box-shadow: 0 0 5px #ff222299;
+      animation: on-air-pulse 2s ease-in-out infinite;
+    }
+    @keyframes on-air-pulse {
+      0%,100%{opacity:1} 50%{opacity:0.25}
+    }
+
+    /* ── Progress bars section (drift redesign comparison) ─────────────────── */
+    .redesign-grid {
+      display: grid;
+      grid-template-columns: 1fr 1fr;
+      gap: 24px;
+    }
+    .redesign-card {
+      background: #161616;
+      border: 1px solid rgba(255,255,255,0.06);
+      border-radius: 12px;
+      padding: 20px;
+    }
+    .redesign-card h3 {
+      font-size: 10px;
+      font-weight: 600;
+      letter-spacing: 0.1em;
+      text-transform: uppercase;
+      color: var(--dim);
+      margin-bottom: 16px;
+      display: flex;
+      align-items: center;
+      gap: 8px;
+    }
+    .redesign-card h3::before {
+      content: '';
+      width: 4px; height: 4px;
+      border-radius: 50%;
+      background: var(--dim);
+      flex-shrink: 0;
+    }
+    .redesign-card h3.new::before { background: var(--green); }
+    .redesign-card h3.new { color: var(--text); }
+
+    /* ── "Before" panel — old text layout ──────────────────────────────────── */
+    .before-signal { font-size: 11px; color: var(--muted); line-height: 2; }
+    .before-signal .val { font-family: 'JetBrains Mono', monospace; font-size: 11px; }
+
+    /* ── Animations ─────────────────────────────────────────────────────────── */
+    @keyframes blink { 50% { opacity: 0; } }
+  </style>
+</head>
+<body>
+
+<!-- ── Sidebar controls ──────────────────────────────────────────────────────── -->
+<div class="sidebar">
+  <h1>HUD Mockups</h1>
+
+  <div class="sidebar-section">
+    <h2>Emotions</h2>
+    <div class="slider-row">
+      <label>excitement <span id="lbl-excitement">0.00</span></label>
+      <input type="range" id="s-excitement" min="0" max="100" value="0" data-key="excitement">
+    </div>
+    <div class="slider-row">
+      <label>curiosity <span id="lbl-curiosity">0.00</span></label>
+      <input type="range" id="s-curiosity" min="0" max="100" value="0" data-key="curiosity">
+    </div>
+    <div class="slider-row">
+      <label>anxiety <span id="lbl-anxiety">0.00</span></label>
+      <input type="range" id="s-anxiety" min="0" max="100" value="0" data-key="anxiety">
+    </div>
+    <div class="slider-row">
+      <label>frustration <span id="lbl-frustration">0.00</span></label>
+      <input type="range" id="s-frustration" min="0" max="100" value="0" data-key="frustration">
+    </div>
+    <div class="slider-row">
+      <label>tension <span id="lbl-musical_tension">0.00</span></label>
+      <input type="range" id="s-musical_tension" min="0" max="100" value="0" data-key="musical_tension">
+    </div>
+    <div class="slider-row">
+      <label>aud. energy <span id="lbl-audience_energy">0.00</span></label>
+      <input type="range" id="s-audience_energy" min="0" max="100" value="0" data-key="audience_energy">
+    </div>
+  </div>
+
+  <div class="sidebar-section">
+    <h2>Stream signals</h2>
+    <div class="slider-row">
+      <label>world temp <span id="lbl-world_temperature">0.00</span></label>
+      <input type="range" id="s-world_temperature" min="0" max="100" value="0" data-key="world_temperature">
+    </div>
+    <div class="slider-row">
+      <label>crisis <span id="lbl-crisis_level">0.00</span></label>
+      <input type="range" id="s-crisis_level" min="0" max="100" value="0" data-key="crisis_level">
+    </div>
+  </div>
+
+  <div class="sidebar-section">
+    <button class="btn" id="btn-random">⚡ Randomize</button>
+    <button class="btn" id="btn-demo">▶ Demo live data</button>
+    <button class="btn primary" id="btn-dropin">↓ Drop-in / out</button>
+  </div>
+</div>
+
+<!-- ── Main content ───────────────────────────────────────────────────────────── -->
+<div class="main">
+
+  <!-- Section 1 — Emotion panel variants -->
+  <div>
+    <div class="section-title">Emotion Panel — 3 Variants (bottom-left, drop-in 30s / 5min)</div>
+    <div class="variants-grid">
+
+      <!-- Variant A: Radar -->
+      <div class="variant-card">
+        <div>
+          <div class="variant-label"><span>A</span> Radar / Spider</div>
+          <div class="variant-desc" style="margin-top:6px">6 axes, polygon data-driven. Classique, précis. Montre les relations entre émotions.</div>
+        </div>
+        <div class="hud-preview" id="preview-a">
+          <div class="on-air-badge"><div class="on-air-dot"></div>ON AIR</div>
+          <div class="status-panel-mini hud-panel" style="top:8%;font-size:10px;">
+            <div style="font-size:9px;font-weight:500;letter-spacing:0.1em;text-transform:uppercase;color:var(--muted);">
+              <span class="mode-dot"></span>chaos
+            </div>
+            <div style="font-size:9px;color:var(--green);margin-top:4px;">● connected</div>
+          </div>
+          <div class="emotion-panel" id="emo-a">
+            <div class="hud-panel">
+              <div class="panel-header">emotions</div>
+              <svg class="chart-svg" id="radar-svg" viewBox="0 0 200 190"></svg>
+            </div>
+          </div>
+          <div class="drift-panel hud-panel" id="drift-a">
+            <div class="panel-header">signals</div>
+            <div style="font-size:10px;color:var(--muted);margin-bottom:6px">
+              ♪ <span style="font-family:'JetBrains Mono',monospace">128</span> BPM · A minor · dark
+            </div>
+            <div class="bar-row">
+              <div class="bar-label">crisis</div>
+              <div class="bar-track"><div class="bar-fill crisis-fill" style="width:0%"></div></div>
+              <div class="bar-val crisis-val">0%</div>
+            </div>
+            <div class="bar-row">
+              <div class="bar-label">temp</div>
+              <div class="bar-track"><div class="bar-fill temp-fill" style="width:0%"></div></div>
+              <div class="bar-val temp-val">0%</div>
+            </div>
+          </div>
+        </div>
+      </div>
+
+      <!-- Variant B: Concentric Arcs -->
+      <div class="variant-card">
+        <div>
+          <div class="variant-label"><span>B</span> Arcs concentriques</div>
+          <div class="variant-desc" style="margin-top:6px">6 anneaux colorés, chaque émotion = un arc. Lecture indépendante par émotion.</div>
+        </div>
+        <div class="hud-preview" id="preview-b">
+          <div class="on-air-badge"><div class="on-air-dot"></div>ON AIR</div>
+          <div class="status-panel-mini hud-panel" style="top:8%;font-size:10px;">
+            <div style="font-size:9px;font-weight:500;letter-spacing:0.1em;text-transform:uppercase;color:var(--muted);">
+              <span class="mode-dot"></span>chaos
+            </div>
+            <div style="font-size:9px;color:var(--green);margin-top:4px;">● connected</div>
+          </div>
+          <div class="emotion-panel" id="emo-b">
+            <div class="hud-panel">
+              <div class="panel-header">emotions</div>
+              <svg class="chart-svg" id="arcs-svg" viewBox="0 0 200 190"></svg>
+            </div>
+          </div>
+          <div class="drift-panel hud-panel" id="drift-b">
+            <div class="panel-header">signals</div>
+            <div style="font-size:10px;color:var(--muted);margin-bottom:6px">
+              ♪ <span style="font-family:'JetBrains Mono',monospace">128</span> BPM · A minor · dark
+            </div>
+            <div class="bar-row">
+              <div class="bar-label">crisis</div>
+              <div class="bar-track"><div class="bar-fill crisis-fill" style="width:0%"></div></div>
+              <div class="bar-val crisis-val">0%</div>
+            </div>
+            <div class="bar-row">
+              <div class="bar-label">temp</div>
+              <div class="bar-track"><div class="bar-fill temp-fill" style="width:0%"></div></div>
+              <div class="bar-val temp-val">0%</div>
+            </div>
+          </div>
+        </div>
+      </div>
+
+      <!-- Variant C: Petal / Nightingale -->
+      <div class="variant-card">
+        <div>
+          <div class="variant-label"><span>C</span> Pétales polaires</div>
+          <div class="variant-desc" style="margin-top:6px">Rose de Nightingale — chaque pétale = émotion. Impact visuel fort, plus artistique.</div>
+        </div>
+        <div class="hud-preview" id="preview-c">
+          <div class="on-air-badge"><div class="on-air-dot"></div>ON AIR</div>
+          <div class="status-panel-mini hud-panel" style="top:8%;font-size:10px;">
+            <div style="font-size:9px;font-weight:500;letter-spacing:0.1em;text-transform:uppercase;color:var(--muted);">
+              <span class="mode-dot"></span>chaos
+            </div>
+            <div style="font-size:9px;color:var(--green);margin-top:4px;">● connected</div>
+          </div>
+          <div class="emotion-panel" id="emo-c">
+            <div class="hud-panel">
+              <div class="panel-header">emotions</div>
+              <svg class="chart-svg" id="petals-svg" viewBox="0 0 200 190"></svg>
+            </div>
+          </div>
+          <div class="drift-panel hud-panel" id="drift-c">
+            <div class="panel-header">signals</div>
+            <div style="font-size:10px;color:var(--muted);margin-bottom:6px">
+              ♪ <span style="font-family:'JetBrains Mono',monospace">128</span> BPM · A minor · dark
+            </div>
+            <div class="bar-row">
+              <div class="bar-label">crisis</div>
+              <div class="bar-track"><div class="bar-fill crisis-fill" style="width:0%"></div></div>
+              <div class="bar-val crisis-val">0%</div>
+            </div>
+            <div class="bar-row">
+              <div class="bar-label">temp</div>
+              <div class="bar-track"><div class="bar-fill temp-fill" style="width:0%"></div></div>
+              <div class="bar-val temp-val">0%</div>
+            </div>
+          </div>
+        </div>
+      </div>
+
+    </div><!-- /variants-grid -->
+  </div>
+
+  <!-- Section 2 — Progress bars drift redesign -->
+  <div>
+    <div class="section-title">Drift Panel — Redesign Progress Bars (CRISIS_LEVEL + TEMP)</div>
+    <div class="redesign-grid">
+
+      <!-- Before -->
+      <div class="redesign-card">
+        <h3>Avant (texte brut)</h3>
+        <div class="hud-panel" style="display:inline-block; min-width:200px">
+          <div class="panel-header">signals</div>
+          <div class="before-signal">
+            ♪ <span class="val">128</span> BPM · A minor · dark
+          </div>
+          <div class="before-signal" id="before-crisis" style="color:#558866">
+            ◈ CRISIS_LEVEL <span class="val" id="before-crisis-val">0%</span>
+          </div>
+          <div class="before-signal" id="before-temp" style="color:hsl(180,70%,55%)">
+            ⬤ TEMP <span class="val" id="before-temp-val">0%</span>
+          </div>
+        </div>
+      </div>
+
+      <!-- After -->
+      <div class="redesign-card">
+        <h3 class="new">Après (barres de progression)</h3>
+        <div class="hud-panel" style="display:inline-block; min-width:220px">
+          <div class="panel-header">signals</div>
+          <div style="font-size:10px;color:var(--muted);margin-bottom:8px">
+            ♪ <span style="font-family:'JetBrains Mono',monospace">128</span> BPM · A minor · dark
+          </div>
+          <div class="bar-row">
+            <div class="bar-label">crisis</div>
+            <div class="bar-track"><div class="bar-fill crisis-fill" style="width:0%"></div></div>
+            <div class="bar-val crisis-val">0%</div>
+          </div>
+          <div class="bar-row">
+            <div class="bar-label">temp</div>
+            <div class="bar-track"><div class="bar-fill temp-fill" style="width:0%"></div></div>
+            <div class="bar-val temp-val">0%</div>
+          </div>
+          <!-- bonus: additional signals possible -->
+          <div class="bar-row" style="margin-top:4px">
+            <div class="bar-label" style="color:var(--purple)">excite</div>
+            <div class="bar-track"><div class="bar-fill" id="bonus-excite-fill" style="width:0%;background:var(--amber)"></div></div>
+            <div class="bar-val" id="bonus-excite-val">0%</div>
+          </div>
+          <div class="bar-row">
+            <div class="bar-label" style="color:var(--cyan)">curious</div>
+            <div class="bar-track"><div class="bar-fill" id="bonus-curiosity-fill" style="width:0%;background:var(--cyan)"></div></div>
+            <div class="bar-val" id="bonus-curiosity-val">0%</div>
+          </div>
+        </div>
+        <div style="font-size:10px; color:var(--dim); margin-top:12px; line-height:1.6">
+          + Bonus : 4 barres en 1 panneau compact (remplace le panel émotion séparé)
+        </div>
+      </div>
+    </div>
+  </div>
+
+</div><!-- /main -->
+
+<script>
+// ── Data ──────────────────────────────────────────────────────────────────────
+const EMOTIONS = [
+  { key: 'excitement',      label: 'EXCITE',   color: '#f59e0b', angle: -90  },
+  { key: 'curiosity',       label: 'CURIOUS',  color: '#06b6d4', angle: -30  },
+  { key: 'audience_energy', label: 'AUDIENCE', color: '#10a37f', angle: 30   },
+  { key: 'frustration',     label: 'FRUSTRAT', color: '#8b5cf6', angle: 90   },
+  { key: 'anxiety',         label: 'ANXIETY',  color: '#ef4444', angle: 150  },
+  { key: 'musical_tension', label: 'TENSION',  color: '#6366f1', angle: 210  },
+];
+
+let state = {
+  excitement: 0, anxiety: 0, frustration: 0,
+  curiosity: 0, musical_tension: 0, audience_energy: 0,
+  world_temperature: 0, crisis_level: 0,
+};
+
+// ── Sliders ───────────────────────────────────────────────────────────────────
+document.querySelectorAll('input[type=range]').forEach(input => {
+  const key = input.dataset.key;
+  input.addEventListener('input', () => {
+    state[key] = input.value / 100;
+    document.getElementById('lbl-' + key).textContent = state[key].toFixed(2);
+    render();
+  });
+});
+
+function setSlider(key, val) {
+  const el = document.getElementById('s-' + key);
+  if (el) { el.value = Math.round(val * 100); }
+  document.getElementById('lbl-' + key).textContent = val.toFixed(2);
+  state[key] = val;
+}
+
+// ── Random / Demo ─────────────────────────────────────────────────────────────
+document.getElementById('btn-random').addEventListener('click', () => {
+  Object.keys(state).forEach(k => setSlider(k, Math.random()));
+  render();
+});
+
+let demoTimer = null;
+let demoT = 0;
+document.getElementById('btn-demo').addEventListener('click', function() {
+  if (demoTimer) { clearInterval(demoTimer); demoTimer = null; this.textContent = '▶ Demo live data'; return; }
+  this.textContent = '⏹ Stop demo';
+  demoTimer = setInterval(() => {
+    demoT += 0.05;
+    // Slowly oscillating signals (NO_FAKE-style — all driven by "time" here only for demo)
+    setSlider('excitement',      Math.max(0, Math.sin(demoT * 0.7) * 0.5 + 0.3));
+    setSlider('curiosity',       Math.max(0, Math.cos(demoT * 0.5) * 0.4 + 0.35));
+    setSlider('anxiety',         Math.max(0, Math.sin(demoT * 1.1 + 1) * 0.3 + 0.15));
+    setSlider('frustration',     Math.max(0, Math.cos(demoT * 0.9 + 2) * 0.25 + 0.1));
+    setSlider('musical_tension', Math.max(0, Math.sin(demoT * 0.6 + 3) * 0.35 + 0.2));
+    setSlider('audience_energy', Math.max(0, Math.cos(demoT * 0.4) * 0.45 + 0.4));
+    setSlider('world_temperature', Math.max(0, Math.sin(demoT * 0.3) * 0.4 + 0.4));
+    setSlider('crisis_level',    Math.max(0, Math.sin(demoT * 1.5 + 4) * 0.2));
+    render();
+  }, 80);
+});
+
+// ── Drop-in / out ─────────────────────────────────────────────────────────────
+let dropVisible = false;
+document.getElementById('btn-dropin').addEventListener('click', () => {
+  dropVisible = !dropVisible;
+  ['a','b','c'].forEach(v => {
+    document.getElementById('emo-' + v).classList.toggle('visible', dropVisible);
+  });
+  document.getElementById('btn-dropin').textContent = dropVisible ? '↑ Drop-out' : '↓ Drop-in';
+});
+
+// ── SVG helpers ───────────────────────────────────────────────────────────────
+const NS = 'http://www.w3.org/2000/svg';
+function el(tag, attrs) {
+  const e = document.createElementNS(NS, tag);
+  for (const [k, v] of Object.entries(attrs)) e.setAttribute(k, v);
+  return e;
+}
+
+// ── Radar chart ───────────────────────────────────────────────────────────────
+function drawRadar() {
+  const svg = document.getElementById('radar-svg');
+  svg.innerHTML = '';
+  const CX = 100, CY = 98, R = 72;
+
+  // Grid rings
+  [0.25, 0.5, 0.75, 1.0].forEach(r => {
+    svg.appendChild(el('circle', { cx:CX, cy:CY, r:R*r, fill:'none', stroke:'rgba(255,255,255,0.07)', 'stroke-width':'1' }));
+  });
+
+  // Axes + labels
+  EMOTIONS.forEach(em => {
+    const rad = em.angle * Math.PI / 180;
+    const x2 = CX + R * Math.cos(rad), y2 = CY + R * Math.sin(rad);
+    svg.appendChild(el('line', { x1:CX, y1:CY, x2, y2, stroke:em.color, 'stroke-width':'1', opacity:'0.35' }));
+    const lx = CX + (R + 16) * Math.cos(rad), ly = CY + (R + 16) * Math.sin(rad);
+    const txt = el('text', {
+      x:lx, y:ly, fill:em.color, 'font-size':'7', 'font-family':'Inter,sans-serif',
+      'font-weight':'600', 'text-anchor':'middle', 'dominant-baseline':'middle',
+      'letter-spacing':'0.07em', opacity: (state[em.key] || 0) > 0.05 ? '1' : '0.35'
+    });
+    txt.textContent = em.label;
+    svg.appendChild(txt);
+  });
+
+  // Data polygon
+  const pts = EMOTIONS.map(em => {
+    const rad = em.angle * Math.PI / 180;
+    const r = (state[em.key] || 0) * R;
+    return [CX + r * Math.cos(rad), CY + r * Math.sin(rad)];
+  });
+  const pStr = pts.map(p => p.join(',')).join(' ');
+
+  // Gradient fill
+  const defs = el('defs', {});
+  const grad = el('radialGradient', { id:'rgrad', cx:'50%', cy:'50%', r:'50%' });
+  const s1 = el('stop', { offset:'0%', 'stop-color':'#10a37f', 'stop-opacity':'0.35' });
+  const s2 = el('stop', { offset:'100%', 'stop-color':'#10a37f', 'stop-opacity':'0.08' });
+  grad.appendChild(s1); grad.appendChild(s2); defs.appendChild(grad); svg.appendChild(defs);
+
+  svg.appendChild(el('polygon', { points:pStr, fill:'url(#rgrad)', stroke:'#10a37f', 'stroke-width':'1.5', 'stroke-linejoin':'round' }));
+
+  // Vertex dots
+  pts.forEach((p, i) => {
+    if ((state[EMOTIONS[i].key] || 0) < 0.02) return;
+    svg.appendChild(el('circle', { cx:p[0], cy:p[1], r:'3', fill:EMOTIONS[i].color,
+      filter:`drop-shadow(0 0 3px ${EMOTIONS[i].color})` }));
+  });
+}
+
+// ── Concentric arcs ───────────────────────────────────────────────────────────
+function drawArcs() {
+  const svg = document.getElementById('arcs-svg');
+  svg.innerHTML = '';
+  const CX = 100, CY = 95;
+  const RADII   = [74, 62, 50, 38, 26, 14];
+  const STROKE  = 7;
+  const GAP_DEG = 8; // gap at bottom
+  const fullCirc = (r) => 2 * Math.PI * r;
+
+  EMOTIONS.forEach((em, i) => {
+    const r = RADII[i];
+    const circ = fullCirc(r);
+    const gapFrac = GAP_DEG / 360;
+    const available = circ * (1 - gapFrac);
+    const val = state[em.key] || 0;
+    const filled = available * val;
+    const startAngle = (90 + GAP_DEG / 2) * Math.PI / 180; // start at bottom-right of gap
+
+    // Track (background arc)
+    svg.appendChild(el('circle', {
+      cx:CX, cy:CY, r, fill:'none',
+      stroke:'rgba(255,255,255,0.06)', 'stroke-width':STROKE,
+      'stroke-dasharray':`${available} ${circ - available}`,
+      'stroke-dashoffset': -(startAngle * r) + '',
+      'stroke-linecap':'round',
+      transform:`rotate(${-(90 + GAP_DEG/2)},${CX},${CY})`
+    }));
+
+    // Filled arc
+    if (val > 0.01) {
+      const fillEl = el('circle', {
+        cx:CX, cy:CY, r, fill:'none',
+        stroke:em.color, 'stroke-width':STROKE,
+        'stroke-dasharray':`${filled} ${circ - filled}`,
+        'stroke-linecap':'round',
+        opacity:'0.9',
+        transform:`rotate(${-(90 + GAP_DEG/2)},${CX},${CY})`
+      });
+      svg.appendChild(fillEl);
+    }
+
+    // Label on the right side
+    const lx = CX + r + STROKE/2 + 5;
+    const lbl = el('text', {
+      x:lx + 4, y:CY - r + 3, fill:em.color,
+      'font-size':'6.5', 'font-family':'Inter,sans-serif',
+      'font-weight':'600', 'dominant-baseline':'middle',
+      'letter-spacing':'0.06em', opacity: val > 0.05 ? '1' : '0.3'
+    });
+    lbl.textContent = em.label;
+    svg.appendChild(lbl);
+  });
+
+  // Center value — dominant emotion
+  const dominant = EMOTIONS.reduce((best, em) => (state[em.key]||0) > (state[best.key]||0) ? em : best, EMOTIONS[0]);
+  const domVal = state[dominant.key] || 0;
+  if (domVal > 0.05) {
+    const t1 = el('text', { x:CX, y:CY-5, 'text-anchor':'middle', 'dominant-baseline':'middle',
+      fill:dominant.color, 'font-size':'10', 'font-family':'Inter,sans-serif', 'font-weight':'600' });
+    t1.textContent = dominant.label;
+    svg.appendChild(t1);
+    const t2 = el('text', { x:CX, y:CY+8, 'text-anchor':'middle', 'dominant-baseline':'middle',
+      fill:dominant.color, 'font-size':'8', 'font-family':'JetBrains Mono,monospace', opacity:'0.7' });
+    t2.textContent = Math.round(domVal * 100) + '%';
+    svg.appendChild(t2);
+  }
+}
+
+// ── Petal chart (Nightingale polar area) ──────────────────────────────────────
+function drawPetals() {
+  const svg = document.getElementById('petals-svg');
+  svg.innerHTML = '';
+  const CX = 100, CY = 100, R_MAX = 75;
+  const N = EMOTIONS.length;
+  const SECTOR = 360 / N;
+  const GAP = 4; // degrees gap between petals
+
+  // Baseline grid ring (very faint — min floor)
+  svg.appendChild(el('circle', { cx:CX, cy:CY, r:8, fill:'none', stroke:'rgba(255,255,255,0.08)', 'stroke-width':'1' }));
+  svg.appendChild(el('circle', { cx:CX, cy:CY, r:R_MAX*0.5, fill:'none', stroke:'rgba(255,255,255,0.05)', 'stroke-width':'1', 'stroke-dasharray':'3 4' }));
+  svg.appendChild(el('circle', { cx:CX, cy:CY, r:R_MAX, fill:'none', stroke:'rgba(255,255,255,0.05)', 'stroke-width':'1' }));
+
+  EMOTIONS.forEach((em, i) => {
+    const val = state[em.key] || 0;
+    const minR = 5; // base floor — just enough not to be invisible (≤5% range)
+    const r = minR + val * (R_MAX - minR);
+    const startDeg = i * SECTOR - 90 + GAP/2;
+    const endDeg   = startDeg + SECTOR - GAP;
+    const startRad = startDeg * Math.PI / 180;
+    const endRad   = endDeg   * Math.PI / 180;
+
+    const x1 = CX + r * Math.cos(startRad), y1 = CY + r * Math.sin(startRad);
+    const x2 = CX + r * Math.cos(endRad),   y2 = CY + r * Math.sin(endRad);
+    const midRad = (startRad + endRad) / 2;
+
+    // Wedge path
+    const d = `M ${CX} ${CY} L ${x1} ${y1} A ${r} ${r} 0 0 1 ${x2} ${y2} Z`;
+    const alpha = 0.15 + val * 0.55;
+    svg.appendChild(el('path', {
+      d, fill:em.color, opacity: alpha.toFixed(2),
+      stroke:em.color, 'stroke-width':'1.2', 'stroke-linejoin':'round'
+    }));
+
+    // Label at petal tip
+    const labelR = r + 10;
+    const lx = CX + labelR * Math.cos(midRad), ly = CY + labelR * Math.sin(midRad);
+    const txt = el('text', {
+      x:lx, y:ly, fill:em.color,
+      'font-size':'7', 'font-family':'Inter,sans-serif',
+      'font-weight':'600', 'text-anchor':'middle', 'dominant-baseline':'middle',
+      'letter-spacing':'0.06em', opacity: val > 0.05 ? '1' : '0.35'
+    });
+    txt.textContent = em.label;
+    svg.appendChild(txt);
+  });
+}
+
+// ── Progress bars ─────────────────────────────────────────────────────────────
+function updateBars() {
+  const crisis = state.crisis_level;
+  const temp   = state.world_temperature;
+  const crisisPct = Math.round(crisis * 100);
+  const tempPct   = Math.round(temp * 100);
+
+  // Crisis color: green→amber→red
+  const crisisColor = crisis > 0.5 ? '#ef4444' : crisis > 0.2 ? '#f59e0b' : '#10a37f';
+  // Temp color: cold cyan → green → warm amber
+  const tempHue = Math.round(180 - temp * 180);
+  const tempColor = `hsl(${tempHue},70%,55%)`;
+
+  document.querySelectorAll('.crisis-fill').forEach(el => {
+    el.style.width = crisisPct + '%';
+    el.style.background = crisisColor;
+  });
+  document.querySelectorAll('.crisis-val').forEach(el => {
+    el.textContent = crisisPct + '%';
+    el.style.color = crisisColor;
+  });
+  document.querySelectorAll('.temp-fill').forEach(el => {
+    el.style.width = tempPct + '%';
+    el.style.background = tempColor;
+  });
+  document.querySelectorAll('.temp-val').forEach(el => {
+    el.textContent = tempPct + '%';
+    el.style.color = tempColor;
+  });
+
+  // Before panel
+  const beforeCrisisColor = crisis > 0.5 ? '#FF4444' : crisis > 0.2 ? '#FF8844' : '#558866';
+  document.getElementById('before-crisis').style.color = beforeCrisisColor;
+  document.getElementById('before-crisis-val').textContent = crisisPct + '%';
+  document.getElementById('before-temp').style.color = `hsl(${tempHue},70%,55%)`;
+  document.getElementById('before-temp-val').textContent = tempPct + '%';
+
+  // Bonus bars in "after" card
+  const exPct = Math.round((state.excitement||0) * 100);
+  const cuPct = Math.round((state.curiosity||0)  * 100);
+  document.getElementById('bonus-excite-fill').style.width   = exPct + '%';
+  document.getElementById('bonus-excite-val').textContent    = exPct + '%';
+  document.getElementById('bonus-curiosity-fill').style.width = cuPct + '%';
+  document.getElementById('bonus-curiosity-val').textContent  = cuPct + '%';
+}
+
+// ── Master render ─────────────────────────────────────────────────────────────
+function render() {
+  drawRadar();
+  drawArcs();
+  drawPetals();
+  updateBars();
+}
+
+// Init
+render();
+</script>
+</body>
+</html>

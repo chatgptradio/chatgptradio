@@ -1,0 +1,489 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<title>LogoMode Mockup v4 — 3D</title>
+<style>
+  * { margin:0; padding:0; box-sizing:border-box; }
+  body { background:#000; overflow:hidden; font-family:'SF Mono',Menlo,monospace; }
+  canvas { display:block; }
+  #ui {
+    position:fixed; top:16px; left:16px; z-index:10; width:214px;
+    background:rgba(0,0,0,.75); border:1px solid rgba(255,255,255,.07);
+    border-radius:6px; padding:10px 12px;
+    display:flex; flex-direction:column; gap:5px;
+    max-height:calc(100vh - 32px); overflow-y:auto;
+  }
+  .sec { color:rgba(255,255,255,.28); font-size:8px; letter-spacing:.12em; margin-top:4px; }
+  .row { display:flex; align-items:center; gap:5px; }
+  .row label { color:rgba(255,255,255,.42); font-size:8px; width:88px; flex-shrink:0; white-space:nowrap; overflow:hidden; text-overflow:ellipsis; }
+  .row input[type=range] { flex:1; height:2px; accent-color:#10a37f; cursor:pointer; }
+  .row .v { color:#10a37f; font-size:8px; width:26px; text-align:right; flex-shrink:0; }
+  .pal-row { display:flex; gap:5px; }
+  .pal-btn { flex:1; padding:4px 0; border:1px solid rgba(255,255,255,.1); border-radius:3px; background:rgba(255,255,255,.02); color:rgba(255,255,255,.42); font-size:8px; cursor:pointer; text-align:center; }
+  .pal-btn.on { border-color:#10a37f; color:#10a37f; }
+  .burst-btn { padding:5px; border:1px solid rgba(255,190,30,.22); border-radius:3px; background:rgba(255,190,30,.04); color:rgba(255,190,30,.6); font-size:8px; cursor:pointer; text-align:center; margin-top:3px; }
+  #logo-svg { position:absolute; opacity:0; pointer-events:none; width:0; height:0; }
+</style>
+</head>
+<body>
+
+<svg id="logo-svg" viewBox="0 0 24 24" xmlns="http://www.w3.org/2000/svg">
+  <path id="logo-path" d="M22.2819 9.8211a5.9847 5.9847 0 0 0-.5157-4.9108 6.0462 6.0462 0 0 0-6.5098-2.9A6.0651 6.0651 0 0 0 4.9807 4.1818a5.9847 5.9847 0 0 0-3.9977 2.9 6.0462 6.0462 0 0 0 .7427 7.0966 5.98 5.98 0 0 0 .511 4.9107 6.051 6.051 0 0 0 6.5146 2.9001A5.9847 5.9847 0 0 0 13.2599 24a6.0557 6.0557 0 0 0 5.7718-4.2058 5.9894 5.9894 0 0 0 3.9977-2.9001 6.0557 6.0557 0 0 0-.7475-7.0729zm-9.022 12.6081a4.4755 4.4755 0 0 1-2.8764-1.0408l.1419-.0804 4.7783-2.7582a.7948.7948 0 0 0 .3927-.6813v-6.7369l2.02 1.1686a.071.071 0 0 1 .038.052v5.5826a4.504 4.504 0 0 1-4.4945 4.4944zm-9.6607-4.1254a4.4708 4.4708 0 0 1-.5346-3.0137l.142.0852 4.783 2.7582a.7712.7712 0 0 0 .7806 0l5.8428-3.3685v2.3324a.0804.0804 0 0 1-.0332.0615L9.74 19.9502a4.4992 4.4992 0 0 1-6.1408-1.6464zM2.3408 7.8956a4.485 4.485 0 0 1 2.3655-1.9728V11.6a.7664.7664 0 0 0 .3879.6765l5.8144 3.3543-2.0201 1.1685a.0757.0757 0 0 1-.071 0l-4.8303-2.7865A4.504 4.504 0 0 1 2.3408 7.872zm16.5963 3.8558L13.1038 8.364 15.1192 7.2a.0757.0757 0 0 1 .071 0l4.8303 2.7913a4.4944 4.4944 0 0 1-.6765 8.1042v-5.6772a.79.79 0 0 0-.407-.667zm2.0107-3.0231l-.142-.0852-4.7735-2.7818a.7759.7759 0 0 0-.7854 0L9.409 9.2297V6.8974a.0662.0662 0 0 1 .0284-.0615l4.8303-2.7866a4.4992 4.4992 0 0 1 6.6802 4.66zM8.3065 12.863l-2.02-1.1638a.0804.0804 0 0 1-.038-.0567V6.0742a4.4992 4.4992 0 0 1 7.3757-3.4537l-.142.0805L8.704 5.459a.7948.7948 0 0 0-.3927.6813zm1.0976-2.3654l2.602-1.4998 2.6069 1.4998v2.9994l-2.5974 1.4997-2.6067-1.4997Z"/>
+</svg>
+
+<div id="ui">
+  <div class="sec">PALETTE</div>
+  <div class="pal-row">
+    <button class="pal-btn on" data-pal="teal">Teal</button>
+    <button class="pal-btn" data-pal="neon">Néon</button>
+    <button class="pal-btn" data-pal="ice">Ice</button>
+  </div>
+  <div class="sec">ÉMOTIONS PRIMAIRES</div>
+  <div id="prim"></div>
+  <div class="sec">SIGNAUX DÉRIVÉS</div>
+  <div id="deriv"></div>
+  <button class="burst-btn" id="burst-btn">⚡ anomaly burst</button>
+</div>
+
+<script type="importmap">
+{ "imports": { "three": "https://cdn.jsdelivr.net/npm/three@0.165.0/build/three.module.js" } }
+</script>
+
+<script type="module">
+import * as THREE from 'three';
+
+// ── Signal state ──────────────────────────────────────────────────────────────
+const S = {
+  excitement:0, anxiety:0, frustration:0, curiosity:0,
+  creativity:0, wonder:0, melancholy:0, urgency:0,
+  crisis_level:0, anomaly_score:0, audience_energy:0,
+  world_temperature:0, fear_greed_index:0.5,
+  hedonometer_happiness:0.5, chat_sentiment:0,
+  source_divergence:0, prediction_errors:0,
+};
+const SM = Object.assign({}, S); // EMA-smoothed values
+
+// ── UI ────────────────────────────────────────────────────────────────────────
+const PRIM = [
+  ['excitement','Excitement'], ['anxiety','Anxiety'],
+  ['frustration','Frustration'], ['curiosity','Curiosity'],
+  ['creativity','Creativity'], ['wonder','Wonder'],
+  ['melancholy','Melancholy'], ['urgency','Urgency'],
+];
+const DERIV = [
+  ['crisis_level','Crisis'], ['anomaly_score','Anomaly'],
+  ['audience_energy','Audience'], ['world_temperature','World Temp'],
+  ['fear_greed_index','Fear/Greed'], ['hedonometer_happiness','Happiness'],
+  ['chat_sentiment','Chat Sent.'], ['source_divergence','Divergence'],
+  ['prediction_errors','Pred. Error'],
+];
+
+function mkSliders(defs, pid) {
+  const wrap = document.getElementById(pid);
+  defs.forEach(([key, lbl]) => {
+    const row = document.createElement('div');
+    row.className = 'row';
+    const initV = Math.round(S[key] * 100);
+    row.innerHTML = `<label title="${key}">${lbl}</label>
+      <input type="range" min="0" max="100" value="${initV}">
+      <span class="v">${S[key].toFixed(2)}</span>`;
+    const inp = row.querySelector('input');
+    const val = row.querySelector('.v');
+    inp.addEventListener('input', () => {
+      S[key] = inp.value / 100;
+      val.textContent = S[key].toFixed(2);
+    });
+    wrap.appendChild(row);
+  });
+}
+mkSliders(PRIM,  'prim');
+mkSliders(DERIV, 'deriv');
+
+// ── Renderer ──────────────────────────────────────────────────────────────────
+const renderer = new THREE.WebGLRenderer({ antialias: true });
+renderer.setSize(innerWidth, innerHeight);
+renderer.setPixelRatio(Math.min(devicePixelRatio, 2));
+document.body.appendChild(renderer.domElement);
+const scene = new THREE.Scene();
+scene.background = new THREE.Color(0x000000);
+
+const camera = new THREE.PerspectiveCamera(50, innerWidth / innerHeight, 0.1, 1000);
+let camRadius = 4.5;
+let camAngle  = 0;
+const CAM_ELEV  = 0;              // eye-level orbit — logo centered
+const ROT_SPEED = 0.08;          // rad/s — constant orbit, explicit user requirement
+
+// ── Palettes ──────────────────────────────────────────────────────────────────
+const PALS = {
+  teal: [0x10a37f, 0x0dd3a3, 0x06b6d4, 0x22d3ee, 0x4ade80],
+  neon: [0xff3c78, 0xff8c00, 0xfff200, 0x00cfff, 0xb400ff],
+  ice:  [0xffffff, 0xe0f2fe, 0xbae6fd, 0x93c5fd, 0xddd6fe],
+};
+let currentPal = 'teal';
+
+// ── Logo sampling (browser SVG API — exact path, zero approximation) ──────────
+const SCALE = 1.6;   // viewBox 0–24, center (12,12) → Three.js units
+const DEPTH = 0.35;  // extrusion depth
+
+function sampleOutline(n) {
+  const el = document.getElementById('logo-path');
+  const L  = el.getTotalLength();
+  const pts = [];
+  for (let i = 0; i < n; i++) {
+    const p = el.getPointAtLength((i / n) * L);
+    pts.push([(p.x - 12) / 12 * SCALE, -(p.y - 12) / 12 * SCALE]);
+  }
+  return pts;
+}
+
+function sampleFill(n) {
+  const pathEl = document.getElementById('logo-path');
+  const svgEl  = document.getElementById('logo-svg');
+  const pts = [];
+  let tries = 0;
+  const MAX = n * 80;
+  while (pts.length < n && tries++ < MAX) {
+    const u = Math.random() * 24, v = Math.random() * 24;
+    const sp = svgEl.createSVGPoint(); sp.x = u; sp.y = v;
+    if (pathEl.isPointInFill(sp))
+      pts.push([(u - 12) / 12 * SCALE, -(v - 12) / 12 * SCALE]);
+  }
+  return pts;
+}
+
+// ── Particle system ───────────────────────────────────────────────────────────
+// 3 populations — outline-only (no fill): reveals internal edges + natural center void
+//   Front 45%: outline at z = +DEPTH/2
+//   Edge  35%: outline at z distributed in [-DEPTH/2, +DEPTH/2]
+//   Back  20%: outline at z = -DEPTH/2
+const COUNT = 3200;
+let particles = null;
+
+function buildParticles(palName) {
+  if (particles) {
+    scene.remove(particles);
+    particles.geometry.dispose();
+    particles.material.dispose();
+    particles = null;
+  }
+
+  const pal = PALS[palName].map(c => new THREE.Color(c));
+
+  const nFront = Math.round(COUNT * 0.45);
+  const nEdge  = Math.round(COUNT * 0.35);
+  const nBack  = COUNT - nFront - nEdge;
+
+  const frontOut = sampleOutline(nFront);
+  const edgePts  = sampleOutline(nEdge);
+  const backOut  = sampleOutline(nBack);
+
+  const pos = new Float32Array(COUNT * 3);
+  const col = new Float32Array(COUNT * 3);
+  const sz  = new Float32Array(COUNT);
+  const rnd = new Float32Array(COUNT * 3);
+  const lyr = new Float32Array(COUNT);   // +1=front, 0=edge, -1=back
+
+  let i = 0;
+  const hz = DEPTH / 2;
+  const jit = () => (Math.random() - 0.5) * 0.04;
+
+  function add(xy, z, isOutline, layerV) {
+    pos[i*3]   = xy[0]; pos[i*3+1] = xy[1]; pos[i*3+2] = z;
+
+    const base = pal[i % pal.length];
+    const hsl = { h:0, s:0, l:0 };
+    base.getHSL(hsl);
+    hsl.h += (Math.random() - 0.5) * 0.06;
+    hsl.s  = Math.min(1,   Math.max(0.55, hsl.s + (Math.random() - 0.5) * 0.18));
+    hsl.l  = Math.min(0.9, Math.max(0.36, hsl.l + (Math.random() - 0.5) * 0.22));
+    const c = new THREE.Color().setHSL(hsl.h, hsl.s, hsl.l);
+    col[i*3] = c.r; col[i*3+1] = c.g; col[i*3+2] = c.b;
+
+    const dCue = 1.0 + layerV * 0.20;
+    sz[i] = (0.65 + Math.random() * 0.85) * dCue;
+
+    rnd[i*3]   = Math.random() * 10;
+    rnd[i*3+1] = Math.random() * Math.PI * 2;
+    rnd[i*3+2] = 0.35 + 0.65 * Math.random();
+
+    lyr[i] = layerV;
+    i++;
+  }
+
+  frontOut.forEach(xy => add(xy,  hz + jit(), true,  1.0));
+  edgePts .forEach(xy => add(xy,  (Math.random() - 0.5) * DEPTH, true, 0.0));
+  backOut .forEach(xy => add(xy, -hz + jit(), true,  -1.0));
+
+  const geo = new THREE.BufferGeometry();
+  geo.setAttribute('position', new THREE.BufferAttribute(pos, 3));
+  geo.setAttribute('color',    new THREE.BufferAttribute(col, 3));
+  geo.setAttribute('size',     new THREE.BufferAttribute(sz,  1));
+  geo.setAttribute('random',   new THREE.BufferAttribute(rnd, 3));
+  geo.setAttribute('layer',    new THREE.BufferAttribute(lyr, 1));
+
+  const mat = new THREE.ShaderMaterial({
+    uniforms: {
+      uTime:        { value: 0 },
+      uExcitement:  { value: 0 }, uAnxiety:    { value: 0 },
+      uFrustration: { value: 0 }, uCuriosity:  { value: 0 },
+      uCreativity:  { value: 0 }, uWonder:     { value: 0 },
+      uMelancholy:  { value: 0 }, uUrgency:    { value: 0 },
+      uCrisis:      { value: 0 }, uAnomaly:    { value: 0 },
+      uBurstT:      { value: -1 },
+      uAudience:    { value: 0 }, uWorldTemp:  { value: 0 },
+      uFearGreed:   { value: .5 },uHappiness:  { value: .5 },
+      uChatSent:    { value: 0 }, uDivergence: { value: 0 },
+      uPredError:   { value: 0 },
+    },
+    vertexShader: `
+uniform float uTime;
+uniform float uExcitement, uAnxiety, uCuriosity, uMelancholy, uUrgency, uCrisis;
+uniform float uBurstT, uAudience;
+attribute float size;
+attribute float layer;
+attribute vec3  random;
+varying vec3  vCol;
+varying float vR, vLayer;
+
+void main() {
+  vCol   = color;
+  vR     = random.z;
+  vLayer = layer;
+  vec3 p = position;
+
+  // constant center void — artistic resting shape, not signal-driven
+  // pushes particles outward from center, matching the real logo's open center
+  if (length(p.xy) > 0.01) p.xy += normalize(p.xy) * (0.08 + random.z * 0.06);
+
+  // excitement: Z-only deformation (XY silhouette preserved for logo readability)
+  // floor 0.005 prevents dead-screen; clamped to ±0.54 to stay within extrusion
+  float zAmp = (0.005 + uExcitement * 0.115) * random.z;
+  p.z += sin(uTime * 0.08 * random.z + random.y + p.x * 0.9) * zAmp;
+  p.z += cos(uTime * 0.06 * random.z + random.x + p.y * 0.7) * zAmp * 0.4;
+  p.z  = clamp(p.z, -0.54, 0.54);
+
+  // anxiety: micro-jitter XY — high frequency, very small amplitude
+  float jAmp = uAnxiety * 0.015 * random.z;
+  p.x += sin(uTime * 9.1 + random.y * 22.0) * jAmp;
+  p.y += cos(uTime * 8.4 + random.x * 19.0) * jAmp;
+
+  // curiosity: radial edge probe — particles stretch outward then return
+  if (length(p.xy) > 0.01) {
+    float probe = uCuriosity * 0.08 * random.z * sin(uTime * 0.35 + random.y * 3.14);
+    p.xy += normalize(p.xy) * probe;
+  }
+
+  // melancholy: slow gravity drift downward
+  p.y -= uMelancholy * 0.06 * random.z * abs(sin(uTime * 0.05 + random.x * 6.28));
+
+  // urgency + crisis: Z push toward viewer
+  p.z += (uUrgency * 0.07 + uCrisis * 0.05) * random.z;
+  p.z  = clamp(p.z, -0.60, 0.60);
+
+  // anomaly burst: radial explosion → snap back (envelope: sin(progress * PI))
+  if (uBurstT >= 0.0) {
+    float prog = 1.0 - uBurstT;
+    float bAmp = sin(prog * 3.14159) * 0.45;
+    vec2  bDir = length(p.xy) > 0.01
+                  ? normalize(p.xy)
+                  : vec2(cos(random.y), sin(random.y));
+    p.xy += bDir * bAmp;
+  }
+
+  vec4 mv = modelViewMatrix * vec4(p, 1.0);
+
+  // depth cue: front particles larger, audience energy adds size pulse
+  float dMod = 1.0 + layer * 0.18;
+  float aPulse = uAudience * 0.28 * random.z;
+  gl_PointSize = size * dMod * (190.0 / -mv.z) * (1.0 + aPulse);
+  gl_Position  = projectionMatrix * mv;
+}`,
+    fragmentShader: `
+uniform float uTime;
+uniform float uExcitement, uFrustration, uCreativity, uWonder, uMelancholy, uUrgency;
+uniform float uCrisis, uAudience, uWorldTemp, uFearGreed, uHappiness;
+uniform float uChatSent, uDivergence, uPredError;
+varying vec3  vCol;
+varying float vR, vLayer;
+
+vec3 hueShift(vec3 c, float h) {
+  const vec3 k = vec3(0.57735);
+  float ca = cos(h), sa = sin(h);
+  return c * ca + cross(k, c) * sa + k * dot(k, c) * (1.0 - ca);
+}
+
+void main() {
+  vec2  uv   = gl_PointCoord - 0.5;
+  float d    = length(uv);
+  float glow = smoothstep(0.28 - uExcitement * 0.06, 0.06, d);
+  float core = smoothstep(0.055, 0.0, d);
+
+  // frustration: sharp edge ring
+  float ring = smoothstep(0.44, 0.40, d) * (1.0 - smoothstep(0.40, 0.36, d)) * uFrustration;
+
+  // audience: bright sparks on high-random particles
+  float spark = step(0.70, vR) * smoothstep(0.09, 0.0, d) * uAudience * 1.6;
+
+  // prediction error: flash pulse across all particles
+  float peFlash = uPredError * smoothstep(0.42, 0.0, d) * 0.9;
+
+  float alpha = core + glow * (0.28 + uExcitement * 0.22) + ring * 0.7 + spark + peFlash;
+  if (alpha < 0.01) discard;
+
+  vec3 col = vCol;
+
+  // creativity: hue spread — each particle rotates by unique amount proportional to vR
+  col = hueShift(col, uCreativity * (vR - 0.5) * 1.6 + uTime * 0.018 * uCreativity);
+
+  // wonder: cool blue-cyan
+  col = mix(col, vec3(0.04, 0.78, 0.96), uWonder * 0.55);
+
+  // melancholy: purple + dim
+  col = mix(col, vec3(0.38, 0.14, 0.54), uMelancholy * 0.45);
+  col *= 1.0 - uMelancholy * 0.18;
+
+  // urgency: warm orange
+  col = mix(col, vec3(1.0, 0.44, 0.04), uUrgency * 0.42);
+
+  // frustration: harsh yellow-red + oversaturate
+  col = mix(col, vec3(1.0, 0.78, 0.08), uFrustration * 0.28);
+  float lum = dot(col, vec3(0.299, 0.587, 0.114));
+  col = mix(vec3(lum), col, 1.0 + uFrustration * 0.75);
+
+  // crisis: red override — highest priority color
+  col = mix(col, vec3(1.0, 0.06, 0.04), uCrisis * 0.60);
+
+  // fear/greed: 0=grey(fear) 0.5=neutral 1=gold(greed)
+  float fgLum = dot(col, vec3(0.299, 0.587, 0.114));
+  if (uFearGreed < 0.5) col = mix(col, vec3(fgLum), (0.5 - uFearGreed) * 1.4);
+  if (uFearGreed > 0.5) col = mix(col, vec3(1.0, 0.82, 0.18), (uFearGreed - 0.5) * 0.6);
+
+  // world temperature + happiness: global brightness
+  col *= 0.65 + uWorldTemp * 0.55 + uHappiness * 0.30;
+
+  // chat sentiment: tint audience sparks
+  if (spark > 0.01) col = mix(col, vec3(0.04, 0.92, 0.62), uChatSent * 0.65 + 0.15);
+
+  // source divergence: per-particle hue variance (data sources disagree)
+  col = hueShift(col, uDivergence * (vR - 0.5) * 1.4);
+
+  // core brightening
+  col = mix(col, vec3(1.0), core * 0.35);
+
+  // prediction error: white flash
+  if (uPredError > 0.01) col = mix(col, vec3(1.0), uPredError * 0.55);
+
+  // back face: slightly dimmer to enhance 3D depth perception
+  col *= (vLayer < -0.5 ? 0.60 : 1.0);
+
+  gl_FragColor = vec4(col, alpha);
+}`,
+    transparent: true, depthWrite: false, vertexColors: true,
+    blending: THREE.AdditiveBlending,
+  });
+
+  particles = new THREE.Points(geo, mat);
+  scene.add(particles);
+}
+
+
+// ── Stars ─────────────────────────────────────────────────────────────────────
+{
+  const geo = new THREE.BufferGeometry();
+  const pos = new Float32Array(280 * 3);
+  for (let j = 0; j < 280; j++) {
+    const th = Math.random()*2*Math.PI, ph = Math.acos(2*Math.random()-1), r = 70+Math.random()*130;
+    pos[j*3]   = r*Math.sin(ph)*Math.cos(th);
+    pos[j*3+1] = r*Math.sin(ph)*Math.sin(th);
+    pos[j*3+2] = r*Math.cos(ph);
+  }
+  geo.setAttribute('position', new THREE.BufferAttribute(pos, 3));
+  scene.add(new THREE.Points(geo, new THREE.PointsMaterial({
+    color:0xffffff, size:.22, depthWrite:false, transparent:true, opacity:.2
+  })));
+}
+
+buildParticles(currentPal);
+
+// ── Burst ─────────────────────────────────────────────────────────────────────
+const BURST_DUR = 2.0;
+let burstT = -1;
+document.getElementById('burst-btn').addEventListener('click', () => {
+  if (S.anomaly_score < 0.05) S.anomaly_score = 0.8;
+  burstT = BURST_DUR;
+});
+
+// ── Render loop ───────────────────────────────────────────────────────────────
+const clock = new THREE.Clock();
+let lastT = 0;
+
+(function loop() {
+  requestAnimationFrame(loop);
+  const t  = clock.getElapsedTime();
+  const dt = Math.min(t - lastT, 0.05);
+  lastT = t;
+
+  // EMA smooth (τ ≈ 1s)
+  const a = 1 - Math.pow(0.05, dt);
+  for (const k in SM) SM[k] += (S[k] - SM[k]) * a;
+
+  // Constant camera orbit — explicit user requirement, not signal-gated
+  camAngle += ROT_SPEED * dt;
+  camera.position.x = camRadius * Math.cos(camAngle) * Math.cos(CAM_ELEV);
+  camera.position.y = camRadius * Math.sin(CAM_ELEV);
+  camera.position.z = camRadius * Math.sin(camAngle) * Math.cos(CAM_ELEV);
+  camera.lookAt(0, 0, 0);
+
+  if (burstT >= 0) burstT = Math.max(-1, burstT - dt);
+
+  if (particles) {
+    const u = particles.material.uniforms;
+    u.uTime.value        = t;
+    u.uExcitement.value  = SM.excitement;
+    u.uAnxiety.value     = SM.anxiety;
+    u.uFrustration.value = SM.frustration * 0.50;  // capped at 50% max effect
+    u.uCuriosity.value   = SM.curiosity;
+    u.uCreativity.value  = SM.creativity;
+    u.uWonder.value      = SM.wonder;
+    u.uMelancholy.value  = SM.melancholy;
+    u.uUrgency.value     = SM.urgency;
+    u.uCrisis.value      = SM.crisis_level;
+    u.uAnomaly.value     = SM.anomaly_score;
+    u.uBurstT.value      = burstT >= 0 ? burstT / BURST_DUR : -1;
+    u.uAudience.value    = SM.audience_energy;
+    u.uWorldTemp.value   = SM.world_temperature;
+    u.uFearGreed.value   = SM.fear_greed_index;
+    u.uHappiness.value   = SM.hedonometer_happiness;
+    u.uChatSent.value    = SM.chat_sentiment;
+    u.uDivergence.value  = SM.source_divergence;
+    u.uPredError.value   = SM.prediction_errors * 0.10;  // capped at 10% max effect
+  }
+
+  renderer.render(scene, camera);
+})();
+
+// ── Palette ───────────────────────────────────────────────────────────────────
+document.querySelectorAll('.pal-btn').forEach(btn => {
+  btn.addEventListener('click', () => {
+    currentPal = btn.dataset.pal;
+    buildParticles(currentPal);
+    document.querySelectorAll('.pal-btn').forEach(b => b.classList.remove('on'));
+    btn.classList.add('on');
+  });
+});
+
+// ── Scroll zoom ───────────────────────────────────────────────────────────────
+renderer.domElement.addEventListener('wheel', e => {
+  camRadius = Math.max(2.0, Math.min(10, camRadius + e.deltaY * 0.004));
+}, { passive: true });
+
+// ── Resize ────────────────────────────────────────────────────────────────────
+window.addEventListener('resize', () => {
+  camera.aspect = innerWidth / innerHeight;
+  camera.updateProjectionMatrix();
+  renderer.setSize(innerWidth, innerHeight);
+});
+</script>
+</body>
+</html>
